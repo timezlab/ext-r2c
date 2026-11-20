@@ -42,7 +42,9 @@ def a2a_app(executor: AgentExecutor, card: AgentCard, *, task_store: TaskStore |
             owner_resolver: OwnerResolver = resolve_user_scope, rpc_url: str = "/",
             middleware: Sequence[Middleware] = ()) -> Starlette
     # card route + JSON-RPC route + R2CContextBuilder + EchoExtensions; the same resolver for
-    # the store (default InMemoryTaskStore(owner_resolver=...)) and the executor
+    # the store (default InMemoryTaskStore(owner_resolver=...)) and the executor; `middleware`
+    # goes outside (authentication there sets the owner); the handler is
+    # `app.state.request_handler`, closed on shutdown
 ```
 
 ## Activation
@@ -83,6 +85,9 @@ class R2CTask:
     async def fail(self, reason: str) -> None
     async def reject(self, text: str) -> None
     async def cancelled(self) -> None
+
+class ContentTooLarge(Exception):   # raised by reply / artifact over Limits.message_bytes,
+    problem: Problem                # after the task has ended failed (R2C-SAFETY-4)
 ```
 
 An executor written by hand:

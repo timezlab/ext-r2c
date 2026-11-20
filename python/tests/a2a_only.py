@@ -14,6 +14,26 @@ import sys
 OTHERS = ("mcp", "langchain", "langgraph")
 
 
+class Hello:
+    """A trivial source: one reply, then done."""
+
+    pause = "live"
+
+    def __init__(self) -> None:
+        from ext_r2c.core import CardInfo, CardSkill
+
+        skill = CardSkill(id="hello", name="Hello", description="Says hello.", tags=("greeting",))
+        self.card = CardInfo(name="hello", description="Says hello.", version="0.0.1", skills=(skill,))
+
+    async def run(self, input, ctx):  # type: ignore[no-untyped-def]
+        from ext_r2c.core import ReplyChunk
+
+        yield ReplyChunk("Hello.", last=True)
+
+    def resume(self, answer, ctx):  # type: ignore[no-untyped-def]
+        raise NotImplementedError
+
+
 def main() -> None:
     import ext_r2c.a2a  # noqa: F401
 
@@ -21,7 +41,16 @@ def main() -> None:
     loaded = sorted({m.split(".")[0] for m in sys.modules} & set(OTHERS))
     assert not loaded, f"importing the A2A door loaded {loaded}"
 
-    # phase 3: build agent_card and a2a_app for a trivial source (T030)
+    from ext_r2c import URI
+    from ext_r2c.a2a import SourceExecutor, a2a_app, agent_card
+    from google.protobuf import json_format
+
+    source = Hello()
+    card = agent_card(source.card, "https://remote.example.com/")
+    app = a2a_app(SourceExecutor(source), card)
+    uris = [e["uri"] for e in json_format.MessageToDict(card)["capabilities"]["extensions"]]
+    assert uris == [URI], f"the card lists {uris}"
+    assert app.state.request_handler is not None
 
     print("a2a only: ok")
 

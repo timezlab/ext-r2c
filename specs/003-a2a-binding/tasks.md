@@ -179,7 +179,7 @@ active.
 
 **Independent test**: the two fakes of spec 002 over real round trips.
 
-- [ ] T018 [P] [US1] Create `python/tests/test_a2a_serve.py`, parametrised over `CheckpointFake`
+- [X] T018 [P] [US1] Create `python/tests/test_a2a_serve.py`, parametrised over `CheckpointFake`
   and `LiveFake` from `fake_sources.py`. All of these run with activation:
   - **question** (`RunInput("Write the report")`):
     - the wire is: `Task`; a working status with the activity Part and its text; then
@@ -192,7 +192,7 @@ active.
   - **cancel while paused:** `CancelTask` gives canceled. The live fake saw a declined answer;
     the checkpoint fake saw none.
   - **same wire for both styles:** the two wires are equal after normalising ids (SC-002).
-- [ ] T019 [P] [US3] Create `python/tests/test_a2a_activation.py`:
+- [X] T019 [P] [US3] Create `python/tests/test_a2a_activation.py`:
   - **card:** `agent_card(CardInfo(...), url)` lists the R2C URI with `required` false (it may
     be omitted on the wire) and `streaming: true`. Compare it with `agent-card.json` in card
     mode (contracts/replay.md).
@@ -208,16 +208,16 @@ active.
   - **text answer when not active** (`text-answer-not-activated.json` flow): a one-field `one`
     question answered "South" goes on. "Somewhere" is asked again in text. An approval is never
     taken from text.
-- [ ] T020 Run both files; confirm they fail on the missing `a2a_app`, `SourceExecutor` and
+- [X] T020 Run both files; confirm they fail on the missing `a2a_app`, `SourceExecutor` and
   `agent_card`.
-- [ ] T021 [US3] Create `python/src/ext_r2c/a2a/activation.py` (research R3):
+- [X] T021 [US3] Create `python/src/ext_r2c/a2a/activation.py` (research R3):
   - `R2CContextBuilder` stores `active` in `call_context.state` and in the ASGI scope;
   - `EchoExtensions` is a pure ASGI middleware that adds `A2A-Extensions` on
     `http.response.start`;
   - `is_active(context)`.
-- [ ] T022 [P] [US3] Create `python/src/ext_r2c/a2a/card.py` with `agent_card(...)`
+- [X] T022 [P] [US3] Create `python/src/ext_r2c/a2a/card.py` with `agent_card(...)`
   (research R13).
-- [ ] T023 [US1] Create `python/src/ext_r2c/a2a/task.py`, `R2CTask` with its emitting side
+- [X] T023 [US1] Create `python/src/ext_r2c/a2a/task.py`, `R2CTask` with its emitting side
   (contracts/wire-mapping.md): `open` (without the store check yet), `activity`, `reply`,
   `artifact`, `usage` (held), `ask`, `complete`, `fail`, `cancelled`. It handles:
   - the gathered reply when not active;
@@ -229,23 +229,29 @@ active.
   *Note (2026-11-20):* without activation the pending request is kept in a `PendingMemory`
   (spec FR-006, research R2 note). `R2CTask` takes it as `memory=`, `SourceExecutor` owns one,
   and `take_answer` already handles the text answer (R9), since T019 tests it here.
-- [ ] T024 [US1] Create `python/src/ext_r2c/a2a/executor.py`, `SourceExecutor` (research R1):
+- [X] T024 [US1] Create `python/src/ext_r2c/a2a/executor.py`, `SourceExecutor` (research R1):
   - a `Driver` and a task-id → `Run` map;
   - `execute` reads events until `Ask` or the end, through `R2CTask`;
   - `cancel` calls `Run.cancel` and emits canceled;
   - `bind(store, resolver)`.
-- [ ] T025 [US1] Create `python/src/ext_r2c/a2a/app.py`, `a2a_app(...)` (research R15):
+- [X] T025 [US1] Create `python/src/ext_r2c/a2a/app.py`, `a2a_app(...)` (research R15):
   - the card route and the JSON-RPC route;
   - `R2CContextBuilder` and `EchoExtensions`;
   - one `DefaultRequestHandlerV2`;
   - `executor.bind(...)` when the executor is a `SourceExecutor`.
-- [ ] T026 Export the public names in `python/src/ext_r2c/a2a/__init__.py`.
-- [ ] T027 Run `test_a2a_serve.py` and `test_a2a_activation.py` until green.
-- [ ] T028 [US1] Switch `a2a_harness.serve` to `a2a_app`; re-run `test_a2a_transport.py`.
-- [ ] T029 Run the whole suite.
-- [ ] T030 In `a2a_only.py`, build `agent_card` and `a2a_app` for a trivial source, and assert
+- [X] T026 Export the public names in `python/src/ext_r2c/a2a/__init__.py`.
+- [X] T027 Run `test_a2a_serve.py` and `test_a2a_activation.py` until green.
+- [X] T028 [US1] Switch `a2a_harness.serve` to `a2a_app`; re-run `test_a2a_transport.py`.
+
+  *Note (2026-11-20):*
+  - The switch came with T018, since the new tests need `a2a_app`.
+  - `Served` is now `(app, card)`; the handler is `app.state.request_handler`.
+  - The harness client is `Caller`: pytest would try to collect a class named `TestClient`.
+  - `a2a_client(..., r2c=True)` sends the `A2A-Extensions` header.
+- [X] T029 Run the whole suite.
+- [X] T030 In `a2a_only.py`, build `agent_card` and `a2a_app` for a trivial source, and assert
   the card JSON lists the URI.
-- [ ] T031 Verify, then commit `feat(003): serve an agent source over A2A`.
+- [X] T031 Verify, then commit `feat(003): serve an agent source over A2A`.
 
 ---
 
