@@ -431,38 +431,38 @@ fetches only from its connection's origin.
 
 **Independent test**: the round trips of phases 3–6, driven only through `R2CClient`.
 
-- [ ] T071 [P] [US6] Write `python/tests/test_mcp_client.py`, items:
+- [X] T071 [P] [US6] Write `python/tests/test_mcp_client.py`, items:
   - **Activities**: activity items in order from progress, and `ProgressItem` for plain
     progress (scenario 1).
   - **Skipped**: unknown kinds, fields and activity types are skipped and counted.
   - **Requests**: one `RequestItem` per entry, typed or plain (scenario 2).
   - **Result**: the reply, artifacts with their presentation, usage, and a `ResultItem` with
     `context_id` (scenario 5).
-- [ ] T072 [P] [US6] Add answer tests (scenarios 3–4):
+- [X] T072 [P] [US6] Add answer tests (scenarios 3–4):
   - a bad answer raises `AnswerRejected` and sends nothing;
   - a good one sends the same name and arguments and the state byte for byte (seen on the
     recording);
   - `caller` on an approval and `policy` anywhere are refused;
   - `respond` checks content against `requestedSchema`.
-- [ ] T073 [P] [US6] Add `test_several_requests`. Against a wire server that sends two entries in
+- [X] T073 [P] [US6] Add `test_several_requests`. Against a wire server that sends two entries in
   one round, the client sends one retry only after both have a response.
-- [ ] T074 [P] [US6] Add `test_fetch` (scenario 6, SC-009):
+- [X] T074 [P] [US6] Add `test_fetch` (scenario 6, SC-009):
   - a resource of the same server is read through `resources/read`;
   - an `https` url on the origin is fetched, with no redirect followed and a size limit;
   - a url on another host, and every `live` artifact, comes back as a `Link`, with no request
     to that host (an `httpx2` mock transport counts requests);
   - an embedded resource over the limit is `TooLarge`.
-- [ ] T075 [P] [US6] Add:
+- [X] T075 [P] [US6] Add:
   - `test_version_checked`: a server that negotiates the legacy handshake makes `connect` fail;
   - `test_cancel`;
   - `test_call_while_paused_raises`.
-- [ ] T076 Run T071–T075. They fail with `ImportError`.
-- [ ] T077 [US6] Implement `python/src/ext_r2c/mcp/client.py`:
+- [X] T076 Run T071–T075. They fail with `ImportError`.
+- [X] T077 [US6] Implement `python/src/ext_r2c/mcp/client.py`:
   - `R2CClient` with `connect`, `call`, `answer`, `respond`, `cancel`, `fetch` and `aclose`;
   - the item types, `AnswerRejected`, `Link` and `TooLarge`;
   - one `message_handler` routing progress by token;
   - `session.call_tool(..., allow_input_required=True)` for every round (research R13, R14).
-- [ ] T078 Verify (story 6 scenarios, SC-009), then commit `feat(004): the caller's MCP client`.
+- [X] T078 Verify (story 6 scenarios, SC-009), then commit `feat(004): the caller's MCP client`.
 
 ---
 
