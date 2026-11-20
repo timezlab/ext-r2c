@@ -57,13 +57,17 @@ def is_active(context: RequestContext | ServerCallContext) -> bool
 ## Helpers for any executor (story 6)
 
 ```python
+class PendingMemory:                          # task id → request, for tasks without activation
+    def __init__(self) -> None
+
 class R2CTask:
     def __init__(self, context: RequestContext, queue: EventQueue, *,
+                 memory: PendingMemory | None = None,
                  clock: Callable[[], datetime] | None = None, limits: Limits = Limits()) -> None
     active: bool
     task_id: str
     context_id: str
-    pending: Question | Approval | None        # read from context.current_task (R2)
+    pending: Question | Approval | None        # read from context.current_task (R2), else memory
 
     async def open(self, *, store: TaskStore | None = None,
                    owner_resolver: OwnerResolver = resolve_user_scope) -> bool
@@ -82,7 +86,8 @@ class R2CTask:
 ```
 
 An executor written by hand:
-1. builds one `R2CTask` per `execute` call;
+1. keeps one `PendingMemory` and builds one `R2CTask` per `execute` call with it (without it,
+   a caller that did not activate R2C cannot answer by text);
 2. calls `open()`;
 3. on a message to a paused task, calls `take_answer()` and returns at once when it gives
    `None`;

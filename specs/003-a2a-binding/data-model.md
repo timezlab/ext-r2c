@@ -29,7 +29,7 @@ The door keeps nothing durable. Everything below is read back from `context.curr
 
 | Item | Where it comes from | Used for |
 |---|---|---|
-| pending request | the newest R2C request Part in `status.message`, then `history` (agent messages, newest first), only while the state is input-required (R2) | checking the answer, re-asking, resume after a restart |
+| pending request | the newest R2C request Part in `status.message`, then `history` (agent messages, newest first), only while the state is input-required (R2); without activation, the executor's `PendingMemory` (in memory, lost on a restart) | checking the answer, re-asking, resume after a restart |
 | last usage | the newest R2C usage Part in the same places | the next input-required and terminal status (R4) |
 | reply artifact started | an artifact with id `reply` in `current_task.artifacts` | `append` on the next reply chunk (R5) |
 | thread | `thread_id("a2a", owner_resolver(call_context), context_id)` (R11) | the source's thread |

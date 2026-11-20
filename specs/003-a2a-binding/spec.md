@@ -325,8 +325,14 @@ implements the standard rather than an idea of it.
   Part, from the core's fallback text (R2C-CORE-4).
 - **FR-004**: The terminal status MUST carry the last usage the source reported, if any.
 - **FR-005**: `CancelTask` MUST cancel the run through the driver and end the task canceled.
-- **FR-006**: The door MUST keep no state of its own about a pending request: it reads the
-  pending request back from the task's last input-required status in the task store.
+- **FR-006**: When R2C is active, the door MUST keep no state of its own about a pending
+  request: it reads the pending request back from the task's last input-required status in the
+  task store.
+  - Without activation the wire carries no R2C request (FR-015), so there is nothing in the
+    task to read back. The door then keeps the pending request in memory, keyed by task id.
+  - A restart while such a task is paused loses the request. The next message then ends the
+    task failed with a reason that asks the caller to start again, as for a live source after a
+    restart (FR-020). (Decided 2026-11-20 by the maintainer.)
 
 **Answers (story 2)**
 

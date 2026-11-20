@@ -51,6 +51,18 @@ Paths are inside the installed `a2a` package.
 - Re-sending the request in every refusal. Rejected: `a2a/refuse-wrong-id.json` shows a text-only
   refusal.
 
+**Note (2026-11-20), without activation:** the task holds no R2C request then (FR-015), so it
+cannot be read back. The maintainer chose the in-memory map for this case only (spec FR-006):
+- a `PendingMemory` (task id → request), owned by the executor and given to each `R2CTask`;
+- `ask` writes the request into it when R2C is not active, and the task's end clears it;
+- `pending` reads the task first, then the memory.
+
+A restart loses such a request. The next message then ends the task failed, with a reason that
+asks the caller to start again. The alternatives were rejected:
+- the request in the Task's metadata: a `GetTask` would show R2C data to a caller that did not
+  activate R2C (R2C-ACT-3, SC-004);
+- no text answers without activation: this drops R2C-ASK-8 and FR-016.
+
 ## R3. Activation and the echoed header
 
 **Facts:**

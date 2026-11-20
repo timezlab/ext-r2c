@@ -225,6 +225,10 @@ active.
 
   `take_answer` is a stub here: it delivers only a well-formed answer whose `id` matches; the
   rest comes in phase 4.
+
+  *Note (2026-11-20):* without activation the pending request is kept in a `PendingMemory`
+  (spec FR-006, research R2 note). `R2CTask` takes it as `memory=`, `SourceExecutor` owns one,
+  and `take_answer` already handles the text answer (R9), since T019 tests it here.
 - [ ] T024 [US1] Create `python/src/ext_r2c/a2a/executor.py`, `SourceExecutor` (research R1):
   - a `Driver` and a task-id → `Run` map;
   - `execute` reads events until `Ask` or the end, through `R2CTask`;
