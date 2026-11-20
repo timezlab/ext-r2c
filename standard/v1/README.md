@@ -504,7 +504,10 @@ form, and the client calls the tool again with its responses.
   A remote keys its internal conversation state by owner and context, never by the bare
   `contextId`. Clients may choose context ids, so two owners can pick the same one.
 - **R2C-ID-2** · MUST · remote · prose
-  A context has at most one unfinished task. The remote refuses a second one.
+  A context has at most one unfinished task. The remote refuses a second one. Over A2A, it opens
+  the new task and ends it in `TASK_STATE_REJECTED`, with a text that names the unfinished task;
+  the unfinished task is untouched. Owners are apart: another owner's task in a context with
+  the same id does not count (`R2C-ID-1`).
 - **R2C-ID-3** · SHOULD · client · prose
   A client stores `contextId` and `taskId` durably per connection and conversation, so it can
   continue and resume after its own restart.

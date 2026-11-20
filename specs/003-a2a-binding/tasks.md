@@ -319,7 +319,7 @@ durable store; a live one ends with "lost".
 
 **Independent test**: `test_a2a_threads.py` and `test_a2a_restart.py`.
 
-- [ ] T039 [P] [US4] Create `python/tests/test_a2a_threads.py`:
+- [X] T039 [P] [US4] Create `python/tests/test_a2a_threads.py`:
   - **owners:**
     - Alice and Bob both send `contextId: "ctx-1"`;
     - the source records two different `ctx.thread_id` values, each equal to
@@ -334,7 +334,7 @@ durable store; a live one ends with "lost".
     the same thread (`follow-up-context.json` flow).
   - **race:** two new messages sent at once on one context give one running task and one
     rejected task.
-- [ ] T040 [P] [US4] Create `python/tests/test_a2a_restart.py`:
+- [X] T040 [P] [US4] Create `python/tests/test_a2a_restart.py`:
   - **setup:** `DatabaseTaskStore` on `sqlite+aiosqlite:///{tmp_path}/tasks.db`; a
     `CheckpointFake` whose store dict outlives the app.
   - **checkpoint:** pause at `q-1`, then:
@@ -345,24 +345,35 @@ durable store; a live one ends with "lost".
   - **live:** the same with `LiveFake`; the task ends failed and its text contains "lost".
   - **re-ask after restart:** a bad answer sent after the restart is re-asked from the stored
     request (R2).
-- [ ] T041 Run both; confirm the failures are the expected ones (no rejection; the restart
+- [X] T041 Run both; confirm the failures are the expected ones (no rejection; the restart
   answer reaches no run).
-- [ ] T042 [US4] In `R2CTask.open`, given the store, list the owner's tasks in the context, and
+- [X] T042 [US4] In `R2CTask.open`, given the store, list the owner's tasks in the context, and
   reject the new task when one is unfinished. Add a lock per (owner, context) (research R10).
   `SourceExecutor` passes its bound store and resolver.
-- [ ] T043 [US4] In `SourceExecutor`:
+- [X] T043 [US4] In `SourceExecutor`:
   - the thread is `thread_id("a2a", resolver(call_context), context_id)`;
   - a paused task without a `Run` goes through `Driver.resume(thread, pending, answer)` (R1);
   - the held usage is restored with `last_usage(current_task)`.
-- [ ] T044 [US4] Add `standard/v1/examples/a2a/second-task-rejected.json`:
+- [X] T044 [US4] Add `standard/v1/examples/a2a/second-task-rejected.json`:
   - the steps: task-1 at input-required, the new message with `contextId` only, then the
     `Task` and the rejected status naming `task-1`;
   - rules `R2C-ID-2`, `R2C-A2A-7`.
 
   Add the R2C-ID-2 text to `standard/v1/README.md`, and the "written into" note on O9 in
   `specs/001-standard-v1/research.md`.
-- [ ] T045 Run both files until green, then the whole suite (example validation included).
-- [ ] T046 Verify, then commit `feat(003): threads per owner, one unfinished task, restart`.
+- [X] T045 Run both files until green, then the whole suite (example validation included).
+- [X] T046 Verify, then commit `feat(003): threads per owner, one unfinished task, restart`.
+
+  *Note (2026-11-20):*
+  - T041: only the rejection tests failed. Threads per owner and the restart already worked
+    from phases 3 and 4 (T043 was done there), so T043 needed no new code.
+  - T042: a2a-sdk saves an emitted `Task` after `execute` goes on, so a lock alone let two new
+    tasks both pass the check. Each task store gets one lock and a record of the tasks this
+    process opened and the store does not show yet (`_Openings` in `task.py`). The race test
+    fails without the record. The lock is per store, not per (owner, context): the section it
+    guards is a few store reads.
+  - The check counts `SUBMITTED` as unfinished too, and lists each unfinished state with
+    `page_size=1`.
 
 ---
 

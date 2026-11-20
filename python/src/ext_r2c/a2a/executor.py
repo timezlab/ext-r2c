@@ -65,7 +65,7 @@ class SourceExecutor(AgentExecutor):
         task = self._task(context, event_queue)
         thread = thread_id("a2a", self._owner(context.call_context), task.context_id)
         if context.current_task is None:
-            if not await task.open():
+            if not await task.open(store=self._store, owner_resolver=self._owner):
                 return
             run = self.driver.start(thread, _input(context))
             self._runs[task.task_id] = run

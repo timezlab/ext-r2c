@@ -8,15 +8,19 @@ a ``PendingMemory`` the executor keeps (spec FR-006).
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import weakref
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 
 from a2a.helpers.proto_helpers import new_task_from_user_message
 from a2a.server.agent_execution import RequestContext
+from a2a.server.context import ServerCallContext
 from a2a.server.events import EventQueue
-from a2a.server.tasks import TaskUpdater
-from a2a.types import Message, Part, TaskState
+from a2a.server.owner_resolver import OwnerResolver, resolve_user_scope
+from a2a.server.tasks import TaskStore, TaskUpdater
+from a2a.types import ListTasksRequest, Message, Part, TaskState
 from google.protobuf import json_format
 
 from .. import URI
@@ -93,6 +97,47 @@ def _expired(request: Question | Approval, now: datetime) -> bool:
     return expires is not None and now >= expires
 
 
+_UNFINISHED = (TaskState.TASK_STATE_SUBMITTED, TaskState.TASK_STATE_WORKING,
+               TaskState.TASK_STATE_INPUT_REQUIRED, TaskState.TASK_STATE_AUTH_REQUIRED)
+
+
+class _Openings:
+    """The new-task check of one task store (research R10).
+
+    a2a-sdk saves an emitted ``Task`` after ``open`` returns, so two new tasks checked at once
+    could both find the store empty. Under ``lock``, ``opened`` keeps each task this process
+    opened until the store shows it."""
+
+    def __init__(self) -> None:
+        self.lock = asyncio.Lock()
+        self.opened: dict[tuple[str, str], set[str]] = {}
+
+    async def unfinished(self, store: TaskStore, call: ServerCallContext, key: tuple[str, str]) -> str | None:
+        """The id of an unfinished task of this owner in this context, if there is one."""
+        waiting = self.opened.get(key, set())
+        for task_id in sorted(waiting):
+            if await store.get(task_id, call) is None:
+                return task_id  # opened here, not saved yet
+            waiting.discard(task_id)  # saved: the listing below sees it
+        if not waiting:
+            self.opened.pop(key, None)
+        for state in _UNFINISHED:
+            found = await store.list(ListTasksRequest(context_id=key[1], status=state, page_size=1), call)
+            if found.tasks:
+                return found.tasks[0].id
+        return None
+
+
+_OPENINGS: weakref.WeakKeyDictionary[TaskStore, _Openings] = weakref.WeakKeyDictionary()
+
+
+def _openings(store: TaskStore) -> _Openings:
+    found = _OPENINGS.get(store)
+    if found is None:
+        found = _OPENINGS[store] = _Openings()
+    return found
+
+
 class R2CTask:
     def __init__(
         self,
@@ -128,13 +173,32 @@ class R2CTask:
 
     # --- opening ----------------------------------------------------------------------------
 
-    async def open(self) -> bool:
-        """Emit the ``Task`` when the task is new. ``False`` when the task was refused."""
-        if self.context.current_task is None:
-            if self.context.message is None:
-                raise ValueError("a new task needs the client's message")
+    async def open(self, *, store: TaskStore | None = None,
+                   owner_resolver: OwnerResolver = resolve_user_scope) -> bool:
+        """Emit the ``Task`` when the task is new. ``False`` when the task was refused.
+
+        With ``store`` (the handler's, with its owner resolver), a new task in a context where
+        the same owner has an unfinished one is rejected, with a text naming that task
+        (R2C-ID-2, research R10)."""
+        if self.context.current_task is not None:
+            return True
+        if self.context.message is None:
+            raise ValueError("a new task needs the client's message")
+        if store is None:
             await self.queue.enqueue_event(new_task_from_user_message(self.context.message))
-        return True
+            return True
+        call = self.context.call_context or ServerCallContext()
+        openings = _openings(store)
+        key = (owner_resolver(call), self.context_id)
+        async with openings.lock:
+            other = await openings.unfinished(store, call, key)
+            await self.queue.enqueue_event(new_task_from_user_message(self.context.message))
+            if other is None:
+                openings.opened.setdefault(key, set()).add(self.task_id)
+                return True
+        await self.reject(f"Task {other} in this context is not finished; answer or cancel it "
+                          "before starting another.")
+        return False
 
     # --- while working ----------------------------------------------------------------------
 

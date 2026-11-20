@@ -1,0 +1,77 @@
+{
+  "title": "A second unfinished task in a context is rejected",
+  "description": "`task-1` waits at input-required for `q-1`. The client sends a new message with the same `contextId` and no `taskId`. The remote opens `task-2` and ends it in `TASK_STATE_REJECTED`, with a text naming `task-1`. `task-1` is untouched and its question still waits.",
+  "binding": "a2a",
+  "rules": ["R2C-ID-2", "R2C-A2A-7"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Which month should the report cover? (YYYY-MM)" },
+                {
+                  "data": {
+                    "kind": "question", "id": "q-1", "title": "Which month should the report cover?",
+                    "answer_by": { "role": "person" },
+                    "fields": [{ "key": "month", "header": "Month", "text": "Which month, as YYYY-MM?", "type": "text" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "contextId": "ctx-1",
+          "parts": [{ "text": "Also write the November report." }]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "task": { "id": "task-2", "contextId": "ctx-1", "status": { "state": "TASK_STATE_SUBMITTED" } }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-2",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_REJECTED",
+            "message": {
+              "messageId": "msg-r2",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Task task-1 in this context is not finished; answer or cancel it before starting another." }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}
