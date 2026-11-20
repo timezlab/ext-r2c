@@ -396,31 +396,31 @@ expiry.
 
 **Independent test**: two bearer owners; a server rebuilt between the question and the retry.
 
-- [ ] T064 [P] [US5] Write `python/tests/test_mcp_threads.py`:
+- [X] T064 [P] [US5] Write `python/tests/test_mcp_threads.py`:
   - **Owners**: alice and bob both use `context_id: "ctx-1"`; the fake sees
     `thread_id("mcp", alice_principal, "ctx-1")` and bob's, two different ids (scenario 1).
   - **Chosen context**: a call without `context_id` returns one in `structuredContent`, and a
     second call with it reaches the same thread (scenario 2).
-- [ ] T065 [P] [US5] Add `test_busy_context` (scenario 3):
+- [X] T065 [P] [US5] Add `test_busy_context` (scenario 3):
   - a new call on a context with a paused call of the same owner gets the busy text and
     `isError: true`, and the paused call still completes;
   - another owner's call on the same `context_id` is not refused;
   - once the paused call's state has expired (short TTL), the context is free.
-- [ ] T066 [P] [US5] Write `python/tests/test_mcp_restart.py`, using
+- [X] T066 [P] [US5] Write `python/tests/test_mcp_restart.py`, using
   `RequestStateSecurity(keys=[fixed])` and a checkpoint fake on a durable store:
   - **Checkpoint**: the server object is dropped and rebuilt between the question and the retry.
     The source resumes from the stopping point and completes, and the output from before the
     ask is in the final result (scenario 4).
   - **Live**: a live fake in the same situation ends with the "lost" text (scenario 5).
-- [ ] T067 [P] [US5] Add `test_live_run_declined_at_expiry` (scenario 6). With a short TTL and no
+- [X] T067 [P] [US5] Add `test_live_run_declined_at_expiry` (scenario 6). With a short TTL and no
   retry, the paused live run receives `declined` and ends, and its context is free.
-- [ ] T068 Run T064–T067. They fail for the expected reasons.
-- [ ] T069 [US5] Implement in `source_tool.py`:
+- [X] T068 Run T064–T067. They fail for the expected reasons.
+- [X] T069 [US5] Implement in `source_tool.py`:
   - **Context lock**: `_open`, with the busy refusal.
   - **Expiry**: timers from the server's TTL. A live run gets `declined`; the context is freed.
   - **Not held**: the `lost` and `Driver.resume` paths for a run that is not held.
   - **Owner**: the `owner=` override.
-- [ ] T070 Verify (SC-007, SC-008), then commit `feat(004): MCP threads, busy contexts, restart`.
+- [X] T070 Verify (SC-007, SC-008), then commit `feat(004): MCP threads, busy contexts, restart`.
 
 ---
 

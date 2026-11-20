@@ -8,6 +8,9 @@ answer to the held run, or resumes a checkpoint source the door no longer holds.
 
 from __future__ import annotations
 
+import asyncio
+import math
+import time
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
@@ -56,6 +59,8 @@ DEFAULT_SCHEMA: dict[str, Any] = {
 }
 _BLOCKS: TypeAdapter[list[Block]] = TypeAdapter(list[Block])
 LOST = "The paused run was lost (the server restarted); call the tool again."
+BUSY = "This conversation has an unfinished call; answer it or wait until it expires."
+_GRACE = 1.0  # seconds past the state's TTL before a paused run is ended (research R4)
 _NO_FORMS = "The client cannot show forms, so the request could not be asked."
 _NOT_ASKABLE = "The request cannot be asked as a form."
 
@@ -94,6 +99,7 @@ class Held:
     usage: Usage | None = None
     request: Question | Approval | None = None
     refusal: str | None = None
+    timer: asyncio.Task[None] | None = None
 
 
 class SourceTool:
@@ -120,7 +126,8 @@ class SourceTool:
         self.to_input: ToInput = to_input or _default_to_input
         self._returns_context = input_schema is None
         self._check = Draft202012Validator(self.input_schema)
-        self._runs: dict[str, Held] = {}
+        self._runs: dict[str, Held] = {}  # call id → the held run
+        self._open: dict[tuple[str, str], tuple[str, float]] = {}  # (owner, context) → (call id, until)
 
     # --- rounds -------------------------------------------------------------------------------
 
@@ -130,10 +137,52 @@ class SourceTool:
             return tool_error("invalid arguments: " + "; ".join(p.message for p in problems), active=r.active)
         run_input, context = self.to_input(arguments)
         context = context or uuid.uuid4().hex
+        if not await self._free(r.owner, context):
+            return tool_error(BUSY, active=r.active)
         thread = thread_id("mcp", r.owner, context)
         held = Held(self.driver.start(thread, run_input), uuid.uuid4().hex, r.owner, thread, context)
-        self._runs[held.call] = held
+        self._hold(held)
         return await self._pump(r, held)
+
+    # --- the context lock and expiry (research R4, R11) ---------------------------------------
+
+    async def _free(self, owner: str, context: str) -> bool:
+        """Whether a new call may start on ``(owner, context)``. A paused call whose state has
+        expired gives the context up: its run ends first (a live source sees ``declined``)."""
+        entry = self._open.get((owner, context))
+        if entry is None:
+            return True
+        call, until = entry
+        if time.monotonic() < until:
+            return False
+        held = self._runs.get(call)
+        if held is not None:
+            await self._expire(held)
+        self._open.pop((owner, context), None)
+        return True
+
+    def _hold(self, held: Held, *, ttl: float | None = None) -> None:
+        """Keep ``held``: running (no expiry), or paused on a state that expires in ``ttl``."""
+        self._runs[held.call] = held
+        if held.timer is not None and held.timer is not asyncio.current_task():
+            held.timer.cancel()
+        held.timer = None
+        until = math.inf
+        if ttl is not None:
+            until = time.monotonic() + ttl
+            held.timer = asyncio.get_running_loop().create_task(self._expire_later(held, ttl + _GRACE))
+        self._open[(held.owner, held.context)] = (held.call, until)
+
+    async def _expire_later(self, held: Held, delay: float) -> None:
+        await asyncio.sleep(delay)
+        if self._runs.get(held.call) is held and held.request is not None:
+            await self._expire(held)
+
+    async def _expire(self, held: Held) -> None:
+        """End a paused run whose state expired: ``Run.cancel`` gives a live source ``declined``
+        and never resumes a checkpoint source (which keeps its own checkpoint)."""
+        self._drop(held)
+        await held.run.cancel()
 
     async def retry(self, r: Round, point: StoppingPoint,
                     responses: Mapping[str, types.ElicitResult]) -> types.CallToolResult | types.InputRequiredResult:
@@ -156,6 +205,7 @@ class SourceTool:
         again = replace(point, round=uuid.uuid4().hex, request=to_json(request))
         if held is not None:
             held.request = request
+            self._hold(held, ttl=r.ttl)
             usage = held.usage
         else:
             usage = Usage.parse(point.usage) if point.usage else None
@@ -168,6 +218,7 @@ class SourceTool:
         if held is not None:
             held.request = None
             held.refusal = _join(held.refusal, refusal)
+            self._hold(held)
             await held.run.deliver(answer)
             return await self._pump(r, held)
         held = Held(self.driver.resume(point.thread or "", request, answer), point.call, r.owner,
@@ -175,7 +226,7 @@ class SourceTool:
                     reply=[str(point.output.get("reply") or "")],
                     blocks=_BLOCKS.validate_python(point.output.get("blocks") or []),
                     usage=Usage.parse(point.usage) if point.usage else None, refusal=refusal)
-        self._runs[held.call] = held
+        self._hold(held)
         return await self._pump(r, held)
 
     # --- reading the run ----------------------------------------------------------------------
@@ -230,6 +281,7 @@ class SourceTool:
                                                                   exclude_none=True)},
         )
         held.request = request
+        self._hold(held, ttl=r.ttl)
         refusal, held.refusal = held.refusal, None
         return input_required(request, dump(point), active=r.active, usage=held.usage, refusal=refusal)
 
@@ -244,5 +296,12 @@ class SourceTool:
                             refusal=_join(held.refusal, error), is_error=error is not None, structured=structured)
 
     def _drop(self, held: Held) -> None:
+        """Forget ``held``: its run, its timer and its context lock."""
         if self._runs.get(held.call) is held:
             del self._runs[held.call]
+        if held.timer is not None and held.timer is not asyncio.current_task():
+            held.timer.cancel()
+        held.timer = None
+        key = (held.owner, held.context)
+        if self._open.get(key, ("", 0.0))[0] == held.call:
+            del self._open[key]
