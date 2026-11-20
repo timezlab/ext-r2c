@@ -209,7 +209,7 @@ A client without R2C gets plain MCP. A client without forms gets `declined`.
 **Independent test**: the fakes of 002 served in process; a raw MCP SDK session answers; the
 same flows without activation and without forms.
 
-- [ ] T024 [P] [US1] Write `python/tests/test_mcp_serve.py` (story 1, scenarios 1–2). Both fakes
+- [X] T024 [P] [US1] Write `python/tests/test_mcp_serve.py` (story 1, scenarios 1–2). Both fakes
   of 002, parametrised by pause style, are served as `SourceTool(fake)`. An active session calls
   `agent` with `{"message": "Write the report"}`. Check:
   - one `inputRequests` entry keyed by the question's `id`;
@@ -218,46 +218,46 @@ same flows without activation and without forms.
   - the retry with `accept` delivers `answer_from_mcp`'s answer to the fake, with
     `answered_by.role == "person"`;
   - the call completes.
-- [ ] T025 [P] [US1] Add to `test_mcp_serve.py`:
+- [X] T025 [P] [US1] Add to `test_mcp_serve.py`:
   - **`other`**: a merged value (scenario 3).
   - **Decline and cancel**: each gives `declined`, and the run goes on (scenario 4).
   - **Approval**: deny with a reason reaches the fake.
-- [ ] T026 [P] [US1] Add `test_two_questions_one_after_the_other` (scenario 5). A scripted source
+- [X] T026 [P] [US1] Add `test_two_questions_one_after_the_other` (scenario 5). A scripted source
   asks `q-1`, then `q-2`:
   - each input-required result has exactly one entry;
   - the second carries the usage so far beside `input_requests`, after the source yields one
     (O6);
   - the final usage is the latest.
-- [ ] T027 [P] [US1] Add `test_final_result` (scenario 6). A scripted source yields reply chunks,
+- [X] T027 [P] [US1] Add `test_final_result` (scenario 6). A scripted source yields reply chunks,
   a file artifact by url, an inline text artifact and usage, with an ask in the middle:
   - the reply is one `text` block marked `response: true`;
   - the output from before the ask is in the final result;
   - the usage is in `_meta[key]`;
   - the default tool's result has `structuredContent.context_id`.
-- [ ] T028 [P] [US1] Add `test_same_wire_for_both_pause_styles` (scenario 7). The two runs'
+- [X] T028 [P] [US1] Add `test_same_wire_for_both_pause_styles` (scenario 7). The two runs'
   recorded wires are equal once `requestState` is mapped.
-- [ ] T029 [P] [US1] Add `test_cancel` (spec Edge Cases). The client cancels the round while the
+- [X] T029 [P] [US1] Add `test_cancel` (spec Edge Cases). The client cancels the round while the
   live fake runs: the fake sees `ctx.cancelled`, and its paused ask gets `declined`.
-- [ ] T030 [P] [US1] Add `test_source_error` (spec Edge Cases). A source that raises gives
+- [X] T030 [P] [US1] Add `test_source_error` (spec Edge Cases). A source that raises gives
   `isError: true`, its reason as text, and the last usage.
-- [ ] T031 [P] [US4] Write `python/tests/test_mcp_activation.py`:
+- [X] T031 [P] [US4] Write `python/tests/test_mcp_activation.py`:
   - **discover**: `server/discover` lists `key` with `{"revision": 1}` (scenario 1).
   - **active**: an active round's results and notifications carry R2C `_meta` (scenario 2).
   - **not active**: the same flow from an inactive session has the same elicitation (form and
     message), the answer is still derived and checked, the run completes, and there is no R2C
     `_meta` anywhere on the recorded wire (scenario 3, SC-006).
   - **no reasoning**: a reasoning activity is not sent to an inactive session.
-- [ ] T032 [P] [US4] Add `test_no_form_support` (scenario 4). With a session that declares no
+- [X] T032 [P] [US4] Add `test_no_form_support` (scenario 4). With a session that declares no
   elicitation, the fake's question is answered `declined` by the door, and the run goes on with
   no input-required result.
-- [ ] T033 [P] [US4] Add `test_activation_per_round` (scenario 5). The first round is active and
+- [X] T033 [P] [US4] Add `test_activation_per_round` (scenario 5). The first round is active and
   the retry is not: the retry's result has no R2C `_meta`.
-- [ ] T034 [P] [US1] Add `test_progress_only_with_token`. Activities arrive as progress,
+- [X] T034 [P] [US1] Add `test_progress_only_with_token`. Activities arrive as progress,
   numbered from 1, only when the round carried a token (R2C-MCP-6).
-- [ ] T035 Run T024–T034. They fail with `ImportError`.
-- [ ] T036 [US1] Implement `python/src/ext_r2c/mcp/activation.py`: `is_active`,
+- [X] T035 Run T024–T034. They fail with `ImportError`.
+- [X] T036 [US1] Implement `python/src/ext_r2c/mcp/activation.py`: `is_active`,
   `form_supported`, `owner_of` (research R5).
-- [ ] T037 [US1] Implement `python/src/ext_r2c/mcp/source_tool.py`:
+- [X] T037 [US1] Implement `python/src/ext_r2c/mcp/source_tool.py`:
   - **Shape**: `SourceTool(source, *, name, title, description, input_schema, to_input)` with
     the default schema and `to_input` (research R12).
   - **`first_round(ctx, arguments)`**:
@@ -273,7 +273,7 @@ same flows without activation and without forms.
   - **`retry(ctx, arguments, point, responses)`**, accepted path only in this phase: derive,
     then `deliver` to the held run or `Driver.resume`.
   - **Cancel**: cancellation of the round cancels the run through the driver.
-- [ ] T038 [US1] Implement `python/src/ext_r2c/mcp/extension.py`:
+- [X] T038 [US1] Implement `python/src/ext_r2c/mcp/extension.py`:
   - `R2CExtension(tools=..., approve=..., clock=..., limits=..., ledger=..., owner=...)`;
   - `settings()`;
   - `tools()`: one stub `ToolBinding` per tool, with name, title and description;
@@ -281,12 +281,12 @@ same flows without activation and without forms.
   - `intercept_tool_call`: for one of its own names, dispatch to the tool, first round or retry
     by `params.request_state`; otherwise call `call_next`.
   - The construction-time `ValueError`s.
-- [ ] T039 [US1] Implement `python/src/ext_r2c/mcp/server.py`: `mcp_server(name, extension, *,
+- [X] T039 [US1] Implement `python/src/ext_r2c/mcp/server.py`: `mcp_server(name, extension, *,
   security=None, **kwargs)`.
-- [ ] T040 [US1] Re-export the public names in `ext_r2c/mcp/__init__.py`. Then finish
+- [X] T040 [US1] Re-export the public names in `ext_r2c/mcp/__init__.py`. Then finish
   `mcp_only.py`: build `mcp_server("check", R2CExtension(tools=[...]))` and assert that
   `server/discover` declares `key`.
-- [ ] T041 Verify (SC-002, SC-003, SC-006), then commit
+- [X] T041 Verify (SC-002, SC-003, SC-006), then commit
   `feat(004): serve an agent source as an MCP tool`.
 
 ---

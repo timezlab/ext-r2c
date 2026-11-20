@@ -39,7 +39,7 @@ def main() -> None:
     assert importlib.util.find_spec("pytest") is None, "pytest is installed: this is not an mcp-only venv"
     loaded = sorted({m.split(".")[0] for m in sys.modules} & set(OTHERS))
     assert not loaded, f"importing the MCP door loaded {loaded}"
-    # phase 3: build a server and check what server/discover declares (tasks.md T040).
+    _server_check()
     print("mcp only: ok")
 
 
