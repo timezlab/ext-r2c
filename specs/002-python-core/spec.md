@@ -67,7 +67,7 @@ parse it, write it back, and compare with the original; load every file in
 A remote that receives an answer, and a client that is about to send one, both ask the core one
 question: is this answer acceptable for this request, and if not, why? The core answers with a
 list of problems, each with the field `key` and a message, in the shape of a re-ask's `errors`
-(R2C-ASK-3), so the remote can re-ask without writing its own messages.
+(R2C-ASK-6), so the remote can re-ask without writing its own messages.
 
 **Why this priority**: answer checking carries the safety rules (an approval is never answered
 by a model, `edit` arguments must fit their schema, no `$ref` is followed). Getting it wrong in
@@ -304,7 +304,7 @@ dependencies, import the package and the core; inspect the wheel's metadata for 
 
 - **FR-014**: The core MUST check an answer against the request it answers and return a list of
   problems, each with an optional `key` and a `message`, usable as a re-ask's `errors`
-  (R2C-ASK-3). An empty list means acceptable.
+  (R2C-ASK-6). An empty list means acceptable.
 - **FR-015**: The check MUST cover: the `id` matches; `value` present only when `answered`; a
   question's value fits its generated answer schema; an approval's value fits
   `answer.json#/$defs/approval_value`, its `decision` is offered, and with `edit` its `args` fit

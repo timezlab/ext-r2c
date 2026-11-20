@@ -26,3 +26,8 @@ All notable changes to this project are recorded here. The format follows
 
 - Size limits (`R2C-SAFETY-4`) are in MiB (2^20 bytes): 5 MiB inside a message,
   50 MiB for a file by `url`.
+- `R2C-QUESTION-5`: a field with `required: true` must also be not empty
+  (`minLength: 1` on `text`, `minItems: 1` on `many`).
+- `R2C-MCP-2` and `R2C-MCP-3` spell out the flat forms: titles and descriptions,
+  the `required` list, how `<key>_other` merges (`many` adds it once), what a
+  flat `args_schema` is, and how edited `args` are rebuilt.

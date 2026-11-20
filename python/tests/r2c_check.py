@@ -366,31 +366,6 @@ def check_format(example: Any, fmt: Mapping[str, Any]) -> list[str]:
     return [f"{pointer(e.absolute_path)}: {e.message}" for e in validator(fmt).iter_errors(example)]
 
 
-# --- Form → schema (data-model.md, "Form → schema mapping", A2A column) -----------------------
-
-
-def field_schema(field: Mapping[str, Any]) -> dict[str, Any]:
-    ftype = field["type"]
-    other = field.get("other", True)
-    labels = [o["label"] for o in field.get("options", [])]
-    if ftype == "one":
-        return {"type": "string", "minLength": 1} if other else {"type": "string", "enum": labels}
-    if ftype == "many":
-        items = {"type": "string", "minLength": 1} if other else {"enum": labels}
-        return {"type": "array", "items": items, "uniqueItems": True}
-    return {"text": {"type": "string"}, "number": {"type": "number"}, "bool": {"type": "boolean"}}[ftype]
-
-
-def form_schema(question: Mapping[str, Any]) -> dict[str, Any]:
-    fields = question["fields"]
-    return {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {f["key"]: field_schema(f) for f in fields},
-        "required": [f["key"] for f in fields if f.get("required", True)],
-    }
-
-
 # --- Rules (contracts/rule-format.md) ---------------------------------------------------------
 
 RULE_LINE = re.compile(

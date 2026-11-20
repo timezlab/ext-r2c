@@ -124,7 +124,7 @@ generator (FR-032, first half).
 **Independent test**: `test_forms.py`; `test_examples.py` and `test_rules.py` stay green with the
 new examples.
 
-- [ ] T016 [P] [US3] Create `python/tests/test_forms.py` ([contracts/forms.md](contracts/forms.md)):
+- [X] T016 [P] [US3] Create `python/tests/test_forms.py` ([contracts/forms.md](contracts/forms.md)):
   - `test_answer_schema_rows`: one case per row of the answer-schema table, both `required` columns (Q2);
   - `test_every_mcp_form_matches_its_example`: for every `InputRequiredResult` in `example_files("mcp")`, each object of `_meta[MCP_KEY].input_requests` gives `mcp_form(obj).requested_schema == inputRequests[key].params.requestedSchema`;
   - `test_derived_answers`: a table `{file: expected answer}` copied from the descriptions of
@@ -152,7 +152,7 @@ new examples.
     - a left-out argument keeps its value;
     - an empty `reason` is dropped;
     - `cancel` gives `declined`.
-- [ ] T017 [US3] Change the standard ([plan.md](plan.md) "Changes to the standard"):
+- [X] T017 [US3] Change the standard ([plan.md](plan.md) "Changes to the standard"):
   - `standard/v1/README.md` §5: the R2C-QUESTION-5 table gets `minLength: 1` / `minItems: 1` with `required: true`, and one sentence: "required means present and not empty";
   - `standard/v1/README.md` §12, R2C-MCP-2: titles and descriptions, the `<key>_other` title and description, the `required` list, empty `<key>_other`, `one` replaces and `many` adds once;
   - `standard/v1/README.md` §12, R2C-MCP-3: what flat means, the `decision` / `reason` names, the titled `oneOf` for enums, arguments never required, rebuilding `args`, and no decision left means it cannot be asked over MCP;
@@ -167,18 +167,18 @@ new examples.
     - the answer `{"title": ""}`;
     - a re-ask with `errors: [{"key": "title", "message": "A title is needed."}]`;
     - the answer `{"title": "October stock"}`, then completion;
-    - `rules`: R2C-QUESTION-5, R2C-ASK-3;
+    - `rules`: R2C-QUESTION-5, R2C-ASK-6 (2026-11-20: was "R2C-ASK-3", a wrong rule number; the re-ask rule is ASK-6);
   - `specs/001-standard-v1/research.md`: dated notes on O2 and O3, "decided in spec 002";
   - `CHANGELOG.md` Changed: the QUESTION-5 table with `required`; the MCP-2 / MCP-3 clarifications.
-- [ ] T018 [US3] Run the tests and confirm the expected failures:
+- [X] T018 [US3] Run the tests and confirm the expected failures:
   - `test_forms.py` fails on `ImportError`;
   - `test_examples.py` fails on `a2a/reask-empty-required.json`, because the old `form_schema` accepts `""`.
-- [ ] T019 [US3] Create `python/src/ext_r2c/core/forms.py`: `answer_schema`, `edit_offered`, `mcp_form` → `McpForm`, `answer_from_mcp`, `NotAskableOverMcp` (research R7–R9). Export them from `core/__init__.py`.
-- [ ] T020 [US3] FR-032, first half:
+- [X] T019 [US3] Create `python/src/ext_r2c/core/forms.py`: `answer_schema`, `edit_offered`, `mcp_form` → `McpForm`, `answer_from_mcp`, `NotAskableOverMcp` (research R7–R9). Export them from `core/__init__.py`.
+- [X] T020 [US3] FR-032, first half:
   - delete `field_schema` and `form_schema` from `python/tests/r2c_check.py`;
   - in `python/tests/test_examples.py`, use `ext_r2c.core.answer_schema(Question.parse(request))` instead;
   - delete `test_form_schema_mapping` from `python/tests/test_check_helpers.py` (now covered by `test_answer_schema_rows`).
-- [ ] T021 [US3] Verify and commit `feat(002): forms for both doors; standard records O2 and O3`. The rule-coverage tests must stay green.
+- [X] T021 [US3] Verify and commit `feat(002): forms for both doors; standard records O2 and O3`. The rule-coverage tests must stay green.
 
 **Checkpoint**: SC-003 is met; 39 valid examples.
 

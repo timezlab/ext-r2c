@@ -1,0 +1,97 @@
+{
+  "title": "An empty value for a required field fails the form and is asked again",
+  "description": "`title` is a required `text` field, so its value must not be empty (R2C-QUESTION-5). The first answer sends an empty title; the remote asks again with the same `id` and `errors`. The second answer fits.",
+  "binding": "a2a",
+  "rules": ["R2C-QUESTION-5", "R2C-ASK-6"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "What is the report's title?" },
+                {
+                  "data": {
+                    "kind": "question", "id": "q-1", "title": "Report title",
+                    "answer_by": { "role": "person" },
+                    "fields": [{ "key": "title", "header": "Title", "text": "What is the report's title?", "type": "text" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Title: (none)" },
+            {
+              "data": { "kind": "answer", "id": "q-1", "outcome": "answered", "answered_by": { "role": "person" }, "value": { "title": "" } },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r2",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "A title is needed. What is the report's title?" },
+                {
+                  "data": {
+                    "kind": "question", "id": "q-1", "title": "Report title",
+                    "answer_by": { "role": "person" },
+                    "errors": [{ "key": "title", "message": "A title is needed." }],
+                    "fields": [{ "key": "title", "header": "Title", "text": "What is the report's title?", "type": "text" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c3", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Title: October stock" },
+            {
+              "data": { "kind": "answer", "id": "q-1", "outcome": "answered", "answered_by": { "role": "person" }, "value": { "title": "October stock" } },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

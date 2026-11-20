@@ -181,7 +181,7 @@ The full reasoning is in [research.md](research.md).
   - an approval left with no decision cannot be asked over MCP.
 - **Examples:**
   - `mcp/elicitation-question-many-other.json` is new (rules R2C-MCP-2, R2C-MCP-4);
-  - `a2a/reask-empty-required.json` is new (R2C-QUESTION-5, R2C-ASK-3);
+  - `a2a/reask-empty-required.json` is new (R2C-QUESTION-5, R2C-ASK-6);
   - `mcp/elicitation-question-other.json` gets its `description`.
 - **Records:** `CHANGELOG.md` gets a Changed entry for the QUESTION-5 table. In
   `specs/001-standard-v1/research.md`, O2 and O3 get a dated "decided in 002" note.

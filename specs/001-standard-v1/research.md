@@ -174,8 +174,8 @@ The schema change is in `args_schema`'s description: the `$ref` duty is the clie
 | # | Open point | Owner |
 |---|---|---|
 | O1 | New values of a closed enum (`decisions`, `presentation`, `state`, `outcome`, roles, field `type`): additive (old validators break) or breaking (needs v2)? **Decided 2026-11-20 (maintainer): breaking, needs v2; written as `R2C-VERSION-3`.** | maintainer, before v1 leaves draft |
-| O2 | `requestedSchema` details: the `required` list when `other: true` and only `<key>_other` is filled; `many` + `<key>_other` (replace, add one item, or split); `required: true` on `text` accepting `""` and on `many` accepting `[]` | 002 (form → schema) |
-| O3 | Approval over MCP: argument names that collide with `decision` / `reason`; rebuilding `args` from the flat `content`; `decisions: ["edit"]` with a non-flat `args_schema` | 002, 004 |
+| O2 | `requestedSchema` details: the `required` list when `other: true` and only `<key>_other` is filled; `many` + `<key>_other` (replace, add one item, or split); `required: true` on `text` accepting `""` and on `many` accepting `[]` **Decided in spec 002 (2026-11-20), now in README §5 and R2C-MCP-2: an `other: true` field is never in `required`; `many` adds `<key>_other` once; required means not empty.** | 002 (form → schema) |
+| O3 | Approval over MCP: argument names that collide with `decision` / `reason`; rebuilding `args` from the flat `content`; `decisions: ["edit"]` with a non-flat `args_schema` **Decided in spec 002 (2026-11-20), now in R2C-MCP-3: such names make the schema not flat; left-out arguments keep their value; an approval left with no decision cannot be asked over MCP.** | 002, 004 |
 | O4 | MCP: several entries in one `inputRequests` versus one pending request per task; what a "task" is across multi-round-trip calls (also for cumulative `usage`) | 004 |
 | O5 | MCP: the elicitation `message` (text fallback); re-ask with `errors` and refusals on MCP; the numeric `progress` of an activity notification | 004 |
 | O6 | MCP: `usage` on an `InputRequiredResult`, which already holds the `input_requests` wrapper in the same `_meta[key]` | 004 |

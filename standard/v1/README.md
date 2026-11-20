@@ -207,8 +207,9 @@ progress (use `activity`).
 | `number` | `{"type": "number"}` |
 | `bool` | `{"type": "boolean"}` |
 
-The form's schema is `{"type": "object", "properties": {<key>: <schema>}, "required": [<keys
-with required: true>]}`.
+A field with `required: true` must be present **and not empty**: a `text` field then also has
+`"minLength": 1`, and a `many` field `"minItems": 1`. The form's schema is `{"type": "object",
+"properties": {<key>: <schema>}, "required": [<keys with required: true>]}`.
 
 ## 6. `approval`
 
@@ -430,13 +431,37 @@ form, and the client calls the tool again with its responses.
   | `many`, `other: true` | as above, plus `<key>_other: {"type": "string"}` |
   | `text`, `number`, `bool` | `{"type": "string" / "number" / "boolean"}` |
 
-  `<key>_other` is never required. On the way back, `<key>` and `<key>_other` become one value,
-  and a non-empty `<key>_other` wins.
+  Every property has `"title"` (the field's `header`) and `"description"` (its `text`).
+  `<key>_other` has the title `"<header> (other)"` and the description `"Another <header in
+  lower case>, if not listed."`.
+
+  `required` lists the fields with `required: true`, except those with `other: true`: their value
+  may come in either property, and the answer check after the merge catches a missing one.
+  `<key>_other` is never required. The `required` key is left out when the list is empty.
+
+  On the way back, `<key>` and `<key>_other` become one value. `<key>_other` counts only when it
+  is not empty after stripping spaces. For `one` it replaces `<key>`; for `many` it is added
+  after the chosen options, once (`["Stock"]` and `"Suppliers"` give `["Stock", "Suppliers"]`).
+  Content keys that are not in the form are dropped.
 - **R2C-MCP-3** · MUST · remote · wire
-  An approval's elicitation has a `decision` property (`oneOf` the offered decisions) and an
-  optional `reason` string. `edit` survives only when `args_schema` is flat (every property a
-  string, number, boolean or enum). In that case each argument is added as a property, with its
-  current value as `default`. Otherwise `edit` is dropped from the offered decisions.
+  An approval's elicitation has a required `decision` property (`"title": "Decision"`, `oneOf`
+  the offered decisions in order, titled `Allow`, `Edit`, `Deny`) and an optional `reason` string
+  (`"title": "Reason"`). `edit` survives only when `args_schema` is flat:
+  - it is `{"type": "object", "properties": …}`;
+  - every property's `type` is `string`, `number`, `integer` or `boolean`, or it is an `enum` of
+    strings;
+  - no property uses `$ref`, `anyOf`, `oneOf`, `allOf` or `not`, and none is named `decision` or
+    `reason`;
+  - it has no `$ref` that leaves the document (`R2C-SAFETY-7`).
+
+  In that case each argument is added as a property: its own schema, titled with the argument
+  name, an `enum` written as a titled `oneOf`, and its current value as `default`. Arguments are
+  never required. Otherwise `edit` is dropped from the offered decisions. An approval left with
+  no decision cannot be asked over MCP.
+
+  On the way back, `decision` is taken as sent and `reason` when not empty. With `edit`, `args`
+  is the current `args` with each argument present in the response replacing its value; with
+  another decision, argument values in the response are ignored.
 - **R2C-MCP-4** · MUST · both · wire
   The client calls the tool again with `inputResponses` keyed like `inputRequests` and with
   `requestState` echoed unchanged. The remote derives the R2C `answer` from each response:

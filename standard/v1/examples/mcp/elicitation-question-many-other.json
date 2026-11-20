@@ -1,0 +1,78 @@
+{
+  "title": "A many-choice field with other: <key>_other is added after the chosen options",
+  "description": "`other` defaults to true, so the flat form adds `sections_other` and lists no field as required. The person ticks Stock and types \"Suppliers\"; a non-empty `<key>_other` of a `many` field is added once after the chosen options. Derived answer: {kind: answer, id: q-1, outcome: answered, answered_by: {role: person}, value: {sections: [Stock, Suppliers]}}.",
+  "binding": "mcp",
+  "rules": ["R2C-MCP-1", "R2C-MCP-2", "R2C-MCP-4"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "q-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Which sections should the report have?",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "sections": {
+                      "type": "array", "title": "Section", "description": "Which sections should the report have?",
+                      "items": {
+                        "anyOf": [
+                          { "const": "Stock", "title": "Stock" },
+                          { "const": "Orders", "title": "Orders" },
+                          { "const": "Returns", "title": "Returns" }
+                        ]
+                      }
+                    },
+                    "sections_other": { "type": "string", "title": "Section (other)", "description": "Another section, if not listed." }
+                  }
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTYifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "q-1": {
+                  "kind": "question", "id": "q-1", "title": "Which sections should the report have?",
+                  "answer_by": { "role": "person" },
+                  "fields": [
+                    {
+                      "key": "sections", "header": "Section", "text": "Which sections should the report have?",
+                      "type": "many", "options": [{ "label": "Stock" }, { "label": "Orders" }, { "label": "Returns" }]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "inputResponses": { "q-1": { "action": "accept", "content": { "sections": ["Stock"], "sections_other": "Suppliers" } } },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTYifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    }
+  ]
+}

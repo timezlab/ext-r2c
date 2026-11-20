@@ -13,10 +13,8 @@ from r2c_check import (
     check_a2a,
     check_mcp,
     find_r2c_objects,
-    form_schema,
     parse_rules,
     unknown_kinds,
-    validator,
 )
 
 # --- A2A ---------------------------------------------------------------------------------------
@@ -217,23 +215,6 @@ def test_unknown_kinds_lists_only_kinds_without_a_schema() -> None:
         {"data": {"kind": "usage", "input_tokens": 1}, "metadata": {URI: {}}},
     ]}}]}
     assert unknown_kinds(example, {"usage"}) == [("/steps/0/body/parts/0/data", "provenance")]
-
-
-# --- Form → schema -----------------------------------------------------------------------------
-
-
-def test_form_schema_mapping() -> None:
-    question = {"fields": [
-        {"key": "env", "type": "one", "other": False, "options": [{"label": "staging"}, {"label": "production"}]},
-        {"key": "tags", "type": "many", "options": [{"label": "a"}], "required": False},
-        {"key": "count", "type": "number"},
-    ]}
-    v = validator(form_schema(question))
-    assert v.is_valid({"env": "staging", "count": 3})
-    assert v.is_valid({"env": "staging", "tags": ["a", "other text"], "count": 1})
-    assert not v.is_valid({"env": "qa", "count": 1})          # not an option, other: false
-    assert not v.is_valid({"env": "staging"})                  # count required
-    assert not v.is_valid({"env": "staging", "count": "3"})    # wrong type
 
 
 # --- Rules -------------------------------------------------------------------------------------

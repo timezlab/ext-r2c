@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from ext_r2c.core import Question, answer_schema
 
 from r2c_check import (
     EXAMPLE_FORMAT,
@@ -18,7 +19,6 @@ from r2c_check import (
     error_paths,
     example_files,
     find_r2c_objects,
-    form_schema,
     load_json,
     load_schemas,
     pointer,
@@ -60,7 +60,7 @@ def _answer_problems(answer: dict[str, Any], request: dict[str, Any], schemas: d
         return []
     value = answer.get("value")
     if request["kind"] == "question":
-        errors = error_paths(validator(form_schema(request)), value)
+        errors = error_paths(validator(answer_schema(Question.parse(request))), value)
         return [f"value does not fit question {request['id']} at {errors}"] if errors else []
     errors = error_paths(subschema_validator(schemas["answer"], "approval_value"), value)
     if errors:

@@ -82,7 +82,7 @@ step of the error path. For a `required` error the missing names come from the v
 `required` list. `message` is short English for a person, from a small table per JSON Schema
 keyword (`type`, `enum`, `minLength`, `minItems`, `required`, `minimum`, `maximum`,
 `uniqueItems`), falling back to jsonschema's own message. `Problem.as_error_item()` gives the
-re-ask `errors` entry (R2C-ASK-3).
+re-ask `errors` entry (R2C-ASK-6).
 
 **Rationale:** a door decides from `code` whether to re-ask (`invalid_value`, `invalid_args`,
 `not_offered`) or refuse (`wrong_id`, `expired`: R2C-ASK-4, R2C-ASK-5).

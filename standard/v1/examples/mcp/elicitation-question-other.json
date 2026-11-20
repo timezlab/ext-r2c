@@ -22,7 +22,7 @@
                   "type": "object",
                   "properties": {
                     "warehouse": {
-                      "type": "string", "title": "Warehouse",
+                      "type": "string", "title": "Warehouse", "description": "Which warehouse should the report cover?",
                       "oneOf": [{ "const": "North", "title": "North" }, { "const": "South", "title": "South" }]
                     },
                     "warehouse_other": { "type": "string", "title": "Warehouse (other)", "description": "Another warehouse, if not listed." }

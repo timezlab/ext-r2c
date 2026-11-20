@@ -5,6 +5,7 @@ Every door (A2A, MCP) and every bridge builds on this package, which depends onl
 """
 
 from ._schemas import schema, schema_kinds
+from .forms import McpForm, NotAskableOverMcp, answer_from_mcp, answer_schema, edit_offered, mcp_form
 from .models import (
     Activity,
     Answer,
@@ -41,6 +42,8 @@ __all__ = [
     "ErrorItem",
     "Field",
     "InvalidObject",
+    "McpForm",
+    "NotAskableOverMcp",
     "Option",
     "Origin",
     "Question",
@@ -49,6 +52,10 @@ __all__ = [
     "Subject",
     "Unknown",
     "Usage",
+    "answer_from_mcp",
+    "answer_schema",
+    "edit_offered",
+    "mcp_form",
     "parse",
     "schema",
     "schema_kinds",
