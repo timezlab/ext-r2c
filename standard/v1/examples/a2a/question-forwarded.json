@@ -1,0 +1,69 @@
+{
+  "title": "A question forwarded by a middle agent keeps its id and names its origin",
+  "description": "inventory-service asks report-service (step 1). report-service cannot answer, so it forwards the same question to its own caller (step 2) with the same `id` and `origin` set to inventory-service. The two steps are on different connections, hence different tasks.",
+  "binding": "a2a",
+  "rules": ["R2C-ASK-7", "R2C-A2A-1"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-inv-5",
+          "contextId": "ctx-inv-2",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-i1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Count the damaged items as stock? yes / no" },
+                {
+                  "data": {
+                    "kind": "question",
+                    "id": "q-inv-1",
+                    "title": "Count the damaged items as stock?",
+                    "answer_by": { "role": "person" },
+                    "fields": [{ "key": "count_damaged", "header": "Damaged", "text": "Count the damaged items as stock?", "type": "bool" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "inventory-service asks: count the damaged items as stock? yes / no" },
+                {
+                  "data": {
+                    "kind": "question",
+                    "id": "q-inv-1",
+                    "title": "Count the damaged items as stock?",
+                    "answer_by": { "role": "person" },
+                    "origin": { "name": "inventory-service", "url": "https://inventory.example.com/a2a" },
+                    "fields": [{ "key": "count_damaged", "header": "Damaged", "text": "Count the damaged items as stock?", "type": "bool" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

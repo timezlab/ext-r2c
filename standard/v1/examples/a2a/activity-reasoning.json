@@ -1,0 +1,55 @@
+{
+  "title": "Reasoning, turned on by the remote's owner, in coalesced deltas",
+  "description": "Each `delta` is appended to the reasoning with the same `id`. Deltas are readable pieces, not single tokens. No provider signature or encrypted reasoning is sent.",
+  "binding": "a2a",
+  "rules": ["R2C-ACTIVITY-4", "R2C-ACTIVITY-7", "R2C-A2A-3"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r1", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Thinking" },
+                {
+                  "data": { "kind": "activity", "id": "rs-1", "type": "reasoning", "label": "Thinking", "delta": "Three items are below the threshold. " },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r2", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Thinking" },
+                {
+                  "data": {
+                    "kind": "activity", "id": "rs-1", "type": "reasoning", "label": "Thinking",
+                    "delta": "A-113 has an open order already, so only B-201 and C-047 need a reorder."
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

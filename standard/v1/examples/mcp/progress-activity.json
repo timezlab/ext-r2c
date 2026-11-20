@@ -1,0 +1,64 @@
+{
+  "title": "Activity as progress notifications, only because the call carried a progressToken",
+  "description": "The tool call carries a `progressToken`, so the server may report activity: each `notifications/progress` has the activity's label as `message` and the activity in the params' `_meta`. Without a token, no activity is sent.",
+  "binding": "mcp",
+  "rules": ["R2C-MCP-6", "R2C-ACTIVITY-1", "R2C-ACTIVITY-2", "R2C-CORE-3"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "_meta": {
+            "progressToken": "pt-1",
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "notification",
+      "body": {
+        "jsonrpc": "2.0", "method": "notifications/progress",
+        "params": {
+          "progressToken": "pt-1", "progress": 1, "message": "Reading the inventory",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "kind": "activity", "id": "call-1", "type": "tool", "state": "running", "name": "read_inventory", "label": "Reading the inventory"
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "notification",
+      "body": {
+        "jsonrpc": "2.0", "method": "notifications/progress",
+        "params": {
+          "progressToken": "pt-1", "progress": 2, "message": "Read the inventory",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "kind": "activity", "id": "call-1", "type": "tool", "state": "done", "name": "read_inventory",
+              "label": "Read the inventory", "detail": "412 items", "duration_ms": 840
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": { "resultType": "complete", "content": [{ "type": "text", "text": "412 items read; 3 are below their reorder level." }] }
+      }
+    }
+  ]
+}

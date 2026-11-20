@@ -1,0 +1,108 @@
+{
+  "title": "A question as an elicitation inside a multi-round-trip tool call",
+  "description": "The tool call returns an InputRequiredResult with one form elicitation; the R2C question sits in the result's `_meta` under `input_requests`, keyed like `inputRequests`. The flat `requestedSchema` is generated from the fields (here every `other` is false). The client calls the tool again with `inputResponses` and the unchanged `requestState`. Derived answer: {kind: answer, id: q-2, outcome: answered, answered_by: {role: person}, value: {warehouse: North, sections: [Stock, Returns], title: October stock, threshold: 20, charts: true}}.",
+  "binding": "mcp",
+  "rules": ["R2C-MCP-1", "R2C-MCP-2", "R2C-MCP-4", "R2C-CORE-3", "R2C-ACT-5"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "q-2": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Report settings",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "warehouse": {
+                      "type": "string", "title": "Warehouse", "description": "Which warehouse should the report cover?",
+                      "oneOf": [{ "const": "North", "title": "North" }, { "const": "South", "title": "South" }]
+                    },
+                    "sections": {
+                      "type": "array", "title": "Sections", "description": "Which sections should the report have?",
+                      "items": { "anyOf": [{ "const": "Stock", "title": "Stock" }, { "const": "Orders", "title": "Orders" }, { "const": "Returns", "title": "Returns" }] }
+                    },
+                    "title": { "type": "string", "title": "Title", "description": "What is the report's title?" },
+                    "threshold": { "type": "number", "title": "Threshold", "description": "Below which stock level is an item flagged?" },
+                    "charts": { "type": "boolean", "title": "Charts", "description": "Include charts?" }
+                  },
+                  "required": ["warehouse", "sections", "title", "threshold", "charts"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTIifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "q-2": {
+                  "kind": "question",
+                  "id": "q-2",
+                  "title": "Report settings",
+                  "answer_by": { "role": "person" },
+                  "fields": [
+                    {
+                      "key": "warehouse", "header": "Warehouse", "text": "Which warehouse should the report cover?",
+                      "type": "one", "other": false, "options": [{ "label": "North" }, { "label": "South" }]
+                    },
+                    {
+                      "key": "sections", "header": "Sections", "text": "Which sections should the report have?",
+                      "type": "many", "other": false, "options": [{ "label": "Stock" }, { "label": "Orders" }, { "label": "Returns" }]
+                    },
+                    { "key": "title", "header": "Title", "text": "What is the report's title?", "type": "text" },
+                    { "key": "threshold", "header": "Threshold", "text": "Below which stock level is an item flagged?", "type": "number" },
+                    { "key": "charts", "header": "Charts", "text": "Include charts?", "type": "bool" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "inputResponses": {
+            "q-2": {
+              "action": "accept",
+              "content": { "warehouse": "North", "sections": ["Stock", "Returns"], "title": "October stock", "threshold": 20, "charts": true }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTIifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "title": "A step with tool activities nested under it",
+  "description": "A sub-agent's work is one `step`; the tool call it makes sets `parent_id` to the step's `id`, so the client can show it indented under the step.",
+  "binding": "a2a",
+  "rules": ["R2C-ACTIVITY-3", "R2C-ACTIVITY-2", "R2C-A2A-3"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r1", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Checking the supplier orders" },
+                {
+                  "data": { "kind": "activity", "id": "step-1", "type": "step", "state": "running", "name": "orders-agent", "label": "Checking the supplier orders" },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r2", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Listing the open orders" },
+                {
+                  "data": {
+                    "kind": "activity", "id": "call-7", "type": "tool", "state": "running", "name": "list_orders",
+                    "label": "Listing the open orders", "parent_id": "step-1"
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r3", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Listed the open orders: 5 orders" },
+                {
+                  "data": {
+                    "kind": "activity", "id": "call-7", "type": "tool", "state": "done", "name": "list_orders",
+                    "label": "Listed the open orders", "parent_id": "step-1", "detail": "5 orders", "duration_ms": 310
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r4", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Checked the supplier orders" },
+                {
+                  "data": {
+                    "kind": "activity", "id": "step-1", "type": "step", "state": "done", "name": "orders-agent",
+                    "label": "Checked the supplier orders", "duration_ms": 1200
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

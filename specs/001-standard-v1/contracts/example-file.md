@@ -62,6 +62,9 @@ An `answer` whose `id` matches a `question` earlier in the same file is also che
 schema generated from that question's form. One matching an `approval` is checked against
 `answer.json#/$defs/approval_value`, and `decision` must be one of the approval's `decisions`.
 
+When the same request is sent again later in the file with `errors` (a re-ask), the answer
+before it must **fail** this check instead: the re-ask has to be justified.
+
 ## Invalid examples (`examples/invalid/*.json`)
 
 ```jsonc

@@ -177,6 +177,16 @@ def find_r2c_objects(binding: str, body: Any, path: str = "") -> Iterator[tuple[
             yield from find_r2c_objects(binding, v, f"{path}/{escape(k)}")
 
 
+def unknown_kinds(example: Mapping[str, Any], known: set[str]) -> list[tuple[str, str]]:
+    """`(json_pointer, kind)` of each R2C object in an example whose kind has no schema."""
+    out: list[tuple[str, str]] = []
+    for n, step in enumerate(example["steps"]):
+        for where, obj in find_r2c_objects(example["binding"], step["body"], f"/steps/{n}/body"):
+            if obj["kind"] not in known:
+                out.append((where, obj["kind"]))
+    return out
+
+
 # --- A2A envelopes ----------------------------------------------------------------------------
 
 A2A_TYPES = (

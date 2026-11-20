@@ -1,0 +1,52 @@
+{
+  "title": "A declined answer carries no value",
+  "description": "The person closed the form without answering. `declined` has no `value`; the remote goes on without the information.",
+  "binding": "a2a",
+  "rules": ["R2C-ANSWER-1", "R2C-ANSWER-3", "R2C-A2A-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Add a note for the reader? (optional text)" },
+                {
+                  "data": {
+                    "kind": "question", "id": "q-1", "title": "Add a note for the reader?",
+                    "answer_by": { "role": "person" },
+                    "fields": [{ "key": "note", "header": "Note", "text": "A note for the reader.", "type": "text" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Declined: no answer." },
+            {
+              "data": { "kind": "answer", "id": "q-1", "outcome": "declined", "answered_by": { "role": "person" }, "note": "Form closed." },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

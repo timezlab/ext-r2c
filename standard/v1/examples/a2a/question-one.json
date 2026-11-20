@@ -1,0 +1,78 @@
+{
+  "title": "A question with one choice, answered with free text",
+  "description": "`other` is left out, so it defaults to true: the person may answer with a value that is not one of the options. The text part lets a client without R2C show the question.",
+  "binding": "a2a",
+  "rules": [
+    "R2C-ASK-1", "R2C-QUESTION-1", "R2C-QUESTION-2", "R2C-QUESTION-3", "R2C-QUESTION-5",
+    "R2C-CORE-1", "R2C-CORE-4", "R2C-A2A-1", "R2C-A2A-2", "R2C-ANSWER-1"
+  ],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Which warehouse should the report cover? North, South, or another one." },
+                {
+                  "data": {
+                    "kind": "question",
+                    "id": "q-1",
+                    "title": "Which warehouse should the report cover?",
+                    "answer_by": { "role": "person" },
+                    "fields": [
+                      {
+                        "key": "warehouse",
+                        "header": "Warehouse",
+                        "text": "Which warehouse should the report cover?",
+                        "type": "one",
+                        "options": [
+                          { "label": "North", "description": "The main site" },
+                          { "label": "South" }
+                        ]
+                      }
+                    ]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "message": {
+          "messageId": "msg-c2",
+          "role": "ROLE_USER",
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "parts": [
+            { "text": "Warehouse: East annex" },
+            {
+              "data": {
+                "kind": "answer",
+                "id": "q-1",
+                "outcome": "answered",
+                "answered_by": { "role": "person" },
+                "value": { "warehouse": "East annex" }
+              },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

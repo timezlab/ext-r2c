@@ -1,0 +1,102 @@
+{
+  "title": "Tool activities: one done with a duration, one failed",
+  "description": "Each update keeps the activity's `id`. `duration_ms` and a short `detail` come with the terminal state. Every activity message also carries its label as text.",
+  "binding": "a2a",
+  "rules": ["R2C-ACTIVITY-1", "R2C-ACTIVITY-2", "R2C-A2A-3", "R2C-CORE-1", "R2C-CORE-4"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r1", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Reading the inventory" },
+                {
+                  "data": { "kind": "activity", "id": "call-1", "type": "tool", "state": "running", "name": "read_inventory", "label": "Reading the inventory" },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r2", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Read the inventory: 412 items" },
+                {
+                  "data": {
+                    "kind": "activity", "id": "call-1", "type": "tool", "state": "done", "name": "read_inventory",
+                    "label": "Read the inventory", "detail": "412 items", "duration_ms": 840
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r3", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Reading the supplier prices" },
+                {
+                  "data": { "kind": "activity", "id": "call-2", "type": "tool", "state": "running", "name": "read_prices", "label": "Reading the supplier prices" },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r4", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Could not read the supplier prices: the price list timed out" },
+                {
+                  "data": {
+                    "kind": "activity", "id": "call-2", "type": "tool", "state": "failed", "name": "read_prices",
+                    "label": "Could not read the supplier prices", "detail": "The price list timed out after 30 s.", "duration_ms": 30000
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

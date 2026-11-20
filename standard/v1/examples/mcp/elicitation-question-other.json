@@ -1,0 +1,72 @@
+{
+  "title": "A one-choice field with other: <key> and <key>_other map back to one value",
+  "description": "`other` defaults to true, so the flat form adds `warehouse_other`, never required. The person picks nothing from the list and types \"East annex\"; a non-empty `<key>_other` wins. Derived answer: {kind: answer, id: q-1, outcome: answered, answered_by: {role: person}, value: {warehouse: East annex}}.",
+  "binding": "mcp",
+  "rules": ["R2C-MCP-1", "R2C-MCP-2", "R2C-MCP-4"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "q-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Which warehouse should the report cover?",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "warehouse": {
+                      "type": "string", "title": "Warehouse",
+                      "oneOf": [{ "const": "North", "title": "North" }, { "const": "South", "title": "South" }]
+                    },
+                    "warehouse_other": { "type": "string", "title": "Warehouse (other)", "description": "Another warehouse, if not listed." }
+                  }
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTMifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "q-1": {
+                  "kind": "question", "id": "q-1", "title": "Which warehouse should the report cover?",
+                  "answer_by": { "role": "person" },
+                  "fields": [
+                    {
+                      "key": "warehouse", "header": "Warehouse", "text": "Which warehouse should the report cover?",
+                      "type": "one", "options": [{ "label": "North" }, { "label": "South" }]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "inputResponses": { "q-1": { "action": "accept", "content": { "warehouse_other": "East annex" } } },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTMifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    }
+  ]
+}

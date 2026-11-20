@@ -1,0 +1,52 @@
+{
+  "title": "Artifacts without R2C metadata, and how a client guesses",
+  "description": "None of these artifacts carries R2C metadata. A client guesses: `raw` (or a `url` with `filename`) is a file; `text` or `data` is inline; a `url` with mediaType text/html is only a link, opened in a new tab, never fetched or embedded. `live` is never guessed.",
+  "binding": "a2a",
+  "rules": ["R2C-ARTIFACT-7"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "artifact": { "artifactId": "art-1", "parts": [{ "raw": "QS0xMTMgMTIK", "filename": "low.txt", "mediaType": "text/plain" }] },
+          "lastChunk": true
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "artifact": { "artifactId": "art-2", "parts": [{ "text": "Three items are below their reorder level." }] },
+          "lastChunk": true
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "artifact": { "artifactId": "art-3", "parts": [{ "data": { "items": 412, "below_threshold": 3 } }] },
+          "lastChunk": true
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "artifact": { "artifactId": "art-4", "parts": [{ "url": "https://remote.example.com/view/task-1", "mediaType": "text/html" }] },
+          "lastChunk": true
+        }
+      }
+    }
+  ]
+}

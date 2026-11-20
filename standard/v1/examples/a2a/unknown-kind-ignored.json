@@ -1,0 +1,59 @@
+{
+  "title": "An unknown kind, an unknown field and an unknown activity type are ignored",
+  "description": "A v1 client sees a marked part with `kind: provenance`, which it does not know: it skips it without error. It shows the activity, ignoring the unknown field `confidence`. A second activity has `type: plan`, which it does not know either: it ignores that activity, also without error.",
+  "binding": "a2a",
+  "rules": ["R2C-CORE-5", "R2C-CORE-6"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r1", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Read the inventory" },
+                {
+                  "data": {
+                    "kind": "activity", "id": "call-1", "type": "tool", "state": "done", "name": "read_inventory",
+                    "label": "Read the inventory", "confidence": "high"
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                },
+                {
+                  "data": { "kind": "provenance", "source": "inventory-db", "as_of": "2026-10-31" },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r2", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Planning the report" },
+                {
+                  "data": { "kind": "activity", "id": "plan-1", "type": "plan", "label": "Planning the report" },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

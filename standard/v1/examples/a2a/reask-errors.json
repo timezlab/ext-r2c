@@ -1,0 +1,97 @@
+{
+  "title": "An answer that fails the form is asked again with the same id and errors",
+  "description": "The threshold must be a number. The remote does not pass the bad answer to its agent: it sends the same question again, same `id`, with `errors`. The second answer fits.",
+  "binding": "a2a",
+  "rules": ["R2C-ASK-6", "R2C-A2A-1", "R2C-A2A-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Below which stock level is an item flagged? (a number)" },
+                {
+                  "data": {
+                    "kind": "question", "id": "q-1", "title": "Reorder threshold",
+                    "answer_by": { "role": "person" },
+                    "fields": [{ "key": "threshold", "header": "Threshold", "text": "Below which stock level is an item flagged?", "type": "number" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Threshold: twenty" },
+            {
+              "data": { "kind": "answer", "id": "q-1", "outcome": "answered", "answered_by": { "role": "person" }, "value": { "threshold": "twenty" } },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r2",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "The threshold must be a number. Below which stock level is an item flagged?" },
+                {
+                  "data": {
+                    "kind": "question", "id": "q-1", "title": "Reorder threshold",
+                    "answer_by": { "role": "person" },
+                    "errors": [{ "key": "threshold", "message": "Must be a number, for example 20." }],
+                    "fields": [{ "key": "threshold", "header": "Threshold", "text": "Below which stock level is an item flagged?", "type": "number" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c3", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Threshold: 20" },
+            {
+              "data": { "kind": "answer", "id": "q-1", "outcome": "answered", "answered_by": { "role": "person" }, "value": { "threshold": 20 } },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

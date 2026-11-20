@@ -1,0 +1,70 @@
+{
+  "title": "An answer to no pending request is refused in text",
+  "description": "The client answers `q-9`, but the pending request is `q-1`. The remote refuses in text and `q-1` stays pending: the task stays at input-required.",
+  "binding": "a2a",
+  "rules": ["R2C-ASK-5"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Which month should the report cover? (YYYY-MM)" },
+                {
+                  "data": {
+                    "kind": "question", "id": "q-1", "title": "Which month should the report cover?",
+                    "answer_by": { "role": "person" },
+                    "fields": [{ "key": "month", "header": "Month", "text": "Which month, as YYYY-MM?", "type": "text" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Month: 2026-10" },
+            {
+              "data": { "kind": "answer", "id": "q-9", "outcome": "answered", "answered_by": { "role": "person" }, "value": { "month": "2026-10" } },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r2",
+              "role": "ROLE_AGENT",
+              "parts": [{ "text": "No pending request has the id q-9. Request q-1 is still waiting for an answer." }]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

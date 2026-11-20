@@ -1,0 +1,77 @@
+{
+  "title": "A question with every field type, and its answer",
+  "description": "`many` with `other: false` takes only option labels; `required: false` may be left out of the answer. The answer has one entry per field key and fits the schema generated from the form.",
+  "binding": "a2a",
+  "rules": ["R2C-QUESTION-2", "R2C-QUESTION-3", "R2C-QUESTION-5", "R2C-ANSWER-1", "R2C-A2A-1", "R2C-A2A-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                {
+                  "text": "Report settings.\n- Sections (one or more of: Stock, Orders, Returns)\n- Title\n- Reorder threshold (a number)\n- Include charts? (yes/no)\n- Note for the reader (optional)"
+                },
+                {
+                  "data": {
+                    "kind": "question",
+                    "id": "q-2",
+                    "title": "Report settings",
+                    "description": "These settings apply to the October report only.",
+                    "answer_by": { "role": "person" },
+                    "fields": [
+                      {
+                        "key": "sections", "header": "Sections", "text": "Which sections should the report have?",
+                        "type": "many", "other": false,
+                        "options": [{ "label": "Stock" }, { "label": "Orders" }, { "label": "Returns" }]
+                      },
+                      { "key": "title", "header": "Title", "text": "What is the report's title?", "type": "text" },
+                      { "key": "threshold", "header": "Threshold", "text": "Below which stock level is an item flagged?", "type": "number" },
+                      { "key": "charts", "header": "Charts", "text": "Include charts?", "type": "bool" },
+                      { "key": "note", "header": "Note", "text": "A note for the reader, if any.", "type": "text", "required": false }
+                    ]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "message": {
+          "messageId": "msg-c2",
+          "role": "ROLE_USER",
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "parts": [
+            { "text": "Sections: Stock, Returns. Title: October stock. Threshold: 20. Charts: yes." },
+            {
+              "data": {
+                "kind": "answer",
+                "id": "q-2",
+                "outcome": "answered",
+                "answered_by": { "role": "person" },
+                "value": { "sections": ["Stock", "Returns"], "title": "October stock", "threshold": 20, "charts": true }
+              },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

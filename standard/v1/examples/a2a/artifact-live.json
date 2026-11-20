@@ -1,0 +1,45 @@
+{
+  "title": "A live page, open while the remote works, then closed",
+  "description": "The remote serves a progress page of its own. The client embeds it under its framing rules while `state` is open; the same `artifactId` is sent again with `state: closed` when the page is done.",
+  "binding": "a2a",
+  "rules": ["R2C-ARTIFACT-1", "R2C-ARTIFACT-6", "R2C-A2A-5"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "artifact": {
+            "artifactId": "art-live-1",
+            "name": "Stock count, live",
+            "parts": [{ "url": "https://remote.example.com/live/task-1", "mediaType": "text/html" }],
+            "metadata": {
+              "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": { "kind": "artifact", "presentation": "live", "state": "open" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "artifact": {
+            "artifactId": "art-live-1",
+            "name": "Stock count, live",
+            "parts": [{ "url": "https://remote.example.com/live/task-1", "mediaType": "text/html" }],
+            "metadata": {
+              "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": { "kind": "artifact", "presentation": "live", "state": "closed" }
+            }
+          },
+          "lastChunk": true
+        }
+      }
+    }
+  ]
+}

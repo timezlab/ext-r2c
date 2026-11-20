@@ -1,0 +1,77 @@
+{
+  "title": "An approval of an operation, denied with a reason",
+  "description": "The subject is an operation, not a tool call, so `edit` is not offered. The person denies; the reason reaches the remote's agent as the rejection message, and the run ends without the operation.",
+  "binding": "a2a",
+  "rules": ["R2C-APPROVAL-1", "R2C-ANSWER-1", "R2C-ANSWER-2", "R2C-A2A-1", "R2C-A2A-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Delete last year's draft reports (14 files)? allow | deny" },
+                {
+                  "data": {
+                    "kind": "approval",
+                    "id": "ap-1",
+                    "title": "Delete last year's draft reports",
+                    "description": "14 files in `drafts/2025/`. They cannot be restored.",
+                    "answer_by": { "role": "person" },
+                    "subject": { "type": "operation", "name": "delete_files", "target": "drafts/2025/" },
+                    "decisions": ["allow", "deny"]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Deny: keep them until the audit is done." },
+            {
+              "data": {
+                "kind": "answer", "id": "ap-1", "outcome": "answered",
+                "answered_by": { "role": "person" },
+                "value": { "decision": "deny", "reason": "Keep them until the audit is done." }
+              },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_COMPLETED",
+            "message": {
+              "messageId": "msg-r2", "role": "ROLE_AGENT",
+              "parts": [{ "text": "The drafts were kept, as asked: they stay until the audit is done." }]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

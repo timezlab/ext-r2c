@@ -1,0 +1,30 @@
+{
+  "title": "A file artifact by url",
+  "description": "One artifact per file, in an artifact update. The part carries the url, filename and mediaType; the R2C annotation in the artifact's metadata says to offer it as a download.",
+  "binding": "a2a",
+  "rules": ["R2C-ARTIFACT-1", "R2C-ARTIFACT-4", "R2C-A2A-5", "R2C-CORE-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "artifact": {
+            "artifactId": "art-file-1",
+            "name": "inventory-2026-10.csv",
+            "description": "Stock per item, October 2026",
+            "parts": [
+              { "url": "https://files.example.com/r/inventory-2026-10.csv", "filename": "inventory-2026-10.csv", "mediaType": "text/csv" }
+            ],
+            "metadata": {
+              "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": { "kind": "artifact", "presentation": "file" }
+            }
+          },
+          "lastChunk": true
+        }
+      }
+    }
+  ]
+}

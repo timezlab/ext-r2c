@@ -15,6 +15,7 @@ from r2c_check import (
     find_r2c_objects,
     form_schema,
     parse_rules,
+    unknown_kinds,
     validator,
 )
 
@@ -208,6 +209,14 @@ def test_find_mcp_input_requests_form_and_key_check() -> None:
         "q-9", {"kind": "question"}))
     with pytest.raises(EnvelopeError):
         list(find_r2c_objects("mcp", stray))
+
+
+def test_unknown_kinds_lists_only_kinds_without_a_schema() -> None:
+    example = {"binding": "a2a", "steps": [{"body": {"parts": [
+        {"data": {"kind": "provenance", "source": "x"}, "metadata": {URI: {}}},
+        {"data": {"kind": "usage", "input_tokens": 1}, "metadata": {URI: {}}},
+    ]}}]}
+    assert unknown_kinds(example, {"usage"}) == [("/steps/0/body/parts/0/data", "provenance")]
 
 
 # --- Form → schema -----------------------------------------------------------------------------

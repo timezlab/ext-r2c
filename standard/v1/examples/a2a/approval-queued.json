@@ -1,0 +1,98 @@
+{
+  "title": "Two approvals in tool-call order, one at a time",
+  "description": "The model asked for two tool calls at once: send_email, then publish_page. The remote asks for the first; only after its answer does it ask for the second. One pending request per task; each is decided on its own, so the deny of the first does not drop the second.",
+  "binding": "a2a",
+  "rules": ["R2C-APPROVAL-4", "R2C-ASK-3", "R2C-A2A-1", "R2C-A2A-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Send the report by email to ops@example.com? allow | deny" },
+                {
+                  "data": {
+                    "kind": "approval", "id": "ap-1", "title": "Email the report to ops@example.com",
+                    "answer_by": { "role": "person" },
+                    "subject": { "type": "tool_call", "name": "send_email", "args": { "to": "ops@example.com", "attachment": "inventory-2026-10.csv" } },
+                    "decisions": ["allow", "deny"]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Deny" },
+            {
+              "data": { "kind": "answer", "id": "ap-1", "outcome": "answered", "answered_by": { "role": "person" }, "value": { "decision": "deny" } },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r2",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Publish the report to the team page? allow | deny" },
+                {
+                  "data": {
+                    "kind": "approval", "id": "ap-2", "title": "Publish the report to the team page",
+                    "answer_by": { "role": "person" },
+                    "subject": { "type": "tool_call", "name": "publish_page", "args": { "page": "team/reports", "file": "inventory-2026-10.csv" } },
+                    "decisions": ["allow", "deny"]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c3", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Allow" },
+            {
+              "data": { "kind": "answer", "id": "ap-2", "outcome": "answered", "answered_by": { "role": "person" }, "value": { "decision": "allow" } },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

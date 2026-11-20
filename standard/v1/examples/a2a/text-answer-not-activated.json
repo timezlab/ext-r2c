@@ -1,0 +1,54 @@
+{
+  "title": "A client without R2C answers a one-field question in text",
+  "description": "The client did not activate R2C, so the remote asks in text only. The form has a single `one` field, so the remote may accept the reply text as the answer, here \"South\", and carry on.",
+  "binding": "a2a",
+  "rules": ["R2C-ASK-8", "R2C-ACT-3"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": { "messageId": "msg-c1", "role": "ROLE_USER", "parts": [{ "text": "Build the inventory report for October." }] }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [{ "text": "Which warehouse should the report cover? North or South." }]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": { "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1", "parts": [{ "text": "South" }] }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": { "messageId": "msg-r2", "role": "ROLE_AGENT", "parts": [{ "text": "Reading the South inventory" }] }
+          }
+        }
+      }
+    }
+  ]
+}

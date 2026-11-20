@@ -1,0 +1,39 @@
+{
+  "title": "An agent card that declares R2C, never required",
+  "binding": "a2a",
+  "rules": ["R2C-ACT-1"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "AgentCard",
+      "body": {
+        "name": "report-service",
+        "description": "Builds monthly inventory reports.",
+        "version": "1.0.0",
+        "supportedInterfaces": [
+          { "url": "https://remote.example.com/a2a", "protocolBinding": "JSONRPC", "protocolVersion": "1.0" }
+        ],
+        "capabilities": {
+          "streaming": true,
+          "extensions": [
+            {
+              "uri": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1",
+              "description": "Asks questions and approvals, reports activity and usage, presents artifacts.",
+              "required": false
+            }
+          ]
+        },
+        "defaultInputModes": ["text/plain"],
+        "defaultOutputModes": ["text/plain", "text/csv"],
+        "skills": [
+          {
+            "id": "monthly-report",
+            "name": "Monthly inventory report",
+            "description": "Reads the inventory and writes a report for one month.",
+            "tags": ["report", "inventory"]
+          }
+        ]
+      }
+    }
+  ]
+}

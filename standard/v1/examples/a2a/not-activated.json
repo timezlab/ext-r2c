@@ -1,0 +1,69 @@
+{
+  "title": "Without activation the remote sends text and a standard artifact only",
+  "description": "The same request without the A2A-Extensions header. No R2C part, no R2C metadata, no reasoning: progress is plain text and the report is a standard artifact.",
+  "binding": "a2a",
+  "rules": ["R2C-ACT-3"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c1",
+          "role": "ROLE_USER",
+          "parts": [{ "text": "Build the inventory report for October." }]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": { "messageId": "msg-r1", "role": "ROLE_AGENT", "parts": [{ "text": "Reading the inventory" }] }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "artifact": {
+            "artifactId": "art-1",
+            "name": "inventory-2026-10.csv",
+            "parts": [
+              { "url": "https://files.example.com/r/inventory-2026-10.csv", "filename": "inventory-2026-10.csv", "mediaType": "text/csv" }
+            ]
+          },
+          "lastChunk": true
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_COMPLETED",
+            "message": {
+              "messageId": "msg-r2",
+              "role": "ROLE_AGENT",
+              "parts": [{ "text": "The October report is ready: 412 items, 3 below their reorder level." }]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

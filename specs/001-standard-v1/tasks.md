@@ -184,21 +184,21 @@ Envelopes are accepted by the real SDK types.
 
 ### A2A examples (`standard/v1/examples/a2a/`)
 
-- [ ] T027 [P] [US2] Write `agent-card.json`, `activation.json` (request with an `A2A-Extensions` header, and the response echoing it) and `not-activated.json` (the same exchange without the header: text and a standard artifact only, no R2C part, no reasoning).
-- [ ] T028 [P] [US2] Write `question-one.json` (fallback TextPart, `other` default), `question-fields.json` (`many`, `text`, `number`, `bool`, `other: false`, `required: false`, with the answer), `question-caller.json` and `question-forwarded.json` (`origin`, `id` unchanged).
-- [ ] T029 [P] [US2] Write `reask-errors.json` (a bad answer, then the same `id` with `errors`), `refuse-wrong-id.json`, `refuse-expired.json` and `text-answer-not-activated.json` (a single `one` field answered in text).
-- [ ] T030 [P] [US2] Write:
+- [X] T027 [P] [US2] Write `agent-card.json`, `activation.json` (request with an `A2A-Extensions` header, and the response echoing it) and `not-activated.json` (the same exchange without the header: text and a standard artifact only, no R2C part, no reasoning).
+- [X] T028 [P] [US2] Write `question-one.json` (fallback TextPart, `other` default), `question-fields.json` (`many`, `text`, `number`, `bool`, `other: false`, `required: false`, with the answer), `question-caller.json` and `question-forwarded.json` (`origin`, `id` unchanged).
+- [X] T029 [P] [US2] Write `reask-errors.json` (a bad answer, then the same `id` with `errors`), `refuse-wrong-id.json`, `refuse-expired.json` and `text-answer-not-activated.json` (a single `one` field answered in text).
+- [X] T030 [P] [US2] Write:
   - `approval-four-eyes-edit.json`: `approver`, `approver_role`, `expires_at`, `args_schema`, answered `edit` with `args`;
   - `approval-operation-deny.json`: `operation`, `deny` with `reason`;
   - `approval-queued.json`: two approvals in tool-call order, the second only after the first answer.
-- [ ] T031 [P] [US2] Write `answer-declined.json` and `answer-policy.json` (`answered_by: policy` on `answer_by: person`).
-- [ ] T032 [P] [US2] Write `artifact-file-url.json`, `artifact-file-raw.json`, `artifact-live.json` (open, then the same `artifactId` closed), `artifact-version.json` (`append: false` replaces) and `artifact-no-metadata.json`.
-- [ ] T033 [P] [US2] Write:
+- [X] T031 [P] [US2] Write `answer-declined.json` and `answer-policy.json` (`answered_by: policy` on `answer_by: person`).
+- [X] T032 [P] [US2] Write `artifact-file-url.json`, `artifact-file-raw.json`, `artifact-live.json` (open, then the same `artifactId` closed), `artifact-version.json` (`append: false` replaces) and `artifact-no-metadata.json`.
+- [X] T033 [P] [US2] Write:
   - `activity-tool.json`: running, done with `duration_ms` and `detail`, and a second tool that ends `failed`;
   - `activity-step-nested.json`: a step with tool activities under it by `parent_id`;
   - `activity-reasoning.json`: coalesced deltas on one `id`.
-- [ ] T034 [P] [US2] Write `usage-input-required.json`, `unknown-kind-ignored.json` (a marked part with `kind: provenance` next to a known one), `follow-up-context.json` (same `contextId`, no `taskId`) and `resubscribe.json` (`SubscribeToTaskRequest`, then `GetTask` returning the task's artifacts and `usage`).
-- [ ] T035 [US2] Write `full-streamed-run.json`, following US2 scenario 2 and SC-006:
+- [X] T034 [P] [US2] Write `usage-input-required.json`, `unknown-kind-ignored.json` (a marked part with `kind: provenance` next to a known one), `follow-up-context.json` (same `contextId`, no `taskId`) and `resubscribe.json` (`SubscribeToTaskRequest`, then `GetTask` returning the task's artifacts and `usage`).
+- [X] T035 [US2] Write `full-streamed-run.json`, following US2 scenario 2 and SC-006:
   - activation; a `step` activity;
   - `tool` running and done with a duration;
   - at least three `response` chunks (`append: false`, `append: true`, `lastChunk: true`) interleaved with the activities;
@@ -207,16 +207,23 @@ Envelopes are accepted by the real SDK types.
 
 ### MCP examples (`standard/v1/examples/mcp/`)
 
-- [ ] T036 [P] [US2] Write `discover.json` (the R2C key under `capabilities.extensions`, full 2026-07-28 result) and `not-activated.json` (a client without the extension in its `clientCapabilities`: elicitation and result with no R2C `_meta`).
-- [ ] T037 [P] [US2] Write `elicitation-question.json` (`one` with `other: false`, `many`, `text`, `number`, `bool`; R2C object in the `InputRequiredResult`'s `_meta`; retry with `inputResponses` + `requestState`; derived answer stated in `description`) and `elicitation-question-other.json` (`<key>` and `<key>_other` mapped back to one value).
-- [ ] T038 [P] [US2] Write `elicitation-approval.json` (flat `args_schema`, so `edit` is kept with defaults pre-filled; `accept` → `edit`) and `elicitation-approval-edit-dropped.json` (nested `args_schema`, so `edit` is dropped; `decline` → `declined`).
-- [ ] T039 [P] [US2] Write `progress-activity.json` (a request with `progressToken`, then `notifications/progress` with `message` = label and the activity in `_meta`) and `tool-result.json`. The tool result carries:
+- [X] T036 [P] [US2] Write `discover.json` (the R2C key under `capabilities.extensions`, full 2026-07-28 result) and `not-activated.json` (a client without the extension in its `clientCapabilities`: elicitation and result with no R2C `_meta`).
+- [X] T037 [P] [US2] Write `elicitation-question.json` (`one` with `other: false`, `many`, `text`, `number`, `bool`; R2C object in the `InputRequiredResult`'s `_meta`; retry with `inputResponses` + `requestState`; derived answer stated in `description`) and `elicitation-question-other.json` (`<key>` and `<key>_other` mapped back to one value).
+- [X] T038 [P] [US2] Write `elicitation-approval.json` (flat `args_schema`, so `edit` is kept with defaults pre-filled; `accept` → `edit`) and `elicitation-approval-edit-dropped.json` (nested `args_schema`, so `edit` is dropped; `decline` → `declined`).
+- [X] T039 [P] [US2] Write `progress-activity.json` (a request with `progressToken`, then `notifications/progress` with `message` = label and the activity in `_meta`) and `tool-result.json`. The tool result carries:
   - a `text` content with an `inline` `response` artifact;
   - a `resource_link` `file`;
   - an embedded `resource` file;
   - a `resource_link` `live`;
   - `usage` in the result's `_meta`.
-- [ ] T040 [US2] Run the suite until `test_examples.py` and `test_rules.py` pass with 0 uncovered `wire` rules. Run quickstart scenarios 2–5 by hand and undo them. Then verify and commit `docs(standard): v1 wire examples for A2A and MCP`.
+- [X] T040 [US2] Run the suite until `test_examples.py` and `test_rules.py` pass with 0 uncovered `wire` rules. Run quickstart scenarios 2–5 by hand and undo them. Then verify and commit `docs(standard): v1 wire examples for A2A and MCP`.
+
+  *Note 2026-11-20:* the check gained three things on the way:
+  - an answer the remote asks again for (same `id`, with `errors`) must fail its request, and any other answer must fit, so `reask-errors.json` can carry a bad answer;
+  - `unknown_kinds()`, with a test that some valid example carries an unknown kind (`R2C-CORE-5`) and a closing line `R2C examples: N valid, M invalid, K unknown kinds ignored` (quickstart scenario 1);
+  - schema failures now print each error's message, so a missing field is named (scenario 2).
+
+  Scenarios 2–5 were run on a copy of `standard/v1` through `R2C_STANDARD_DIR`, so there was nothing to undo.
 
 **Checkpoint**: US1 and US2 are both complete: the standard plus its shared test suite.
 

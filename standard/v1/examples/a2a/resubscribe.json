@@ -1,0 +1,80 @@
+{
+  "title": "Reattach after a cut stream, then read the task",
+  "description": "The client's stream was cut. It reattaches with SubscribeToTask and receives the next events. Later, GetTask returns the task's artifacts and its last status, usage included.",
+  "binding": "a2a",
+  "rules": ["R2C-A2A-6", "R2C-A2A-4"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "SubscribeToTaskRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": { "id": "task-1" }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r7", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Writing the report" },
+                {
+                  "data": { "kind": "activity", "id": "call-3", "type": "tool", "state": "running", "name": "write_report", "label": "Writing the report" },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "GetTaskRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": { "id": "task-1" }
+    },
+    {
+      "from": "remote",
+      "type": "Task",
+      "body": {
+        "id": "task-1",
+        "contextId": "ctx-1",
+        "status": {
+          "state": "TASK_STATE_COMPLETED",
+          "message": {
+            "messageId": "msg-r9", "role": "ROLE_AGENT",
+            "parts": [
+              { "text": "Done." },
+              {
+                "data": { "kind": "usage", "input_tokens": 5200, "output_tokens": 940, "duration_ms": 9800 },
+                "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+              }
+            ]
+          }
+        },
+        "artifacts": [
+          {
+            "artifactId": "art-reply",
+            "parts": [{ "text": "The October report is ready: 412 items, 3 below their reorder level." }],
+            "metadata": {
+              "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": { "kind": "artifact", "presentation": "inline", "response": true }
+            }
+          },
+          {
+            "artifactId": "art-file-1",
+            "name": "inventory-2026-10.csv",
+            "parts": [{ "url": "https://files.example.com/r/inventory-2026-10.csv", "filename": "inventory-2026-10.csv", "mediaType": "text/csv" }],
+            "metadata": {
+              "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": { "kind": "artifact", "presentation": "file" }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

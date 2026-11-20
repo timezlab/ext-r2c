@@ -1,0 +1,80 @@
+{
+  "title": "A client without the R2C extension gets plain MCP only",
+  "description": "The client's `clientCapabilities` does not list the R2C key. The server still asks through elicitation, but adds no R2C `_meta` to the elicitation result or to the tool result.",
+  "binding": "mcp",
+  "rules": ["R2C-ACT-5"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "q-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Which warehouse should the report cover?",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "warehouse": { "type": "string", "title": "Warehouse", "oneOf": [{ "const": "North", "title": "North" }, { "const": "South", "title": "South" }] }
+                  },
+                  "required": ["warehouse"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlIn0"
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "inputResponses": { "q-1": { "action": "accept", "content": { "warehouse": "South" } } },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlIn0",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 2,
+        "result": {
+          "resultType": "complete",
+          "content": [{ "type": "text", "text": "The South warehouse report for October is ready: 205 items, 1 below its reorder level." }]
+        }
+      }
+    }
+  ]
+}

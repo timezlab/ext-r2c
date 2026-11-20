@@ -1,0 +1,74 @@
+{
+  "title": "An approval past its expiry counts as deny, and a late answer is refused",
+  "description": "The approval expires at 10:15. The remote checks expiry itself: past it, the approval counts as deny and the run goes on. The answer that arrives later is refused in text.",
+  "binding": "a2a",
+  "rules": ["R2C-ASK-4", "R2C-ASK-5"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "timestamp": "2026-11-20T10:00:00Z",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Publish the October report to the team page? allow | deny (expires 10:15 UTC)" },
+                {
+                  "data": {
+                    "kind": "approval", "id": "ap-1", "title": "Publish the October report to the team page",
+                    "answer_by": { "role": "person" },
+                    "expires_at": "2026-11-20T10:15:00Z",
+                    "subject": { "type": "tool_call", "name": "publish_page", "args": { "page": "team/reports", "file": "inventory-2026-10.csv" } },
+                    "decisions": ["allow", "deny"]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Allow" },
+            {
+              "data": { "kind": "answer", "id": "ap-1", "outcome": "answered", "answered_by": { "role": "person" }, "value": { "decision": "allow" } },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_COMPLETED",
+            "timestamp": "2026-11-20T10:20:00Z",
+            "message": {
+              "messageId": "msg-r2",
+              "role": "ROLE_AGENT",
+              "parts": [{ "text": "Approval ap-1 expired at 10:15 UTC and counted as deny; this answer came too late. The report was not published." }]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

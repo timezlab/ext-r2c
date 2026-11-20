@@ -1,0 +1,57 @@
+{
+  "title": "A client policy answers an approval addressed to a person",
+  "description": "The person chose \"always allow publish_page\" earlier. The client applies that rule in code, without showing a dialog, and says so with `answered_by.role = policy`. It would never do this for `answer_by.role = approver`.",
+  "binding": "a2a",
+  "rules": ["R2C-ANSWER-5", "R2C-ANSWER-1", "R2C-A2A-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Publish the report to the team page? allow | deny" },
+                {
+                  "data": {
+                    "kind": "approval", "id": "ap-1", "title": "Publish the report to the team page",
+                    "answer_by": { "role": "person" },
+                    "subject": { "type": "tool_call", "name": "publish_page", "args": { "page": "team/reports", "file": "inventory-2026-10.csv" } },
+                    "decisions": ["allow", "deny"]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Allowed by a saved rule: always allow publish_page." },
+            {
+              "data": {
+                "kind": "answer", "id": "ap-1", "outcome": "answered",
+                "answered_by": { "role": "policy", "label": "always allow publish_page" },
+                "value": { "decision": "allow" }
+              },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

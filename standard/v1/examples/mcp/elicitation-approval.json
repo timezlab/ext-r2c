@@ -1,0 +1,90 @@
+{
+  "title": "An approval as an elicitation, with edit kept because args_schema is flat",
+  "description": "Every argument is a string, a number or an enum, so `edit` survives: each argument becomes a property pre-filled with its current value as `default`. The person accepts with decision edit and a lower quantity. Derived answer: {kind: answer, id: ap-1, outcome: answered, answered_by: {role: person}, value: {decision: edit, args: {item: A-113, quantity: 300, supplier: S-7}}}.",
+  "binding": "mcp",
+  "rules": ["R2C-MCP-1", "R2C-MCP-3", "R2C-MCP-4", "R2C-APPROVAL-3"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "ap-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Place a reorder of 500 units of A-113 from supplier S-7?",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "decision": {
+                      "type": "string", "title": "Decision",
+                      "oneOf": [{ "const": "allow", "title": "Allow" }, { "const": "edit", "title": "Edit" }, { "const": "deny", "title": "Deny" }]
+                    },
+                    "reason": { "type": "string", "title": "Reason" },
+                    "item": { "type": "string", "title": "item", "default": "A-113" },
+                    "quantity": { "type": "number", "title": "quantity", "minimum": 1, "maximum": 1000, "default": 500 },
+                    "supplier": {
+                      "type": "string", "title": "supplier", "default": "S-7",
+                      "oneOf": [{ "const": "S-7", "title": "S-7" }, { "const": "S-9", "title": "S-9" }]
+                    }
+                  },
+                  "required": ["decision"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTQifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "ap-1": {
+                  "kind": "approval", "id": "ap-1", "title": "Place a reorder of 500 units of A-113",
+                  "answer_by": { "role": "person" },
+                  "subject": {
+                    "type": "tool_call",
+                    "name": "place_order",
+                    "args": { "item": "A-113", "quantity": 500, "supplier": "S-7" },
+                    "args_schema": {
+                      "type": "object",
+                      "properties": {
+                        "item": { "type": "string" },
+                        "quantity": { "type": "number", "minimum": 1, "maximum": 1000 },
+                        "supplier": { "type": "string", "enum": ["S-7", "S-9"] }
+                      },
+                      "required": ["item", "quantity", "supplier"]
+                    }
+                  },
+                  "decisions": ["allow", "edit", "deny"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "reorder_low_stock",
+          "arguments": {},
+          "inputResponses": {
+            "ap-1": { "action": "accept", "content": { "decision": "edit", "item": "A-113", "quantity": 300, "supplier": "S-7" } }
+          },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTQifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    }
+  ]
+}

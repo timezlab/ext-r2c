@@ -1,0 +1,55 @@
+{
+  "title": "The client activates R2C for one request; the remote echoes it",
+  "description": "The client lists the R2C URI in the A2A-Extensions header. The remote echoes it on the response stream, then sends R2C parts: an activity with its text fallback.",
+  "binding": "a2a",
+  "rules": ["R2C-ACT-2", "R2C-CORE-1", "R2C-CORE-4", "R2C-A2A-3", "R2C-ACTIVITY-1"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "message": {
+          "messageId": "msg-c1",
+          "role": "ROLE_USER",
+          "parts": [{ "text": "Build the inventory report for October." }]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "task": { "id": "task-1", "contextId": "ctx-1", "status": { "state": "TASK_STATE_SUBMITTED" } }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Reading the inventory" },
+                {
+                  "data": {
+                    "kind": "activity", "id": "call-1", "type": "tool", "state": "running",
+                    "name": "read_inventory", "label": "Reading the inventory"
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

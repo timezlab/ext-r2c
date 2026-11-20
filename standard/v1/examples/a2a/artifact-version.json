@@ -1,0 +1,48 @@
+{
+  "title": "Sending the same artifactId again with append false replaces it",
+  "description": "The first chart is replaced by a corrected one: same `artifactId`, `append: false`. The client shows only the latest version.",
+  "binding": "a2a",
+  "rules": ["R2C-ARTIFACT-5", "R2C-A2A-5"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "artifact": {
+            "artifactId": "art-chart-1",
+            "name": "stock-chart.svg",
+            "parts": [{ "url": "https://files.example.com/r/stock-chart-v1.svg", "filename": "stock-chart.svg", "mediaType": "image/svg+xml" }],
+            "metadata": {
+              "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": { "kind": "artifact", "presentation": "file" }
+            }
+          },
+          "append": false,
+          "lastChunk": true
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "artifact": {
+            "artifactId": "art-chart-1",
+            "name": "stock-chart.svg",
+            "parts": [{ "url": "https://files.example.com/r/stock-chart-v2.svg", "filename": "stock-chart.svg", "mediaType": "image/svg+xml" }],
+            "metadata": {
+              "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": { "kind": "artifact", "presentation": "file" }
+            }
+          },
+          "append": false,
+          "lastChunk": true
+        }
+      }
+    }
+  ]
+}

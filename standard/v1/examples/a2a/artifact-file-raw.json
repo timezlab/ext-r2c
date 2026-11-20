@@ -1,0 +1,29 @@
+{
+  "title": "A small file artifact carried inline as raw bytes",
+  "description": "`raw` is base64 in A2A's JSON form. The decoded content is well under the 5 MB limit for content inside a message.",
+  "binding": "a2a",
+  "rules": ["R2C-ARTIFACT-1", "R2C-ARTIFACT-4", "R2C-A2A-5"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "artifactUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "artifact": {
+            "artifactId": "art-file-2",
+            "name": "below-threshold.txt",
+            "parts": [
+              { "raw": "QS0xMTMgMTIKQi0yMDEgOApDLTA0NyAxOQo=", "filename": "below-threshold.txt", "mediaType": "text/plain" }
+            ],
+            "metadata": {
+              "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": { "kind": "artifact", "presentation": "file" }
+            }
+          },
+          "lastChunk": true
+        }
+      }
+    }
+  ]
+}

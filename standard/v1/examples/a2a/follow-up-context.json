@@ -1,0 +1,27 @@
+{
+  "title": "A follow-up in the same conversation: same contextId, no taskId",
+  "description": "The first task is completed. The follow-up is a new message with the same `contextId` and no `taskId`; the remote opens a new task that remembers the conversation.",
+  "binding": "a2a",
+  "rules": ["R2C-A2A-7"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "message": {
+          "messageId": "msg-c5", "role": "ROLE_USER", "contextId": "ctx-1",
+          "parts": [{ "text": "Now do the same for November." }]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "task": { "id": "task-2", "contextId": "ctx-1", "status": { "state": "TASK_STATE_SUBMITTED" } }
+      }
+    }
+  ]
+}

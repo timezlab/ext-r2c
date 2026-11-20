@@ -1,0 +1,91 @@
+{
+  "title": "An approval whose args_schema is not flat: edit is dropped, then declined",
+  "description": "The order has a list of lines, which a flat MCP form cannot hold, so `edit` is dropped from the offered decisions. The person declines the form. Derived answer: {kind: answer, id: ap-1, outcome: declined, answered_by: {role: person}}; a declined approval means the action does not happen.",
+  "binding": "mcp",
+  "rules": ["R2C-MCP-1", "R2C-MCP-3", "R2C-MCP-4"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "ap-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Place an order of 3 lines with supplier S-7?",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "decision": {
+                      "type": "string", "title": "Decision",
+                      "oneOf": [{ "const": "allow", "title": "Allow" }, { "const": "deny", "title": "Deny" }]
+                    },
+                    "reason": { "type": "string", "title": "Reason" }
+                  },
+                  "required": ["decision"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTUifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "ap-1": {
+                  "kind": "approval", "id": "ap-1", "title": "Place an order of 3 lines with supplier S-7",
+                  "answer_by": { "role": "person" },
+                  "subject": {
+                    "type": "tool_call",
+                    "name": "place_order",
+                    "args": {
+                      "supplier": "S-7",
+                      "lines": [{ "item": "A-113", "quantity": 300 }, { "item": "B-201", "quantity": 50 }, { "item": "C-047", "quantity": 20 }]
+                    },
+                    "args_schema": {
+                      "type": "object",
+                      "properties": {
+                        "supplier": { "type": "string" },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": { "item": { "type": "string" }, "quantity": { "type": "integer", "minimum": 1 } },
+                            "required": ["item", "quantity"]
+                          }
+                        }
+                      },
+                      "required": ["supplier", "lines"]
+                    }
+                  },
+                  "decisions": ["allow", "deny"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "reorder_low_stock",
+          "arguments": {},
+          "inputResponses": { "ap-1": { "action": "decline" } },
+          "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTUifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    }
+  ]
+}

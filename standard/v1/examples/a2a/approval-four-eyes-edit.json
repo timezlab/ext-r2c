@@ -1,0 +1,84 @@
+{
+  "title": "A four-eyes approval of a tool call, answered with edited arguments",
+  "description": "The approval goes to an approver with a named role and expires in one hour. `edit` is offered because the subject carries `args_schema`; the approver lowers the quantity, and the edited `args` fit the schema.",
+  "binding": "a2a",
+  "rules": [
+    "R2C-APPROVAL-1", "R2C-APPROVAL-2", "R2C-APPROVAL-3", "R2C-ANSWER-1", "R2C-ANSWER-2",
+    "R2C-ASK-1", "R2C-ASK-4", "R2C-A2A-1", "R2C-A2A-2", "R2C-CORE-4"
+  ],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Approval needed (purchasing lead): place a reorder of 500 units of item A-113 from supplier S-7. allow | edit | deny" },
+                {
+                  "data": {
+                    "kind": "approval",
+                    "id": "ap-1",
+                    "title": "Place a reorder of 500 units of A-113",
+                    "description": "Stock is 12, below the threshold of 20. Cost about 2,400 EUR.",
+                    "answer_by": { "role": "approver", "approver_role": "purchasing lead" },
+                    "expires_at": "2026-11-20T11:00:00Z",
+                    "subject": {
+                      "type": "tool_call",
+                      "name": "place_order",
+                      "args": { "item": "A-113", "quantity": 500, "supplier": "S-7" },
+                      "args_schema": {
+                        "type": "object",
+                        "properties": {
+                          "item": { "type": "string" },
+                          "quantity": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                          "supplier": { "type": "string", "enum": ["S-7", "S-9"] }
+                        },
+                        "required": ["item", "quantity", "supplier"]
+                      }
+                    },
+                    "decisions": ["allow", "edit", "deny"]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "message": {
+          "messageId": "msg-c2", "role": "ROLE_USER", "taskId": "task-1", "contextId": "ctx-1",
+          "parts": [
+            { "text": "Edited: order 300 units instead." },
+            {
+              "data": {
+                "kind": "answer",
+                "id": "ap-1",
+                "outcome": "answered",
+                "answered_by": { "role": "approver", "label": "purchasing lead" },
+                "value": {
+                  "decision": "edit",
+                  "args": { "item": "A-113", "quantity": 300, "supplier": "S-7" },
+                  "reason": "Storage is limited until December."
+                }
+              },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

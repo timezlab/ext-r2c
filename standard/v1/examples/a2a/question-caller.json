@@ -1,0 +1,66 @@
+{
+  "title": "A question the caller may answer itself",
+  "description": "`answer_by.role = caller`: the caller's own agent answers from the conversation, without asking its user, and says so in `answered_by`.",
+  "binding": "a2a",
+  "rules": ["R2C-QUESTION-1", "R2C-ANSWER-1", "R2C-A2A-1", "R2C-A2A-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Which month should the report cover? (for example 2026-10)" },
+                {
+                  "data": {
+                    "kind": "question",
+                    "id": "q-1",
+                    "title": "Which month should the report cover?",
+                    "answer_by": { "role": "caller" },
+                    "fields": [
+                      { "key": "month", "header": "Month", "text": "Which month, as YYYY-MM?", "type": "text" }
+                    ]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "message": {
+          "messageId": "msg-c2",
+          "role": "ROLE_USER",
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "parts": [
+            { "text": "Month: 2026-10" },
+            {
+              "data": {
+                "kind": "answer",
+                "id": "q-1",
+                "outcome": "answered",
+                "answered_by": { "role": "caller", "label": "assistant, from the conversation" },
+                "value": { "month": "2026-10" }
+              },
+              "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "title": "Usage at input-required, then the cumulative total at the end",
+  "description": "Usage is cumulative for the task: the one in the completed status replaces the one sent at input-required. It is display data, never a bill.",
+  "binding": "a2a",
+  "rules": ["R2C-A2A-4", "R2C-USAGE-1", "R2C-USAGE-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_INPUT_REQUIRED",
+            "message": {
+              "messageId": "msg-r1", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Which month should the report cover? (YYYY-MM)" },
+                {
+                  "data": {
+                    "kind": "question", "id": "q-1", "title": "Which month should the report cover?",
+                    "answer_by": { "role": "person" },
+                    "fields": [{ "key": "month", "header": "Month", "text": "Which month, as YYYY-MM?", "type": "text" }]
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                },
+                {
+                  "data": { "kind": "usage", "input_tokens": 1800, "output_tokens": 120, "duration_ms": 2100, "model": "example-model-1" },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1", "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_COMPLETED",
+            "message": {
+              "messageId": "msg-r2", "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Done." },
+                {
+                  "data": {
+                    "kind": "usage", "input_tokens": 5200, "output_tokens": 940, "duration_ms": 9800,
+                    "cost": { "amount": 0.031, "currency": "EUR" }, "model": "example-model-1"
+                  },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}
