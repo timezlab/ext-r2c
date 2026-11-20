@@ -93,7 +93,9 @@ class ContentTooLarge(Exception):   # raised by reply / artifact over Limits.mes
 An executor written by hand:
 1. keeps one `PendingMemory` and builds one `R2CTask` per `execute` call with it (without it,
    a caller that did not activate R2C cannot answer by text);
-2. calls `open()`;
+2. calls `open(store=..., owner_resolver=...)`. `a2a_app` binds only a `SourceExecutor`, so a
+   hand-written executor that wants the R2C-ID-2 check gives the same store to `a2a_app` and to
+   `open`;
 3. on a message to a paused task, calls `take_answer()` and returns at once when it gives
    `None`;
 4. otherwise goes on with the answer.

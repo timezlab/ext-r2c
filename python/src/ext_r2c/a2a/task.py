@@ -139,6 +139,23 @@ def _openings(store: TaskStore) -> _Openings:
 
 
 class R2CTask:
+    """R2C on one A2A task, for one ``execute`` call (research R18).
+
+    A hand-written executor (contracts/a2a-api.md "An executor written by hand"):
+
+    1. keeps one ``PendingMemory`` and builds one ``R2CTask`` per ``execute`` call with it;
+       without it, a caller that did not activate R2C cannot answer by text;
+    2. calls ``open()``, with the handler's store to refuse a second unfinished task;
+    3. on a message to a paused task, calls ``take_answer()`` and returns at once when it gives
+       ``None``: the helper has already re-asked, refused, or ended the task;
+    4. otherwise goes on with the answer, and writes the run with ``activity``, ``reply``,
+       ``artifact``, ``usage`` and ``ask``, and ends with ``complete``, ``fail``, ``reject``
+       or ``cancelled``.
+
+    ``active`` says whether the request activated R2C; every method writes plain text and
+    standard artifacts when it did not (R2C-ACT-3). ``SourceExecutor`` does exactly this.
+    """
+
     def __init__(
         self,
         context: RequestContext,
@@ -351,21 +368,26 @@ class R2CTask:
         self.pending = None
 
     async def complete(self) -> None:
+        """End completed, with the held usage. Without activation, the text is the reply
+        gathered from ``reply``."""
         reply = "".join(self._gathered)
         text = _join(self._note, reply if reply and not self.active else "Done.")
         self._end()
         await self._updater.complete(self._message(text, self._usage))
 
     async def fail(self, reason: str) -> None:
+        """End failed, with ``reason`` as the text and the held usage."""
         text = _join(self._note, "" if self.active else "".join(self._gathered), reason)
         self._end()
         await self._updater.failed(self._message(text, self._usage))
 
     async def cancelled(self) -> None:
+        """End canceled; an executor's ``cancel`` calls it after stopping its own work."""
         text = _join(self._note, "The run was cancelled.")
         self._end()
         await self._updater.cancel(self._message(text, self._usage))
 
     async def reject(self, text: str) -> None:
+        """End rejected, with ``text`` only (``open`` uses it for R2C-ID-2)."""
         self._end()
         await self._updater.reject(self._updater.new_agent_message([Part(text=text)]))

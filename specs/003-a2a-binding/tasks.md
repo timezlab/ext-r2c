@@ -444,7 +444,7 @@ gets the same wire and the same answer rules.
 
 **Independent test**: `test_a2a_helpers.py`.
 
-- [ ] T052 [P] [US6] Create `python/tests/test_a2a_helpers.py`. Its `HandWritten(AgentExecutor)`
+- [X] T052 [P] [US6] Create `python/tests/test_a2a_helpers.py`. Its `HandWritten(AgentExecutor)`
   uses only a2a-sdk and `R2CTask`:
   - it asks `q-1`, delivers one `file` artifact, reports usage, and completes;
   - on the answer message, it calls `take_answer()` and returns when it gives `None`.
@@ -456,12 +456,19 @@ gets the same wire and the same answer rules.
   - **bad answer:** an empty required field is re-asked by the helper, and `HandWritten` never
     sees it.
   - **second task:** `open(store=...)` rejects a second unfinished task.
-- [ ] T053 Run it. Report what fails; if nothing fails, say so: the helpers already exist since
+- [X] T053 Run it. Report what fails; if nothing fails, say so: the helpers already exist since
   phase 3, so this phase may be green at once. In that case, record that the tests are
   regression guards.
-- [ ] T054 [US6] Fix any gap the tests show. Write the docstrings of `R2CTask` and its methods,
+- [X] T054 [US6] Fix any gap the tests show. Write the docstrings of `R2CTask` and its methods,
   following the order of contracts/a2a-api.md "An executor written by hand".
-- [ ] T055 Verify, then commit `test(003): a hand-written executor with R2C helpers`.
+- [X] T055 Verify, then commit `test(003): a hand-written executor with R2C helpers`.
+
+  *Note (2026-11-20):*
+  - T053: all four tests passed at once, so they are regression guards: the helpers have
+    existed since phase 3, and `SourceExecutor` is built on them.
+  - T054 found no code gap. One usage point is now written in the contract: `a2a_app` binds
+    only a `SourceExecutor`, so a hand-written executor gives the same store to `a2a_app` and
+    to `open`.
 
 ---
 
