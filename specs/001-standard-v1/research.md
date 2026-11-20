@@ -180,7 +180,7 @@ The schema change is in `args_schema`'s description: the `$ref` duty is the clie
 | O5 | MCP: the elicitation `message` (text fallback); re-ask with `errors` and refusals on MCP; the numeric `progress` of an activity notification | 004 |
 | O6 | MCP: `usage` on an `InputRequiredResult`, which already holds the `input_requests` wrapper in the same `_meta[key]` | 004 |
 | O7 | MCP: content blocks other than text for `inline` (images) | 004 |
-| O8 | A remote receiving an approval answer with `answered_by: caller`, or `policy` for `answer_by: approver`: reject or accept? A `policy` answer to a question: allowed? | 003 |
-| O9 | How a remote refuses a second unfinished task in a context (R2C-ID-2): error or text | 003 |
-| O10 | Whether an activity's `label` may change between updates; whether `usage` may share a message with a request or an activity | 003 |
+| O8 | A remote receiving an approval answer with `answered_by: caller`, or `policy` for `answer_by: approver`: reject or accept? A `policy` answer to a question: allowed? **Decided 2026-11-20 (maintainer, spec 003 Q1 C): `caller` on an approval is refused (R2C-ANSWER-4, already in the core's check); `policy` is accepted for questions and for approver approvals alike (R2C-ANSWER-6); spec 003 writes it into the standard.** | 003 |
+| O9 | How a remote refuses a second unfinished task in a context (R2C-ID-2): error or text **Decided 2026-11-20 (maintainer, spec 003 Q2 A): the new task ends in `TASK_STATE_REJECTED` with a text naming the unfinished task; spec 003 writes it into the standard.** | 003 |
+| O10 | Whether an activity's `label` may change between updates; whether `usage` may share a message with a request or an activity **Decided 2026-11-20 (maintainer, spec 003 Q3 A): the label may change and a client shows the latest; any status message may carry at most one usage Part, next to a request or an activity; spec 003 writes it into the standard.** | 003 |
 | O11 | MB in R2C-SAFETY-4: 10^6 bytes or 2^20 **Decided 2026-11-20 (maintainer): 2^20, written as MiB.** | maintainer (minor) |
