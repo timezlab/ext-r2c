@@ -11,7 +11,7 @@ Last updated 2026-11-20. Read this first in a new session.
   the model's text. ADR `activity-and-usage-kinds.md`; amendment note at the top of the brief.
 - **Repository skeleton:** license, README, CHANGELOG, Python package `ext-r2c` 0.0.1 exposing
   `URI`, `MCP_KEY`, `STANDARD_VERSION`, `__version__`.
-- **Spec `001-standard-v1`, phases 1–6** (2026-11-20, `specs/001-standard-v1/`):
+- **Spec `001-standard-v1`, closed** (2026-11-20, `specs/001-standard-v1/`):
   - `standard/v1/README.md`: the normative text, 83 tagged rules (draft);
   - `standard/v1/schema/`: six JSON Schemas; `standard/v1/examples/`: 37 wire examples
     (29 A2A, 8 MCP) and 20 invalid objects;
@@ -33,15 +33,18 @@ Last updated 2026-11-20. Read this first in a new session.
 
 ## Next
 
-- **Now:** phase 7 of spec 001 (an outside review of the standard, then the final gate).
-- **Then:** spec `002-python-core`, from `/speckit-specify`.
+- **Spec 001 is closed** (2026-11-20). An outside reviewer got every kind's fields and placement
+  right from the README alone (SC-005). Its open points O1–O11 are in
+  `specs/001-standard-v1/research.md` ("Outside review"), each with an owner spec. O1 (new enum
+  values: additive or breaking) is for the maintainer, before v1 leaves draft.
+- **Next:** spec `002-python-core`, from `/speckit-specify`; it owns O2 and O3.
 
 ## Spec sequence (001 approved and built; 002 onward proposed, awaiting the maintainer's approval)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
 
-1. **`001-standard-v1`** (built, phases 1–6 on 2026-11-20) — normative text in `standard/v1/README.md`; JSON Schemas for
+1. **`001-standard-v1`** (closed 2026-11-20) — normative text in `standard/v1/README.md`; JSON Schemas for
    `question`, `approval`, `answer`, `artifact-meta`, `activity`, `usage`; wire examples (A2A
    and MCP) covering every rule, including a full streamed run (reply chunks, tool activities,
    a file artifact, usage); CI step validating every example; schemas shipped inside the wheel.

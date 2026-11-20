@@ -106,7 +106,7 @@
               "args": { "type": "object" },
               "args_schema": {
                 "type": "object",
-                "description": "JSON Schema of `args`. Required to offer `edit`. Holds no `$ref` that leaves the document."
+                "description": "JSON Schema of `args`. Required to offer `edit`. A client treats an `args_schema` with a `$ref` that leaves the document as not offering `edit` (R2C-SAFETY-7)."
               }
             }
           }

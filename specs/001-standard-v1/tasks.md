@@ -287,8 +287,10 @@ table in research.md.
 
 ## Phase 7: Polish and close
 
-- [ ] T049 Ask a fresh-context reviewer for SC-005: an agent with only `standard/v1/README.md` and `standard/v1/schema/`, asked for each kind's required fields and its placement on A2A and on MCP. Fix any wrong answer in the README, and record the result in the phase report.
-- [ ] T050 Final quality gate:
+- [X] T049 Ask a fresh-context reviewer for SC-005: an agent with only `standard/v1/README.md` and `standard/v1/schema/`, asked for each kind's required fields and its placement on A2A and on MCP. Fix any wrong answer in the README, and record the result in the phase report.
+
+  *Note 2026-11-20:* no wrong answer. The clarifications made and the open points (O1–O11, each with an owner) are in [research.md](research.md), "Outside review".
+- [X] T050 Final quality gate:
   - fresh `uv build`; full suite on 3.11, 3.12 and 3.13;
   - grep the docs for stale names (`inputRequests` placement, "once written", "placeholder");
   - run the leak scan over `git diff aca2860..HEAD`;

@@ -91,7 +91,8 @@ Rule identifiers are never renumbered or reused.
   `server/discover` result, with the value `{"revision": 1}` for this version of the standard.
 - **R2C-ACT-5** · MUST · remote · wire
   On MCP, a server adds R2C `_meta` to a response only when the request's
-  `_meta["io.modelcontextprotocol/clientCapabilities"].extensions` lists `<key>`.
+  `_meta["io.modelcontextprotocol/clientCapabilities"].extensions` map has `<key>` as a key
+  (its value is an object, `{}` for v1).
 
 ## 3. Placement, fallback, unknown content
 
@@ -138,7 +139,8 @@ Shared fields, in [`question.json`](schema/question.json) and
 - **R2C-ASK-1** · MUST · remote · wire · schema
   A request has a non-empty `id` and a non-empty `title`.
 - **R2C-ASK-2** · MUST · remote · prose
-  An `id` is never reused within a task.
+  An `id` is never reused within a task for a different request. Sending the same request again
+  (`R2C-ASK-6`) or forwarding it (`R2C-ASK-7`) keeps its `id` and is not a reuse.
 - **R2C-ASK-3** · MUST · remote · wire
   A task has at most one pending request. The next one is sent only after the previous one has
   its `answer` or has expired.
@@ -147,7 +149,9 @@ Shared fields, in [`question.json`](schema/question.json) and
   counts as declined and an approval as `deny`.
 - **R2C-ASK-5** · MUST · remote · wire
   An answer after expiry, or with an `id` that matches no pending request, is refused in text.
-  A pending request then stays pending.
+  A pending request then stays pending. On A2A the refusal is the text of the next status
+  update: `TASK_STATE_INPUT_REQUIRED` while a request is still pending, otherwise the state the
+  run goes on in.
 - **R2C-ASK-6** · MUST · remote · wire
   An answer that fails the request (section 5 mapping, or the approval value) makes the remote
   send **the same request again**, with the same `id`, plus `errors`. The bad answer never
@@ -156,9 +160,10 @@ Shared fields, in [`question.json`](schema/question.json) and
   A party that forwards a request to another party keeps the `id` unchanged and sets `origin` to
   the first asker.
 - **R2C-ASK-8** · MAY · remote · wire
-  When a client that did not activate R2C replies in text, the remote MAY accept the text as the
-  answer only when the form has exactly one `one` or `text` field and the text fits it.
-  Otherwise it asks again.
+  Without activation (`R2C-ACT-3`) a remote asks in text only, in a `TASK_STATE_INPUT_REQUIRED`
+  status. When the client replies in text, the remote MAY accept the text as the answer only
+  when the form has exactly one `one` or `text` field and the text fits it. Otherwise it asks
+  again.
 
 ## 5. `question`
 
@@ -186,10 +191,11 @@ progress (use `activity`).
   `options` is present, with at least one option, for `one` and `many`, and absent for the other
   types.
 - **R2C-QUESTION-4** · MUST · remote · prose
-  Field keys are unique within a question.
+  Field keys are unique within a question, and option labels are unique within a field.
 - **R2C-QUESTION-5** · MUST · both · wire
   The schema that checks a question's answer is generated from its fields as below; the remote's
-  author never writes it by hand. The answer's `value` has one entry per field key.
+  author never writes it by hand. The answer's `value` is keyed by field key; a field with
+  `required: false` may be left out.
 
 | Field | Schema of the value |
 |---|---|
@@ -213,15 +219,15 @@ answered by a person, an approver or a policy, never by a model.
 
 | Field | Required | Meaning |
 |---|---|---|
-| `subject` | yes | `{type: "tool_call", name, args, args_schema?}` or `{type: "operation", name, target?}`; machine data for a policy to match |
+| `subject` | yes | `{type: "tool_call", name, args, args_schema?}`, `{type: "operation", name, target?}`, or another `type` with a `name` (never auto-allowed, `R2C-APPROVAL-5`); machine data for a policy to match |
 | `decisions` | yes | a non-empty, unique subset of `allow`, `edit`, `deny` |
 
 - **R2C-APPROVAL-1** · MUST · remote · wire · schema
   An approval has one `subject`, with a `type` and a `name`. A `tool_call` subject has `args`.
   `decisions` holds at least one of `allow`, `edit`, `deny`, each at most once.
 - **R2C-APPROVAL-2** · MUST NOT · both · wire · schema
-  An approval is never addressed to the caller: `answer_by.role` is `person` or `approver`
-  (with an optional `approver_role` naming who may approve).
+  An approval is never addressed to the caller: `answer_by.role` is never `caller`, only
+  `person` or `approver`. With `approver`, an optional `approver_role` names who may approve.
 - **R2C-APPROVAL-3** · MUST · remote · wire · schema
   `edit` is offered only on a `tool_call` subject that carries `args_schema`, the JSON Schema of
   its `args`.
@@ -246,15 +252,17 @@ Schema: [`answer.json`](schema/answer.json).
 | `note` | no | free text |
 
 - **R2C-ANSWER-1** · MUST · client · wire · schema
-  An answer has `id`, `outcome` and `answered_by`. `value` is present when `outcome` is
+  An answer has `kind`, `id`, `outcome` and `answered_by`. `value` is present when `outcome` is
   `answered` and absent when it is `declined`.
 - **R2C-ANSWER-2** · MUST · client · wire
   An approval's value has a `decision` among the approval's `decisions`. With `edit` it carries
   `args` that fit `args_schema`. It MAY carry a `reason`, which the remote passes to its agent
-  (a deny's reason becomes the tool's rejection message).
+  (a deny's reason becomes the tool's rejection message). `answer.json` alone cannot tell which
+  kind of request was answered, so a receiver checks an approval's value against
+  `answer.json#/$defs/approval_value` and a question's against its generated form schema.
 - **R2C-ANSWER-3** · MUST · client · wire
   `declined` means the person refused or closed the form, or nobody could answer (an unattended
-  run).
+  run). A declined approval counts as `deny`: the action does not happen.
 - **R2C-ANSWER-4** · MUST NOT · client · prose
   A model never answers an approval. The client never sends `answered_by.role = caller` for an
   approval, and lets no agent of its own decide one. Only the client can enforce this.
@@ -289,7 +297,10 @@ artifact is a standard A2A `Artifact` (or MCP content). R2C only says how to pre
     the last with `lastChunk: true`;
   - it holds all the text the model writes during the task, in order, including short narration
     between tool calls;
-  - activities and chunks interleave in the order they happen.
+  - activities and chunks interleave in the order they happen;
+  - each chunk repeats the artifact's R2C metadata;
+  - the reply stays open across an input-required pause: `lastChunk` comes with the last text
+    of the task, not before a request.
 - **R2C-ARTIFACT-4** · MUST · remote · wire
   A `file` is one artifact per file. Its part carries the content by `url` or `raw`, together
   with `filename` and `mediaType`.
@@ -297,8 +308,10 @@ artifact is a standard A2A `Artifact` (or MCP content). R2C only says how to pre
   Sending the same `artifactId` again with `append: false` is a new version that replaces the
   previous one.
 - **R2C-ARTIFACT-6** · MUST · remote · wire
-  A `live` artifact is a part with a `url` of `mediaType: text/html` and `state: "open"`. When
-  the page is done, the remote sends the same `artifactId` with `state: "closed"`.
+  On A2A, a `live` artifact is a part with a `url` of `mediaType: text/html` and
+  `state: "open"`. When the page is done, the remote sends the same `artifactId` again, part
+  included, with `state: "closed"`. On MCP a result arrives once, so a `live` artifact there has
+  no `state`.
 - **R2C-ARTIFACT-7** · SHOULD · client · wire
   For an artifact without R2C metadata, a client guesses:
   - a part with `raw`, or a `url` with `filename`, is a `file`;
@@ -331,9 +344,10 @@ Other fields: `state` (`running`, `done`, `failed`), `label`, `name`, `args`, `d
   An activity has `id`, `type` and `label`. A `tool` or `step` activity has a `state`. A `tool`
   activity has the tool's `name`.
 - **R2C-ACTIVITY-2** · MUST · remote · wire
-  Updates of one activity keep its `id`. Its state goes `running`, then `done` or `failed`, and
-  nothing follows a terminal state. `duration_ms` and `detail` (a short summary, never the whole
-  output) come with the terminal state.
+  Updates of one activity keep its `id`. The state of a `tool` or `step` goes `running`, then
+  `done` or `failed`, and nothing follows a terminal state. `duration_ms` and `detail` (a short
+  summary, never the whole output) come with the terminal state. A `reasoning` activity has no
+  `state`: it is the sum of its deltas, each update repeating its `label`.
 - **R2C-ACTIVITY-3** · MUST · remote · wire
   An activity nested under another one sets `parent_id` to the outer activity's `id`, for
   example the tool calls of a sub-agent's step.
@@ -366,7 +380,8 @@ Schema: [`usage.json`](schema/usage.json). Fields: `input_tokens`, `output_token
 
 The binding targets A2A 1.0. Objects below are written in A2A's JSON form (`taskId`,
 `TASK_STATE_INPUT_REQUIRED`, parts with `text` / `data` / `url` / `raw`). The examples show them
-complete.
+complete. A remote's messages have `role: ROLE_AGENT` and a client's `ROLE_USER`. The order of
+the parts in a message carries no meaning; the examples put the text Part first.
 
 - **R2C-A2A-1** · MUST · remote · wire
   A `question` or `approval` travels in the message of a status update with state

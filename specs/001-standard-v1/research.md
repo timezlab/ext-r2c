@@ -143,3 +143,44 @@ MCP) and the plan were approved by the maintainer on 2026-11-20.
 | D2 | MCP answer: elicitation result maps to `answer` | the same, stated as derived. No R2C answer object travels on MCP, so `answered_by: policy` cannot be expressed on MCP | `ElicitResult` has no `_meta`; MCP requires user review (R4) |
 | D3 | White paper §7 illustrative MCP JSON | complete 2026-07-28 messages: `resultType`, request `_meta` with protocol version and client capabilities, `cacheScope` / `ttlMs` on discover | found by the envelope check (R2); the white paper is corrected in this feature |
 | D4 | — | an A2A agent card in the examples lists at least one skill | a2a-sdk rejects a card with no skills (R1) |
+
+## Outside review (SC-005, 2026-11-20)
+
+A fresh-context reviewer read only `standard/v1/README.md` and `standard/v1/schema/`. For each of
+the six kinds it stated the required fields (conditional ones included) and the placement on A2A
+and on MCP, **with no error**. SC-005 is met.
+
+The reviewer also listed unclear points. The ones the examples or the brief already answered are
+now written into the README:
+- the subject `type` is open;
+- `approver_role` goes with `approver`;
+- `kind` is required on an answer;
+- how to check an approval's value;
+- a declined approval counts as deny;
+- a re-ask is not a reuse of its `id`;
+- where a refusal travels;
+- asking without activation;
+- unique option labels;
+- optional fields may be left out of the value;
+- reasoning has no `state`;
+- the reply chunks repeat the metadata and stay open across a pause;
+- `live` on A2A versus MCP;
+- message roles and part order;
+- the shape of the client's `extensions` map.
+
+The schema change is in `args_schema`'s description: the `$ref` duty is the client's
+(R2C-SAFETY-7). The rest needs a decision. It is recorded here for the spec that owns it.
+
+| # | Open point | Owner |
+|---|---|---|
+| O1 | New values of a closed enum (`decisions`, `presentation`, `state`, `outcome`, roles, field `type`): additive (old validators break) or breaking (needs v2)? | maintainer, before v1 leaves draft |
+| O2 | `requestedSchema` details: the `required` list when `other: true` and only `<key>_other` is filled; `many` + `<key>_other` (replace, add one item, or split); `required: true` on `text` accepting `""` and on `many` accepting `[]` | 002 (form → schema) |
+| O3 | Approval over MCP: argument names that collide with `decision` / `reason`; rebuilding `args` from the flat `content`; `decisions: ["edit"]` with a non-flat `args_schema` | 002, 004 |
+| O4 | MCP: several entries in one `inputRequests` versus one pending request per task; what a "task" is across multi-round-trip calls (also for cumulative `usage`) | 004 |
+| O5 | MCP: the elicitation `message` (text fallback); re-ask with `errors` and refusals on MCP; the numeric `progress` of an activity notification | 004 |
+| O6 | MCP: `usage` on an `InputRequiredResult`, which already holds the `input_requests` wrapper in the same `_meta[key]` | 004 |
+| O7 | MCP: content blocks other than text for `inline` (images) | 004 |
+| O8 | A remote receiving an approval answer with `answered_by: caller`, or `policy` for `answer_by: approver`: reject or accept? A `policy` answer to a question: allowed? | 003 |
+| O9 | How a remote refuses a second unfinished task in a context (R2C-ID-2): error or text | 003 |
+| O10 | Whether an activity's `label` may change between updates; whether `usage` may share a message with a request or an activity | 003 |
+| O11 | MB in R2C-SAFETY-4: 10^6 bytes or 2^20 | maintainer (minor) |
