@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import anyio
@@ -36,13 +36,11 @@ from ..core import (
     RunInput,
     Usage,
     UsageEvent,
-    answer_from_mcp,
-    parse,
     thread_id,
     to_json,
 )
 from ._codec import Block, content_blocks, final_result, input_required, output_too_large
-from ._state import StoppingPoint, dump
+from ._state import CLAIMED, StoppingPoint, dump, outcome
 from .activation import Round
 
 __all__ = ["SourceTool"]
@@ -57,6 +55,7 @@ DEFAULT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 _BLOCKS: TypeAdapter[list[Block]] = TypeAdapter(list[Block])
+LOST = "The paused run was lost (the server restarted); call the tool again."
 _NO_FORMS = "The client cannot show forms, so the request could not be asked."
 _NOT_ASKABLE = "The request cannot be asked as a form."
 
@@ -138,11 +137,29 @@ class SourceTool:
 
     async def retry(self, r: Round, point: StoppingPoint,
                     responses: Mapping[str, types.ElicitResult]) -> types.CallToolResult | types.InputRequiredResult:
-        request = parse(point.request)
-        assert isinstance(request, (Question, Approval))
-        response = responses[request.id]
-        answer = answer_from_mcp(request, response.action, response.content)
-        return await self.hand_over(r, point, request, answer)
+        """A retry through the outcome table (data-model.md): the round is claimed once, then
+        re-asked, refused, or handed over."""
+        found = await outcome(point, responses, ledger=r.ledger, ttl=r.ttl, now=r.clock(), limits=r.limits)
+        if found.kind == "claimed":
+            return tool_error(CLAIMED, active=r.active)
+        held = self._runs.get(point.call)
+        if held is None and point.pause == "live":
+            return tool_error(LOST, active=r.active)
+        if found.kind in ("missing", "reask"):
+            return self._reask(r, point, held, found.request, found.refusal)
+        assert found.answer is not None
+        return await self.hand_over(r, point, found.request, found.answer, refusal=found.refusal)
+
+    def _reask(self, r: Round, point: StoppingPoint, held: Held | None, request: Question | Approval,
+               refusal: str | None) -> types.InputRequiredResult:
+        """The same request again, in a new round of the same call."""
+        again = replace(point, round=uuid.uuid4().hex, request=to_json(request))
+        if held is not None:
+            held.request = request
+            usage = held.usage
+        else:
+            usage = Usage.parse(point.usage) if point.usage else None
+        return input_required(request, dump(again), active=r.active, usage=usage, refusal=refusal)
 
     async def hand_over(self, r: Round, point: StoppingPoint, request: Question | Approval,
                         answer: Answer, *, refusal: str | None = None) -> types.CallToolResult | types.InputRequiredResult:

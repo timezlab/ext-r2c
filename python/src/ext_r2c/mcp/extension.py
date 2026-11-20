@@ -21,6 +21,7 @@ from ..core import Limits, ToolSpec
 from ._state import LostState, MemoryLedger, RoundLedger, load
 from .activation import Round, form_supported, is_active, owner_of
 from .source_tool import SourceTool, tool_error
+from .tools import Approve, approve_first_round, approve_retry, serve_tool
 
 __all__ = ["R2CExtension"]
 
@@ -46,7 +47,8 @@ class R2CExtension(Extension):
 
     identifier = MCP_KEY
 
-    def __init__(self, *, tools: Sequence[ToolSpec | SourceTool] = (), approve: Mapping[str, Any] | None = None,
+    def __init__(self, *, tools: Sequence[ToolSpec | SourceTool] = (),
+                 approve: Mapping[str, Approve | bool] | None = None,
                  clock: Callable[[], datetime] | None = None, limits: Limits = Limits(),
                  ledger: RoundLedger | None = None, owner: Callable[[Any], str | None] | None = None) -> None:
         self._tools: dict[str, ToolSpec | SourceTool] = {}
@@ -56,10 +58,16 @@ class R2CExtension(Extension):
             if tool.name in self._tools:
                 raise ValueError(f"two tools are named {tool.name!r}")
             self._tools[tool.name] = tool
-        self._approve = dict(approve or {})
-        for name in self._approve:
+        self._approve: dict[str, Approve] = {}
+        for name, setting in (approve or {}).items():
             if isinstance(self._tools.get(name), SourceTool):
                 raise ValueError(f"{name!r} is a SourceTool: a source asks its own approvals")
+            if setting is True:
+                self._approve[name] = Approve()
+            elif isinstance(setting, Approve):
+                self._approve[name] = setting
+            elif setting is not False:
+                raise TypeError(f"approve[{name!r}] is an Approve or a bool, not {type(setting).__name__}")
         self.clock = clock or _now
         self.limits = limits
         self.ledger: RoundLedger = ledger if ledger is not None else MemoryLedger()
@@ -106,16 +114,36 @@ class R2CExtension(Extension):
     async def intercept_tool_call(self, params: types.CallToolRequestParams, ctx: ServerRequestContext[Any, Any],
                                   call_next: CallNext) -> HandlerResult:
         tool = self._tools.get(params.name)
-        if tool is None:
+        settings = self._approve.get(params.name)
+        if tool is None and settings is None:
             return await call_next(ctx)
         r = self._round(ctx)
         arguments = params.arguments or {}
-        if isinstance(tool, SourceTool):
-            if params.request_state is None:
-                return await tool.first_round(r, arguments)
+        point = None
+        if params.request_state is not None:
             try:
                 point = load(params.request_state)
             except LostState:
                 return tool_error(_LOST_STATE, active=r.active)
-            return await tool.retry(r, point, params.input_responses or {})
-        raise NotImplementedError("ToolSpec serving comes with tools.py (spec 004, phase 4)")
+            if point.kind != ("approve" if settings is not None else "source"):
+                return tool_error(_LOST_STATE, active=r.active)
+        responses = params.input_responses or {}
+
+        if settings is not None:
+            spec = tool if isinstance(tool, ToolSpec) else None
+            if point is None:
+                return approve_first_round(r, params.name, arguments, settings, editable=spec is not None,
+                                           schema=spec.input_schema if spec is not None else None)
+
+            async def run_tool(args: Mapping[str, Any]) -> Any:
+                if spec is not None:
+                    return await serve_tool(spec, r, args)
+                return await call_next(ctx)  # a tool registered elsewhere: allow only, the call's own arguments
+
+            return await approve_retry(r, point, responses, run_tool)
+        if isinstance(tool, SourceTool):
+            if point is None:
+                return await tool.first_round(r, arguments)
+            return await tool.retry(r, point, responses)
+        assert isinstance(tool, ToolSpec)
+        return await serve_tool(tool, r, arguments)

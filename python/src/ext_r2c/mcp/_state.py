@@ -11,13 +11,33 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any, Literal, Protocol
 
-__all__ = ["LostState", "MemoryLedger", "RoundLedger", "StoppingPoint", "dump", "load"]
+import mcp_types as types
+
+from ..core import (
+    Answer,
+    AnsweredBy,
+    Approval,
+    Limits,
+    Problem,
+    Question,
+    answer_from_mcp,
+    check_answer,
+    check_size,
+    parse,
+    to_json,
+)
+
+__all__ = ["LostState", "MemoryLedger", "Outcome", "RoundLedger", "StoppingPoint", "dump", "load", "outcome"]
 
 VERSION = 1
+CLAIMED = "This request was already answered."
+TOO_LATE = "The response came too late; the request had expired."
+_NOT_CHECKED = ("caller_on_approval", "policy_on_approver", "expired")  # roles: O8; expiry: its own row
 
 
 class LostState(ValueError):
@@ -92,3 +112,70 @@ class MemoryLedger:
             return False
         self._claimed[nonce] = until
         return True
+
+
+# --- The outcome of a retry (data-model.md "Outcome of a retry", research R10) -------------------
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """What a retry comes to.
+
+    - ``claimed``: the round was answered before; nothing happens.
+    - ``missing``: no response for the pending key; ``request`` is asked again, ``refusal`` first.
+    - ``expired``: ``answer`` is declined (an approval: deny); ``refusal`` goes in the next result.
+    - ``reask``: ``request`` is the same request with ``errors``.
+    - ``accepted``: ``answer`` is the derived answer, checked.
+    """
+
+    kind: Literal["claimed", "missing", "expired", "reask", "accepted"]
+    request: Question | Approval
+    answer: Answer | None = None
+    refusal: str | None = None
+
+
+def pending_of(point: StoppingPoint) -> Question | Approval:
+    request = parse(point.request)
+    if not isinstance(request, (Question, Approval)):
+        raise LostState("the state holds no question or approval")
+    return request
+
+
+def with_errors(request: Question | Approval, problems: list[Problem]) -> Question | Approval:
+    """The same request, the same id, with ``problems`` as its ``errors`` (R2C-ASK-6)."""
+    data = to_json(request)
+    data["errors"] = [p.as_error_item().model_dump(mode="json", exclude_none=True) for p in problems]
+    again = parse(data)
+    assert isinstance(again, (Question, Approval))
+    return again
+
+
+def _without_errors(request: Question | Approval) -> Question | Approval:
+    return request.model_copy(update={"errors": None}) if request.errors else request
+
+
+async def outcome(point: StoppingPoint, responses: Mapping[str, types.ElicitResult], *, ledger: RoundLedger,
+                  ttl: float, now: datetime, limits: Limits) -> Outcome:
+    """The row of the outcome table this retry falls in, in the order of research R10. The round
+    is claimed first, so every later row happens at most once per round."""
+    request = pending_of(point)
+    if not await ledger.claim(point.round, until=time.time() + ttl):
+        return Outcome("claimed", request)
+    response = responses.get(request.id)
+    if response is None:
+        return Outcome("missing", request, refusal=f'No response was received for "{request.title}".')
+    expires = request.expires()
+    if expires is not None and now >= expires:
+        late = Answer(id=request.id, outcome="declined", answered_by=AnsweredBy(role="policy"),
+                      note="The request expired.")
+        return Outcome("expired", request, late, TOO_LATE)
+    content = response.content or {}
+    too_large = check_size(text=json.dumps(content, ensure_ascii=False, default=str), limits=limits)
+    if too_large is not None:
+        return Outcome("reask", with_errors(request, [too_large]))
+    asked = _without_errors(request)
+    answer = answer_from_mcp(asked, response.action, content)
+    problems = [p for p in check_answer(answer, asked, now=now, limits=limits) if p.code not in _NOT_CHECKED]
+    if problems:
+        return Outcome("reask", with_errors(asked, problems))
+    return Outcome("accepted", asked, answer)

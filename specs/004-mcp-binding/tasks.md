@@ -298,7 +298,7 @@ once after one, and a replayed round never runs it again.
 
 **Independent test**: a counting tool; allow, edit, deny, decline, replay.
 
-- [ ] T042 [P] [US2] Write `python/tests/test_mcp_approve.py` with a `ToolSpec` from
+- [X] T042 [P] [US2] Write `python/tests/test_mcp_approve.py` with a `ToolSpec` from
   `tool_from_function(place_order)` that counts its calls, behind `approve={"place_order":
   True}`:
   - **Ask**: the input-required approval has `subject` = name, arguments and the listed schema,
@@ -309,39 +309,39 @@ once after one, and a replayed round never runs it again.
     schema is re-asked, and the tool does not run (scenario 3).
   - **Deny**: deny with a reason, and decline, give `isError: true`, `Not run: denied.` (plus the
     reason) and a count of 0 (scenario 4).
-- [ ] T043 [P] [US2] Add `test_edit_dropped_for_nested_args` (scenario 5) and
+- [X] T043 [P] [US2] Add `test_edit_dropped_for_nested_args` (scenario 5) and
   `test_approver_and_expiry_from_settings` (scenario 6). The latter uses `Approve(answer_by=
   "approver", expires_in=timedelta(minutes=5))` and a fixed clock, and checks
   `answer_by.role == "approver"` and `expires_at`.
-- [ ] T044 [P] [US2] Add `test_tool_without_approval_runs_at_once` (scenario 7). Its
+- [X] T044 [P] [US2] Add `test_tool_without_approval_runs_at_once` (scenario 7). Its
   `ToolOutput(text, artifacts, usage)` gives blocks with R2C metadata and the usage.
-- [ ] T045 [P] [US2] Add `test_tool_registered_elsewhere`. A tool registered on the `MCPServer`
+- [X] T045 [P] [US2] Add `test_tool_registered_elsewhere`. A tool registered on the `MCPServer`
   with `@server.tool()` and named in `approve=`:
   - the form offers `allow` and `deny` only;
   - allow runs it once.
-- [ ] T046 [P] [US2] Add `test_replayed_round_does_not_run_again`. The same allow retry sent
+- [X] T046 [P] [US2] Add `test_replayed_round_does_not_run_again`. The same allow retry sent
   twice: the second gets `This request was already answered.`, `isError: true`, and the count
   stays 1 (research R3).
-- [ ] T047 [P] [US2] Add `test_listed_schema`. `tools/list` shows each `ToolSpec`'s
+- [X] T047 [P] [US2] Add `test_listed_schema`. `tools/list` shows each `ToolSpec`'s
   `input_schema` exactly.
-- [ ] T048 [P] [US2] Add `test_return_values`. A `str`, a `dict`, a `ToolOutput` and a raised
+- [X] T048 [P] [US2] Add `test_return_values`. A `str`, a `dict`, a `ToolOutput` and a raised
   `InvalidArguments` each give the result the contract names.
-- [ ] T049 Run T042–T048. They fail for the expected reasons: no approval half yet, no ledger
+- [X] T049 Run T042–T048. They fail for the expected reasons: no approval half yet, no ledger
   claim.
-- [ ] T050 [US2] Implement `python/src/ext_r2c/mcp/tools.py`:
+- [X] T050 [US2] Implement `python/src/ext_r2c/mcp/tools.py`:
   - `Approve` and `ToolOutput`;
   - `serve_tool(spec, ctx, arguments)` (check the arguments, call, map the return value);
   - `approval_for(name, arguments, schema, settings, *, editable, clock)`;
   - `approve_round(...)` for the first round and the retry: `decision` with allow, edit or deny;
     edited arguments checked; `Not run` texts.
-- [ ] T051 [US2] Wire `tools.py` into `extension.py`:
+- [X] T051 [US2] Wire `tools.py` into `extension.py`:
   - `approve=` names are checked before dispatch;
   - for a tool of the door, `edit` is offered when flat;
   - for a tool registered elsewhere, `call_next` runs on allow.
 
   Claim the round through the ledger before acting, in both the approval path and the source
   path.
-- [ ] T052 Verify (SC-004), then commit `feat(004): approval before a direct tool call`.
+- [X] T052 Verify (SC-004), then commit `feat(004): approval before a direct tool call`.
 
 ---
 

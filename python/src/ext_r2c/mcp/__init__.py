@@ -11,12 +11,15 @@ from .activation import form_supported, is_active, owner_of
 from .extension import R2CExtension
 from .server import mcp_server
 from .source_tool import SourceTool
+from .tools import Approve, ToolOutput
 
 __all__ = [
+    "Approve",
     "MemoryLedger",
     "R2CExtension",
     "RoundLedger",
     "SourceTool",
+    "ToolOutput",
     "form_supported",
     "is_active",
     "mcp_server",
