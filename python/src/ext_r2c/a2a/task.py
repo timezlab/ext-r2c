@@ -17,10 +17,13 @@ from a2a.server.agent_execution import RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
 from a2a.types import Message, Part, TaskState
+from google.protobuf import json_format
 
+from .. import URI
 from ..core import (
     Activity,
     Answer,
+    AnsweredBy,
     Approval,
     ArtifactEvent,
     ArtifactMeta,
@@ -34,8 +37,10 @@ from ..core import (
     check_answer,
     check_size,
     fallback_text,
+    parse,
+    to_json,
 )
-from ._codec import artifact_update, last_usage, pending_request, r2c_part, read_parts, text_answer
+from ._codec import Invalid, artifact_update, last_usage, pending_request, r2c_part, read_parts, text_answer
 from .activation import is_active
 
 __all__ = ["ContentTooLarge", "PendingMemory", "R2CTask"]
@@ -81,6 +86,11 @@ def _text_of(parts: Iterable[Part]) -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _expired(request: Question | Approval, now: datetime) -> bool:
+    expires = request.expires()
+    return expires is not None and now >= expires
 
 
 class R2CTask:
@@ -187,27 +197,87 @@ class R2CTask:
         await self._updater.requires_input(self._message(text, request, self._usage))
 
     async def take_answer(self) -> Answer | None:
-        """The answer in the client's message, when it is acceptable; ``None`` once the request
-        has been asked again (or the task ended because the request was lost)."""
+        """The answer in the client's message, to deliver to the agent (research R7 to R9).
+
+        It gives an acceptable answer, or the expiry outcome (a declined answer by ``policy``,
+        whose refusal note goes into the next status). It gives ``None`` once it has already
+        written the next status itself: the same request again with ``errors`` (R2C-ASK-6), a
+        refusal in text (R2C-ASK-5), or the failed end of a task whose request was lost."""
         request = self.pending
         if request is None:
             await self.fail(_LOST)
             return None
+        if _expired(request, self._clock()):
+            return self._expiry(request)
         parts = list(self.context.message.parts) if self.context.message is not None else []
-        answers = [o for o in read_parts(parts) if isinstance(o, Answer)]
-        if not answers and not self.active:
+
+        too_large = next((p for p in map(self._size, parts) if p is not None), None)
+        if too_large is not None:
+            await self._reask(request, [too_large])
+            return None
+        objects = list(read_parts(parts))
+        answers = [o for o in objects if isinstance(o, Answer)]
+        broken = any(isinstance(o, Invalid) and o.kind in ("answer", None) for o in objects)
+        if not answers and broken:
+            await self._reask(request, [Problem("invalid_answer", None, "The answer is not well formed.")])
+            return None
+        if not answers:
+            if self.active:
+                await self._refuse(f"This message has no answer for request {request.id}, which is still waiting.")
+                return None
             built = text_answer(request, _text_of(parts))
-            answers = [built] if built is not None else []
+            if built is None:
+                await self.ask(request)  # asked again in text (R2C-ASK-8)
+                return None
+            answers = [built]
+
         found = [a for a in answers if a.id == request.id]
-        if len(found) == 1 and not self._problems(found[0], request):
-            return found[0]
-        await self.ask(request)
-        return None
+        if len(found) > 1:
+            await self._refuse(f"This message has {len(found)} answers for request {request.id}; send one.")
+            return None
+        if not found:
+            other = ", ".join(sorted({a.id for a in answers}))
+            await self._refuse(f"No pending request has the id {other}. "
+                               f"Request {request.id} is still waiting for an answer.")
+            return None
+        answer = found[0]
+        problems = self._problems(answer, request)
+        if problems:
+            await self._reask(request, problems)
+            return None
+        return answer
 
     def _problems(self, answer: Answer, request: Question | Approval) -> list[Problem]:
         # The remote takes the role claim as given (O8, FR-012).
         found = check_answer(answer, request, now=self._clock(), limits=self.limits)
         return [p for p in found if p.code != "caller_on_approval"]
+
+    def _size(self, part: Part) -> Problem | None:
+        """``too_large`` for an R2C Part above the message limit (R2C-SAFETY-4)."""
+        if not part.HasField("data") or URI not in part.metadata:
+            return None
+        return check_size(text=json_format.MessageToJson(part.data, indent=None), limits=self.limits)
+
+    def _expiry(self, request: Question | Approval) -> Answer:
+        """The outcome of a request past ``expires_at`` (R2C-ASK-4, research R8)."""
+        counted = "deny" if isinstance(request, Approval) else "declined"
+        kind = "Approval" if isinstance(request, Approval) else "Question"
+        self._note = (f"{kind} {request.id} expired at {request.expires_at} and counted as {counted}; "
+                      "this answer came too late.")
+        return Answer(id=request.id, outcome="declined", answered_by=AnsweredBy(role="policy"),
+                      note="The request expired.")
+
+    async def _reask(self, request: Question | Approval, problems: list[Problem]) -> None:
+        """The same request, the same id, with the problems as ``errors`` (R2C-ASK-6)."""
+        data = to_json(request)
+        data["errors"] = [p.as_error_item().model_dump(mode="json", exclude_none=True) for p in problems]
+        again = parse(data)
+        assert isinstance(again, (Question, Approval))
+        await self.ask(again)
+
+    async def _refuse(self, text: str) -> None:
+        """A text-only input-required status; the request stays pending (R2C-ASK-5)."""
+        await self._updater.requires_input(self._updater.new_agent_message([Part(text=text)]))
 
     # --- ending -----------------------------------------------------------------------------
 

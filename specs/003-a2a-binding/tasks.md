@@ -263,7 +263,7 @@ and take every `answered_by` role as given.
 **Independent test**: `test_a2a_answers.py`; after each case the source has received nothing
 (or the expiry outcome) and the next status is the one the standard names.
 
-- [ ] T032 [P] [US2] Create `python/tests/test_a2a_answers.py`, with the checkpoint and live
+- [X] T032 [P] [US2] Create `python/tests/test_a2a_answers.py`, with the checkpoint and live
   fakes, all activated:
   - **empty required field** (`reask-empty-required.json`): input-required again with the same
     `id` and `errors[0].key == "title"`; the source has no answer; a good answer afterwards
@@ -286,8 +286,8 @@ and take every `answered_by` role as given.
     - a question answered by `policy`.
   - **counts:** a table-driven assertion that the source's `answers` grew only on the accepted
     and expiry cases (SC-003).
-- [ ] T033 Run it; confirm the failures are the expected ones (the stub delivers bad answers).
-- [ ] T034 [US2] Implement `R2CTask.take_answer` in `python/src/ext_r2c/a2a/task.py`. It follows
+- [X] T033 Run it; confirm the failures are the expected ones (the stub delivers bad answers).
+- [X] T034 [US2] Implement `R2CTask.take_answer` in `python/src/ext_r2c/a2a/task.py`. It follows
   research R7–R9, with these points:
   - the size check comes first;
   - answer Parts are collected;
@@ -295,12 +295,19 @@ and take every `answered_by` role as given.
   - each problem code is routed per R7;
   - the expiry outcome and its refusal note follow R8;
   - the not-active path is `text_answer`.
-- [ ] T035 [US2] Use `take_answer` in `SourceExecutor` on every message to a task at
+- [X] T035 [US2] Use `take_answer` in `SourceExecutor` on every message to a task at
   input-required. Pass the clock and the limits through.
-- [ ] T036 [US2] In `standard/v1/README.md`, add the O8 text to R2C-ANSWER-6 (plan "Changes to the
+- [X] T036 [US2] In `standard/v1/README.md`, add the O8 text to R2C-ANSWER-6 (plan "Changes to the
   standard"). In `specs/001-standard-v1/research.md`, the O8 note gets "written into R2C-ANSWER-6".
-- [ ] T037 Run `test_a2a_answers.py` until green, then the whole suite (including `test_rules.py`).
-- [ ] T038 Verify, then commit `feat(003): answers checked, re-asked or refused`.
+- [X] T037 Run `test_a2a_answers.py` until green, then the whole suite (including `test_rules.py`).
+- [X] T038 Verify, then commit `feat(003): answers checked, re-asked or refused`.
+
+  *Note (2026-11-20):*
+  - The tests use one test-local source, `Asking`, in both pause styles. It asks a given
+    request, since the fakes have no expiring, approver or edit approval.
+  - Expiry is checked first, so any message after `expires_at` gives the expiry outcome.
+  - An invalid R2C Part of kind `answer` (or without a kind) counts as an answer that is not
+    well formed, and is re-asked.
 
 ---
 

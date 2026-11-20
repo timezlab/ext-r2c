@@ -273,7 +273,9 @@ Schema: [`answer.json`](schema/answer.json).
   model, and never to an approval with `answer_by.role = approver`, which asks every time.
 - **R2C-ANSWER-6** · MUST · remote · prose
   The remote treats `answered_by` as the client's claim, not as verified identity, and keeps no
-  per-user consent state.
+  per-user consent state. It takes the role as given and need not refuse an answer for it: who
+  may answer is the caller's own logic. `R2C-ANSWER-4` and `R2C-ANSWER-5` are enforced by the
+  client.
 
 ## 8. `artifact`
 
