@@ -89,12 +89,12 @@ approval), answers, and checks the task's events and final state.
 
 The remote receives answers it must not hand to the agent: a value that fails the form, an
 `edit` whose args break `args_schema`, an answer for an `id` that is not pending, an answer after
-the request expired, an answer claiming a role the request does not allow. The door decides,
-using the core's answer check, and the agent sees only an acceptable answer.
+the request expired. The door decides, using the core's answer check, and the agent sees only
+an acceptable answer. Who answered (`answered_by`) is the caller's logic to enforce: by default
+the remote takes the claim as given; a remote owner who wants it checked turns that on.
 
-**Why this priority**: these are the safety and robustness rules of R2C (R2C-ASK-4, -5, -6,
-R2C-ANSWER-4). A door that lets a bad answer through breaks the guarantee that a run never dies
-from a malformed reply and that an approval is never decided by the wrong party.
+**Why this priority**: these are the robustness rules of R2C (R2C-ASK-4, -5, -6). A door that
+lets a bad answer through breaks the guarantee that a run never dies from a malformed reply.
 
 **Independent Test**: for each case, a client sends the bad answer to a paused task and the
 test checks the next status and that the source received nothing.
@@ -110,14 +110,15 @@ test checks the next status and that the source received nothing.
 3. **Given** an approval with `expires_at` in the past, **When** an answer arrives, **Then** the
    approval counts as deny, the agent goes on with a deny, and the text of the next status says
    the answer came too late (R2C-ASK-4, `a2a/refuse-expired.json`).
-4. **Given** a task paused on an approval, **When** the answer claims `answered_by.role =
-   caller`, **Then** it is re-asked with `errors` and never reaches the agent (R2C-ANSWER-4; the
-   core's check already reports it).
-5. **Given** the answer roles that the standard leaves to the remote, **When** an approval with
-   `answer_by: approver` is answered with `answered_by.role = policy`, or a question is answered
-   with `answered_by.role = policy`, **Then** the remote accepts both: `answered_by` is the
-   client's claim (R2C-ANSWER-6), and keeping a `policy` off an approver's approval is the
-   client's duty (R2C-ANSWER-5). (O8, decided 2026-11-20: Q1 C.)
+4. **Given** a door with default settings, **When** an approval is answered with
+   `answered_by.role = caller`, an approval with `answer_by: approver` with `policy`, or a
+   question with `policy`, **Then** each answer is delivered to the agent as it is:
+   `answered_by` is the client's claim (R2C-ANSWER-6), and R2C-ANSWER-4 and R2C-ANSWER-5 are the
+   client's to enforce. (O8, decided 2026-11-20.)
+5. **Given** a door whose owner turned on the `answered_by` check, **When** an approval is
+   answered as `caller` (R2C-ANSWER-4), or an `answer_by: approver` approval as `policy`
+   (R2C-ANSWER-5), **Then** it is re-asked with `errors` keyed `answered_by` and never reaches
+   the agent; a `policy` answer to a question is still delivered, since no rule forbids it.
 6. **Given** an answer larger than the size limit, **When** it arrives, **Then** it is re-asked
    with a "too large" error and the oversized content is not parsed further.
 
@@ -342,11 +343,13 @@ implements the standard rather than an idea of it.
 - **FR-010**: Past `expires_at`, the pending request MUST count as declined (a question) or
   deny (an approval); the source receives that outcome, the run goes on, and an answer that
   arrives late is refused in the text of the next status (R2C-ASK-4, R2C-ASK-5).
-- **FR-011**: An approval answered with `answered_by.role = caller` MUST be re-asked with
-  `errors`, never delivered (R2C-ANSWER-4).
-- **FR-012**: A `policy` answer MUST be accepted for a question and for an approval, including
-  one with `answer_by: approver`; the door refuses no answer for its `answered_by` role except
-  `caller` on an approval (O8; R2C-ANSWER-5, R2C-ANSWER-6).
+- **FR-011**: By default the door MUST NOT refuse an answer for its `answered_by` role: every
+  role the schema allows is delivered, `caller` on an approval and `policy` on an
+  `answer_by: approver` approval included (O8; R2C-ANSWER-6).
+- **FR-012**: The door MUST offer one setting, off by default, that checks `answered_by`: when
+  on, an approval answered as `caller` (R2C-ANSWER-4) or an `answer_by: approver` approval
+  answered as `policy` (R2C-ANSWER-5) is re-asked with `errors` keyed `answered_by`, never
+  delivered. The same setting MUST be available to the helpers of story 6.
 
 **Activation (story 3)**
 
@@ -406,9 +409,10 @@ implements the standard rather than an idea of it.
   `[a2a]` extra's packages; `import ext_r2c` and `import ext_r2c.core` MUST keep working without
   the extra (constitution VIII).
 - **FR-030**: The decisions on O8, O9 and O10 MUST be written into `standard/v1/README.md`:
-  O8 as prose on R2C-ANSWER-6 (the remote accepts the role claim, `caller` on an approval
-  aside); O9 on R2C-ID-2 with a new A2A example of the rejected task; O10 on R2C-ACTIVITY-2
-  (the label may change, the latest is shown) and R2C-A2A-4 (any status message may carry at
+  O8 as prose on R2C-ANSWER-6 (a remote delivers the role claim as given, and MAY refuse an
+  answer that breaks R2C-ANSWER-4 or R2C-ANSWER-5 by re-asking with `errors`); O9 on R2C-ID-2
+  with a new A2A example of the rejected task; O10 on R2C-ACTIVITY-2 (the label may change,
+  the latest is shown) and R2C-A2A-4 (any status message may carry at
   most one usage Part) with an example of a usage next to an activity. Every example MUST
   still validate and replay.
 
@@ -469,8 +473,10 @@ implements the standard rather than an idea of it.
   shows): the expired request counts as declined or deny, the run goes on, and the late answer
   is refused in that status's text. A timer that ends an idle expired task on its own is out of
   scope.
-- **Decided by the maintainer** (2026-11-20): Q1 C (O8: the remote accepts `policy` answers,
-  for questions and for approver approvals alike), Q2 A (O9: a second unfinished task is
+- **Decided by the maintainer** (2026-11-20): Q1 C, then widened (O8: the remote refuses no
+  answer for its `answered_by` role, `caller` on an approval included, because who may answer is
+  the caller's logic to enforce, not the remote's; a setting, off by default, turns the check of
+  R2C-ANSWER-4 and R2C-ANSWER-5 on), Q2 A (O9: a second unfinished task is
   rejected with `TASK_STATE_REJECTED` and a text), Q3 A (O10: an activity's label may change;
   any status message may carry one usage Part).
 - **Usage placement**: the door holds the last usage and sends it in the next input-required
@@ -481,8 +487,10 @@ implements the standard rather than an idea of it.
 - **Reasoning** activities are sent only when the source yields them and R2C is active;
   deciding whether to produce reasoning is the source's (and its owner's) business
   (R2C-ACTIVITY-5).
-- **Already decided elsewhere**: an approval answered as `caller` is refused (the core's check,
-  R2C-ANSWER-4); the size unit is MiB (O11).
+- **The core's answer check** (spec 002) always reports `caller_on_approval`. The client
+  side keeps that (FR-022). The remote side needs the role checks to be optional, which is a
+  small additive change to `ext_r2c.core`; `plan.md` says where it goes.
+- **Already decided elsewhere**: the size unit is MiB (O11).
 - **Out of scope**: the MCP door (004), the LangGraph bridge (005), `Remote` and its ASGI app
   (006), authentication (the remote owner configures a2a-sdk's), push notifications, a caller's
   presentation of requests and artifacts, remembered-consent storage, an expiry timer.
