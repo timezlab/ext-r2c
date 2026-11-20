@@ -1,0 +1,32 @@
+{
+  "title": "An inline image as an image block, beside the reply",
+  "description": "An `inline` artifact whose bytes are an image travels as an `image` content block, with the artifact metadata in the block's `_meta`. Other inline bytes would be an embedded `resource`. The image here is an invented 1 by 1 PNG.",
+  "binding": "mcp",
+  "rules": ["R2C-MCP-7", "R2C-ARTIFACT-1", "R2C-ARTIFACT-2"],
+  "steps": [
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "complete",
+          "content": [
+            {
+              "type": "text",
+              "text": "Stock by week, as a chart.",
+              "_meta": { "io.github.timezlab/r2c": { "kind": "artifact", "presentation": "inline", "response": true } }
+            },
+            {
+              "type": "image",
+              "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+              "mimeType": "image/png",
+              "_meta": { "io.github.timezlab/r2c": { "kind": "artifact", "presentation": "inline", "title": "Stock by week" } }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

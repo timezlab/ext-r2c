@@ -1,0 +1,107 @@
+{
+  "title": "A direct call to a tool that needs approval, denied with a reason",
+  "description": "The tool `publish_page` needs approval before it runs. The first round asks for it: the approval's subject is the call itself, with its arguments and the tool's input schema, and `edit` is kept because that schema is flat. The person denies it with a reason, so the tool does not run and the result is an error that says so. Derived answer: {kind: answer, id: ap-1, outcome: answered, answered_by: {role: person}, value: {decision: deny, reason: The page is not reviewed yet.}}.",
+  "binding": "mcp",
+  "rules": ["R2C-MCP-1", "R2C-MCP-3", "R2C-MCP-4", "R2C-APPROVAL-3"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {
+          "name": "publish_page",
+          "arguments": { "page": "team/reports" },
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "ap-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Run publish_page",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "decision": {
+                      "type": "string", "title": "Decision",
+                      "oneOf": [{ "const": "allow", "title": "Allow" }, { "const": "edit", "title": "Edit" }, { "const": "deny", "title": "Deny" }]
+                    },
+                    "reason": { "type": "string", "title": "Reason" },
+                    "page": { "type": "string", "title": "page", "default": "team/reports" }
+                  },
+                  "required": ["decision"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6ImFwcHJvdmUtMSJ9",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "ap-1": {
+                  "kind": "approval", "id": "ap-1", "title": "Run publish_page", "answer_by": { "role": "person" },
+                  "subject": {
+                    "type": "tool_call",
+                    "name": "publish_page",
+                    "args": { "page": "team/reports" },
+                    "args_schema": {
+                      "type": "object",
+                      "properties": { "page": { "type": "string", "title": "Page" } },
+                      "required": ["page"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "decisions": ["allow", "edit", "deny"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "publish_page",
+          "arguments": { "page": "team/reports" },
+          "inputResponses": { "ap-1": { "action": "accept", "content": { "decision": "deny", "reason": "The page is not reviewed yet." } } },
+          "requestState": "eyJzdGF0ZSI6ImFwcHJvdmUtMSJ9",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 2,
+        "result": {
+          "resultType": "complete",
+          "content": [{ "type": "text", "text": "Not run: denied. Reason: The page is not reviewed yet." }],
+          "isError": true
+        }
+      }
+    }
+  ]
+}

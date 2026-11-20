@@ -56,6 +56,24 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
         terminalreporter.write_line(
             f"A2A replay: {client} files in client mode, {door} in door mode (x2 pause styles), {exempt} exempt"
         )
+    mcp = _mcp_replay_counts()
+    if mcp is not None:
+        client, door, exempt = mcp
+        terminalreporter.write_line(
+            f"MCP replay: {client} files in client mode, {door} in door mode (x2 pause styles), {exempt} exempt"
+        )
+
+
+def _mcp_replay_counts() -> tuple[int, int, int] | None:
+    """MCP files in client mode, in door mode, and exempt from door mode (spec 004
+    contracts/replay.md)."""
+    try:
+        import mcp_replay_kit as kit  # needs the [mcp] extra
+    except ImportError:
+        return None
+    names = kit.names()
+    exempt = sum(1 for n in names if n in kit.DOOR_EXEMPT)
+    return len(names), len(names) - exempt, exempt
 
 
 def _replay_counts() -> tuple[int, int, int] | None:

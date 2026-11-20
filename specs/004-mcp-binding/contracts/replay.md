@@ -73,3 +73,17 @@ The list is a constant, checked both ways as on A2A.
   `Not run: …` with `isError: true`.
 
 The two approval examples are corrected to the message rule (O5).
+
+## As built (2026-11-20, phase 8)
+
+- The derived answer is computed from the file's response with `answer_from_mcp`;
+  `test_forms.py` pins that it equals the description's `Derived answer`.
+- A retry the client will not send (no response for the pending key, or a response its check
+  refuses) goes through the client's session as is, with the state the client holds.
+- In client mode, `requestState` is named across the whole exchange, so an echo must equal what
+  was received.
+- Door mode maps the file's request keys to the door's, and the normaliser maps request ids: the
+  door chooses an approval's id.
+- Discover mode compares `capabilities.extensions` exactly. The file's other capabilities and the
+  cache hints (`cacheScope` and `ttlMs`, which MCP requires) are compared for presence only.
+- Three examples were corrected besides the two approvals; see tasks.md "Notes".

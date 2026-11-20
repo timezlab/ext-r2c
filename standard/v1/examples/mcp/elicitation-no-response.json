@@ -1,0 +1,149 @@
+{
+  "title": "A retry with no response for the pending request, asked again with the refusal",
+  "description": "The client calls the tool again with the `requestState` but no `inputResponses` entry for `q-1`. The request stays pending: the remote asks it again in a new round, and the first line of the elicitation `message` is the refusal. Derived answer: {kind: answer, id: q-1, outcome: answered, answered_by: {role: person}, value: {title: October stock}}.",
+  "binding": "mcp",
+  "rules": ["R2C-ASK-5", "R2C-MCP-1"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "q-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Report title",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "title": "Title", "description": "What is the report's title?" }
+                  },
+                  "required": ["title"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6Im5vLXJlc3BvbnNlLTEifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "q-1": {
+                  "kind": "question", "id": "q-1", "title": "Report title", "answer_by": { "role": "person" },
+                  "fields": [{ "key": "title", "header": "Title", "text": "What is the report's title?", "type": "text" }]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "requestState": "eyJzdGF0ZSI6Im5vLXJlc3BvbnNlLTEifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 2,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "q-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "No response was received for \"Report title\".\nReport title",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "title": "Title", "description": "What is the report's title?" }
+                  },
+                  "required": ["title"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6Im5vLXJlc3BvbnNlLTIifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "q-1": {
+                  "kind": "question", "id": "q-1", "title": "Report title", "answer_by": { "role": "person" },
+                  "fields": [{ "key": "title", "header": "Title", "text": "What is the report's title?", "type": "text" }]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "inputResponses": { "q-1": { "action": "accept", "content": { "title": "October stock" } } },
+          "requestState": "eyJzdGF0ZSI6Im5vLXJlc3BvbnNlLTIifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 3,
+        "result": {
+          "resultType": "complete",
+          "content": [
+            {
+              "type": "text", "text": "October stock is ready.",
+              "_meta": { "io.github.timezlab/r2c": { "kind": "artifact", "presentation": "inline", "response": true } }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

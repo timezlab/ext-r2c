@@ -151,7 +151,9 @@ Shared fields, in [`question.json`](schema/question.json) and
   An answer after expiry, or with an `id` that matches no pending request, is refused in text.
   A pending request then stays pending. On A2A the refusal is the text of the next status
   update: `TASK_STATE_INPUT_REQUIRED` while a request is still pending, otherwise the state the
-  run goes on in.
+  run goes on in. On MCP the refusal is the first line of the next result: of the elicitation
+  `message` when the request is asked again, otherwise of the result's text. A retry with no
+  response for the pending key gets the same request again, with that line.
 - **R2C-ASK-6** · MUST · remote · wire
   An answer that fails the request (section 5 mapping, or the approval value) makes the remote
   send **the same request again**, with the same `id`, plus `errors`. The bad answer never
@@ -426,6 +428,12 @@ form, and the client calls the tool again with its responses.
   `{"input_requests": {"<request key>": <object>}}`, where the request key is the key in
   `inputRequests` and SHOULD equal the object's `id`. (MCP 2026-07-28 gives an elicitation's
   params no `_meta`.)
+
+  A tool call has at most one pending request (`R2C-ASK-3`, applied per call): a remote sends
+  one `inputRequests` entry per round, and a client accepts several. The elicitation's `message`
+  is, one per line: the request's `title` (prefixed with `<origin.name> asks: ` when the request
+  is forwarded), its `description` when set, and the `message` of each entry of `errors` on a
+  re-ask. The usage so far MAY sit beside `input_requests` (`R2C-MCP-8`).
 - **R2C-MCP-2** · MUST · remote · wire
   The elicitation's `requestedSchema` is flat and generated from the question's fields:
 
@@ -483,17 +491,20 @@ form, and the client calls the tool again with its responses.
 - **R2C-MCP-6** · MUST · remote · wire
   An `activity` travels as `notifications/progress` for a request that carried a
   `progressToken`. `message` is the activity's `label`, and the activity sits in the
-  notification params' `_meta["<key>"]`. Without a `progressToken`, no activity is sent.
+  notification params' `_meta["<key>"]`. `progress` counts up from 1 for each request, and no
+  `total` is sent. Without a `progressToken`, no activity is sent.
 - **R2C-MCP-7** · MUST · remote · wire
   Artifacts travel as content of the tool result, with the artifact metadata in the content
   block's `_meta["<key>"]`:
   - `file` is a `resource_link` or an embedded `resource`;
-  - `inline` is `text`;
+  - `inline` is `text`; an inline image or audio is an `image` or `audio` block, and other
+    inline bytes are an embedded `resource`;
   - `live` is a `resource_link`.
 
   The reply text is the result's `text` content with `response: true`. MCP does not stream it.
 - **R2C-MCP-8** · MUST · remote · wire
-  `usage` sits in the tool result's `_meta["<key>"]`.
+  `usage` sits in the tool result's `_meta["<key>"]`. In an input-required result it sits beside
+  `input_requests`, as `_meta["<key>"].usage`.
 
 ## 13. Identifiers and state
 

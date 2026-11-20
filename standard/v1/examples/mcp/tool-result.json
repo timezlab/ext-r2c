@@ -27,7 +27,7 @@
             },
             {
               "type": "resource",
-              "resource": { "uri": "https://files.example.com/r/below-threshold.txt", "mimeType": "text/plain", "text": "A-113 12\nB-201 8\nC-047 19\n" },
+              "resource": { "uri": "urn:r2c:artifact:below-threshold", "mimeType": "text/plain", "text": "A-113 12\nB-201 8\nC-047 19\n" },
               "_meta": { "io.github.timezlab/r2c": { "kind": "artifact", "presentation": "file" } }
             },
             {

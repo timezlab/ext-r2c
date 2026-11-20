@@ -17,7 +17,7 @@
               "method": "elicitation/create",
               "params": {
                 "mode": "form",
-                "message": "Place an order of 3 lines with supplier S-7?",
+                "message": "Place an order of 3 lines with supplier S-7",
                 "requestedSchema": {
                   "type": "object",
                   "properties": {

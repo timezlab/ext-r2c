@@ -48,7 +48,8 @@ from r2c_check import example_files, load_json
 from test_forms import DERIVED
 
 EXAMPLES = example_files("mcp")
-CORRECTED = {"elicitation-approval.json", "elicitation-approval-edit-dropped.json"}  # O5, until T083
+# The refusal sentence that opens a round's message (R2C-ASK-5), by file and round.
+REFUSED = {("elicitation-no-response.json", 1): 'No response was received for "Report title".'}
 
 
 def _ints(value: Any) -> Any:
@@ -135,7 +136,7 @@ def test_tool_result_reads_reply_artifacts_and_usage() -> None:
     assert read.reply == "The October report is ready: 412 items, 3 below their reorder level."
     assert [(a.presentation, a.uri, a.media_type, a.name) for a in read.artifacts] == [
         ("file", "https://files.example.com/r/inventory-2026-10.csv", "text/csv", "inventory-2026-10.csv"),
-        ("file", "https://files.example.com/r/below-threshold.txt", "text/plain", None),
+        ("file", "urn:r2c:artifact:below-threshold", "text/plain", None),
         ("live", "https://remote.example.com/live/report-2026-10", "text/html", "Stock dashboard"),
     ]
     assert read.usage is not None and read.usage.input_tokens == 5200
@@ -186,10 +187,10 @@ ASKING = [p for p in EXAMPLES if _asked(p)]
 
 @pytest.mark.parametrize("path", ASKING, ids=_id)
 def test_input_required_equals_the_example(path: Path) -> None:
-    if path.name in CORRECTED:
-        pytest.xfail("the approval messages are corrected to the message rule in phase 8 (O5)")
-    for result, request in _asked(path):
-        built = _wire(input_required(request, result["requestState"], active=True, usage=None))
+    for n, (result, request) in enumerate(_asked(path)):
+        usage = result["_meta"][MCP_KEY].get("usage")
+        built = _wire(input_required(request, result["requestState"], active=True,
+                                     usage=Usage.parse(usage) if usage else None, refusal=REFUSED.get((path.name, n))))
         assert built == _ints(result)
 
 

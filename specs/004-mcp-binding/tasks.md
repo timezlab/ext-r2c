@@ -473,10 +473,10 @@ standard records O4–O7.
 
 **Independent test**: `test_mcp_replay.py`, one test per file and mode.
 
-- [ ] T079 [P] [US7] Write the standard text first (FR-023, plan "Changes to the standard") in
+- [X] T079 [P] [US7] Write the standard text first (FR-023, plan "Changes to the standard") in
   `standard/v1/README.md`: the prose on R2C-MCP-1, R2C-ASK-5, R2C-MCP-6, R2C-MCP-7 and
   R2C-MCP-8. Keep the rule count at 84.
-- [ ] T080 [P] [US7] Add the new examples:
+- [X] T080 [P] [US7] Add the new examples:
   - `elicitation-two-rounds.json`;
   - `elicitation-reask.json`;
   - `elicitation-no-response.json`;
@@ -485,7 +485,7 @@ standard records O4–O7.
   Correct the `message` of `elicitation-approval.json` and `elicitation-approval-edit-dropped.json`
   to the rule (O5). Run `test_examples.py` and `test_rules.py`: every file validates, and every
   `wire` rule has an example.
-- [ ] T081 [US7] Create `python/tests/mcp_replay_kit.py` ([contracts/replay.md](contracts/replay.md)):
+- [X] T081 [US7] Create `python/tests/mcp_replay_kit.py` ([contracts/replay.md](contracts/replay.md)):
   - `load`, `names` and the `turns` of a file;
   - the derived answer, read from the file's description;
   - the converter to a scripted source (`script_from_example`) and the scripted source for both
@@ -493,18 +493,18 @@ standard records O4–O7.
   - the wire server for client mode (a lowlevel `Server` replaying remote steps);
   - `normalise` (state, ids and tokens mapped; SDK `_meta` dropped; floats as ints);
   - the exemption list.
-- [ ] T082 [US7] Write `python/tests/test_mcp_replay.py`:
+- [X] T082 [US7] Write `python/tests/test_mcp_replay.py`:
   - **`client:<file>`** for every file;
   - **`door:<file>:<pause>`** for every file not exempt;
   - **`discover:discover.json`**;
   - **`test_exemptions_hold_both_ways`**.
 
   Add the summary line `MCP replay: …` to `conftest.py`, beside the A2A one.
-- [ ] T083 Run T082. Fix the door where the replay finds a difference, each fix with its own
+- [X] T083 Run T082. Fix the door where the replay finds a difference, each fix with its own
   failing test first, and record it in this file's Notes. Remove the xfail of T014.
-- [ ] T084 [US7] Update `specs/001-standard-v1/research.md`: dated notes on O4–O7 saying where
+- [X] T084 [US7] Update `specs/001-standard-v1/research.md`: dated notes on O4–O7 saying where
   the text went.
-- [ ] T085 Verify (SC-001), then commit `feat(004): every MCP example replayed in process`.
+- [X] T085 Verify (SC-001), then commit `feat(004): every MCP example replayed in process`.
 
 ---
 
@@ -581,3 +581,41 @@ Production tasks in a phase touch the same modules and stay serial.
 - **Then**: approvals (4), robustness (5), threads and restart (6), the client (7), the replay and
   the standard (8), docs and the gate (9).
 - **Each phase** ends verified and committed, and waits for the maintainer's go.
+
+## Notes: where reality differed
+
+- **Phases 4 and 5:** the retry outcome table (T061) landed in phase 4, because the `edit` re-ask
+  needed it. Phase 5's MCP tests then passed on their first run; only the A2A gathered-reply
+  test (FR-014) failed first.
+- **T029** checks that the source sees `ctx.cancelled` when the client cancels a round. "Its
+  paused ask gets declined" is covered by `test_paused_run_ended_at_expiry`, since `Run.cancel`
+  gives a live source `declined`.
+- **The test transport** runs the app in an asyncio task, not a task group.
+- **Phase 6:** the restart tests passed before T069, on phase 4's code.
+- **Phase 7:**
+  - `respond` refuses `accept` for a request that carries an R2C object; it goes through
+    `answer`, and its check.
+  - `cancel()` also forgets a paused call.
+  - `Link` has `uri`, the MCP word, where the A2A client's has `url`.
+  - The elicitation callback returns an error instead of raising; it only declares the
+    capability.
+  - In tests, the version failure of `connect` surfaces inside the server's task group, so the
+    test catches it inside `serve`.
+- **Phase 8, the replay found no door difference.** What it found were in the examples and the
+  harness:
+  - `progress-activity.json` is activated, but its reply block had no `response: true`
+    (R2C-MCP-7). Added.
+  - `tool-result.json` embedded a resource under an `https` uri. The door names embedded
+    content `urn:r2c:artifact:<id>`, since it exists only in the block. Corrected.
+  - The form in `not-activated.json` had no `description` (R2C-MCP-2). Added.
+  - `discover.json`: MCP requires `cacheScope` and `ttlMs`, so they stay. Discover mode compares
+    `extensions` exactly, the file's capabilities and the cache hints for presence; the SDK
+    adds its own `prompts` and `resources`.
+  - Door mode maps the file's request keys to the door's: the door chooses an approval's id.
+    The normaliser maps request ids like states, ids and tokens.
+  - Client mode computes the derived answer with `answer_from_mcp` from the file's response.
+    `test_forms` pins that it equals the description's. A retry the client will not send (no
+    response, or a response its check refuses) goes through its session as is.
+  - A mutation run found that the first client-mode check named `requestState` per side, so a
+    wrong echo passed. States are now named across the whole exchange, and an echo must equal
+    what was received.

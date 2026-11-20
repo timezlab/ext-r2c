@@ -36,7 +36,10 @@
                 "requestedSchema": {
                   "type": "object",
                   "properties": {
-                    "warehouse": { "type": "string", "title": "Warehouse", "oneOf": [{ "const": "North", "title": "North" }, { "const": "South", "title": "South" }] }
+                    "warehouse": {
+                      "type": "string", "title": "Warehouse", "description": "Which warehouse should the report cover?",
+                      "oneOf": [{ "const": "North", "title": "North" }, { "const": "South", "title": "South" }]
+                    }
                   },
                   "required": ["warehouse"]
                 }

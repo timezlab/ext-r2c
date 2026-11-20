@@ -1,0 +1,159 @@
+{
+  "title": "A response missing a required field, asked again with errors",
+  "description": "The first response has no `threshold`. The remote does not pass it to its agent: it sends the same question again, with the same `id`, plus `errors`, in a new round. The elicitation `message` is the title, then one line per error. Derived answer: {kind: answer, id: q-1, outcome: answered, answered_by: {role: person}, value: {title: October stock, threshold: 20}}.",
+  "binding": "mcp",
+  "rules": ["R2C-ASK-6", "R2C-MCP-1", "R2C-MCP-4"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "q-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Report settings",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "title": "Title", "description": "What is the report's title?" },
+                    "threshold": { "type": "number", "title": "Threshold", "description": "Below which stock level is an item flagged?" }
+                  },
+                  "required": ["title", "threshold"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InJlYXNrLTEifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "q-1": {
+                  "kind": "question", "id": "q-1", "title": "Report settings", "answer_by": { "role": "person" },
+                  "fields": [
+                    { "key": "title", "header": "Title", "text": "What is the report's title?", "type": "text" },
+                    { "key": "threshold", "header": "Threshold", "text": "Below which stock level is an item flagged?", "type": "number" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "inputResponses": { "q-1": { "action": "accept", "content": { "title": "October stock" } } },
+          "requestState": "eyJzdGF0ZSI6InJlYXNrLTEifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 2,
+        "result": {
+          "resultType": "input_required",
+          "inputRequests": {
+            "q-1": {
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "message": "Report settings\nThis is needed.",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "title": "Title", "description": "What is the report's title?" },
+                    "threshold": { "type": "number", "title": "Threshold", "description": "Below which stock level is an item flagged?" }
+                  },
+                  "required": ["title", "threshold"]
+                }
+              }
+            }
+          },
+          "requestState": "eyJzdGF0ZSI6InJlYXNrLTIifQ",
+          "_meta": {
+            "io.github.timezlab/r2c": {
+              "input_requests": {
+                "q-1": {
+                  "kind": "question", "id": "q-1", "title": "Report settings", "answer_by": { "role": "person" },
+                  "fields": [
+                    { "key": "title", "header": "Title", "text": "What is the report's title?", "type": "text" },
+                    { "key": "threshold", "header": "Threshold", "text": "Below which stock level is an item flagged?", "type": "number" }
+                  ],
+                  "errors": [{ "key": "threshold", "message": "This is needed." }]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "client",
+      "type": "request",
+      "body": {
+        "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+        "params": {
+          "name": "monthly_report",
+          "arguments": { "month": "2026-10" },
+          "inputResponses": { "q-1": { "action": "accept", "content": { "title": "October stock", "threshold": 20 } } },
+          "requestState": "eyJzdGF0ZSI6InJlYXNrLTIifQ",
+          "_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": { "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "result",
+      "method": "tools/call",
+      "body": {
+        "jsonrpc": "2.0", "id": 3,
+        "result": {
+          "resultType": "complete",
+          "content": [
+            {
+              "type": "text", "text": "October stock is ready: 412 items, 3 below 20.",
+              "_meta": { "io.github.timezlab/r2c": { "kind": "artifact", "presentation": "inline", "response": true } }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -17,7 +17,7 @@
               "method": "elicitation/create",
               "params": {
                 "mode": "form",
-                "message": "Place a reorder of 500 units of A-113 from supplier S-7?",
+                "message": "Place a reorder of 500 units of A-113",
                 "requestedSchema": {
                   "type": "object",
                   "properties": {

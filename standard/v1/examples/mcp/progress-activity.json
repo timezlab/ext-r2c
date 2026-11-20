@@ -57,7 +57,15 @@
       "method": "tools/call",
       "body": {
         "jsonrpc": "2.0", "id": 1,
-        "result": { "resultType": "complete", "content": [{ "type": "text", "text": "412 items read; 3 are below their reorder level." }] }
+        "result": {
+          "resultType": "complete",
+          "content": [
+            {
+              "type": "text", "text": "412 items read; 3 are below their reorder level.",
+              "_meta": { "io.github.timezlab/r2c": { "kind": "artifact", "presentation": "inline", "response": true } }
+            }
+          ]
+        }
       }
     }
   ]
