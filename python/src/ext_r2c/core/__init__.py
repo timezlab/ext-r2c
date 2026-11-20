@@ -47,6 +47,7 @@ from .models import (
     to_json,
 )
 from .source import AgentSource, CardInfo, CardSkill, Driver, Run, RunContext, RunInput, thread_id
+from .tools import InvalidArguments, ToolSpec, tool_from_function
 
 __all__ = [
     "Activity",
@@ -71,6 +72,7 @@ __all__ = [
     "Error",
     "ErrorItem",
     "Field",
+    "InvalidArguments",
     "InvalidObject",
     "Limits",
     "McpForm",
@@ -88,6 +90,7 @@ __all__ = [
     "RunInput",
     "Subject",
     "TextContent",
+    "ToolSpec",
     "Unknown",
     "UrlContent",
     "Usage",
@@ -105,4 +108,5 @@ __all__ = [
     "schema_kinds",
     "thread_id",
     "to_json",
+    "tool_from_function",
 ]

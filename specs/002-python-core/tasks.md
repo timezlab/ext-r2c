@@ -280,7 +280,7 @@ new examples.
 
 **Independent test**: `test_tools.py`.
 
-- [ ] T036 [P] [US5] Create `python/tests/test_tools.py`:
+- [X] T036 [P] [US5] Create `python/tests/test_tools.py`:
   - the three story 5 scenarios;
   - an async function;
   - a sync function runs off the event loop (it records `threading.get_ident()`, which differs from the loop's thread);
@@ -290,9 +290,9 @@ new examples.
   - `InvalidArguments` lists the keys, and the function was not called;
   - the input schema has no top-level `title`;
   - an approval built with `args_schema=tool.input_schema` keeps `edit` in `mcp_form`.
-- [ ] T037 [US5] Run the tests and confirm they fail on `ImportError`.
-- [ ] T038 [US5] Create `python/src/ext_r2c/core/tools.py`: `ToolSpec`, `tool_from_function`, `InvalidArguments` (research R12). Export them.
-- [ ] T039 [US5] Verify and commit `feat(002): ToolSpec from plain functions`.
+- [X] T037 [US5] Run the tests and confirm they fail on `ImportError`.
+- [X] T038 [US5] Create `python/src/ext_r2c/core/tools.py`: `ToolSpec`, `tool_from_function`, `InvalidArguments` (research R12). Export them.
+- [X] T039 [US5] Verify and commit `feat(002): ToolSpec from plain functions`.
 
 ---
 

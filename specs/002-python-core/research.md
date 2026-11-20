@@ -191,8 +191,12 @@ readable prefix).
   gave `{"type": "object", "properties": {"item": {"type": "string", ...}, "quantity":
   {"type": "integer", "default": 1, ...}, "supplier": {"enum": [...], "type": "string", ...}},
   "required": ["item"]}`, which is flat.
-- The call validates the arguments with that model before calling the function: bad arguments
-  raise an `InvalidArguments` error listing the keys, and the function never runs.
+- The call checks the arguments against `input_schema` with the answer checker (the same
+  messages as `check_answer`, code `invalid_args`), then converts them with the model: bad
+  arguments raise an `InvalidArguments` error listing the keys, and the function never runs.
+  Checking the schema first keeps the schema the judge: the model alone, in lax mode, would take
+  `"3"` for an `int`. The model forbids extra arguments, so the schema has
+  `additionalProperties: false`. Positional-only parameters are refused too.
 - A sync function runs in a worker thread (`asyncio.to_thread`).
 - The description is the first paragraph of the cleaned docstring. Parameters `*args` or
   `**kwargs` are refused when the tool is made.
