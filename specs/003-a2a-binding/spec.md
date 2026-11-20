@@ -271,8 +271,9 @@ implements the standard rather than an idea of it.
 
 ### Edge Cases
 
-- **Reply chunks without activation**: the reply still streams, as a standard artifact with no
-  R2C metadata.
+- **Reply chunks without activation**: the reply text is gathered and sent as the text of the
+  next status message (the input-required or the terminal one), as `a2a/not-activated.json`
+  shows; no reply artifact is made.
 - **An activity whose `label` changes between updates**: allowed; the `id` is the activity's
   identity and a client shows the latest label. **A `usage` that comes while an activity is
   running or a request is pending**: any status message may carry at most one usage Part, next
@@ -476,8 +477,9 @@ implements the standard rather than an idea of it.
 - **Usage placement**: the door holds the last usage and sends it in the next input-required
   status and in the terminal one, never in a status of its own; the standard allows more
   (O10), receivers must accept it anywhere.
-- **Reply without R2C**: a reply streamed to a plain client is a standard artifact, as
-  `a2a/not-activated.json` shows.
+- **Reply without R2C**: a plain client gets the reply as the text of the next status message,
+  as `a2a/not-activated.json` shows (its standard artifact is a file the source made, not the
+  reply). Corrected 2026-11-20 during planning (research R5).
 - **Reasoning** activities are sent only when the source yields them and R2C is active;
   deciding whether to produce reasoning is the source's (and its owner's) business
   (R2C-ACTIVITY-5).
