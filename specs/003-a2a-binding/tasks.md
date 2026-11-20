@@ -124,7 +124,7 @@ answer only where R2C-ASK-8 allows.
 **Independent test**: `test_a2a_codec.py`, against every R2C Part and artifact in the A2A
 examples.
 
-- [ ] T013 [P] Create `python/tests/test_a2a_codec.py`, all tests first, with these test
+- [X] T013 [P] Create `python/tests/test_a2a_codec.py`, all tests first, with these test
   groups:
   - **Parts from the examples.** Every R2C Part in every A2A example is parsed with
     `google.protobuf.json_format.ParseDict` into `a2a.types.Part`. `read_part` gives the core
@@ -146,8 +146,8 @@ examples.
     - Accepted: `one` with an exact label, a label in another case, and other text when
       `other: true`; `text` with any non-empty text.
     - Refused (gives `None`): a `bool` field, two fields, an approval, and empty text.
-- [ ] T014 Run it; confirm it fails because `ext_r2c.a2a._codec` is missing.
-- [ ] T015 Create `python/src/ext_r2c/a2a/_codec.py`:
+- [X] T014 Run it; confirm it fails because `ext_r2c.a2a._codec` is missing.
+- [X] T015 Create `python/src/ext_r2c/a2a/_codec.py`:
   - `r2c_part`, `read_part`, `read_parts` (yields core objects, `Unknown`, or a skip marker);
   - `artifact_update(...)` and `read_artifact(...)`;
   - `content_to_part` and `part_to_content` (text, raw, url);
@@ -157,8 +157,16 @@ examples.
   - `text_answer(request, text)`.
 
   The URI comes from `ext_r2c.URI`.
-- [ ] T016 Run `test_a2a_codec.py` until green, then the whole suite.
-- [ ] T017 Verify, then commit `feat(003): codec between R2C objects and A2A parts`.
+
+  *Note (2026-11-20):*
+  - The skip marker is `Invalid(kind, errors)`.
+  - `read_artifact` gives `(meta, contents)`. A `data` Part has no core `Content`, so it is
+    left out (`art-3` in `artifact-no-metadata.json`). How the client shows such a Part is
+    decided in phase 6.
+  - The round-trip tests compare protobuf messages: in protobuf, `20` and `20.0` are the same
+    double, and `append: false` equals an unset field.
+- [X] T016 Run `test_a2a_codec.py` until green, then the whole suite.
+- [X] T017 Verify, then commit `feat(003): codec between R2C objects and A2A parts`.
 
 ---
 

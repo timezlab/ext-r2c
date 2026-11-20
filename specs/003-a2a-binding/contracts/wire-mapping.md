@@ -47,6 +47,7 @@ message: role ROLE_USER, taskId, contextId,
 ```
 
 `answer_text` gives the following:
-- question: `"<header>: <value>"` per answered field, joined by `"; "`;
+- question: `"<header>: <value>"` per answered field, in form order, joined by `"; "`. A list
+  is joined by `", "`, a bool is `yes` or `no`, and an integral number has no `.0`;
 - approval: `"Allow"`, `"Deny"`, `"Deny: <reason>"` or `"Edited: <args as JSON>"`;
 - declined: `"Declined"`.
