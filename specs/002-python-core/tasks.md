@@ -300,21 +300,21 @@ new examples.
 
 **Purpose**: SC-006, SC-007 and SC-008; no stale docs.
 
-- [ ] T040 [P] In `ARCHITECTURE.md`, list the core modules. Replace "A test enforcing this belongs to the first spec that adds a second module" with a pointer to `test_packaging.py` and the core-only CI step.
-- [ ] T041 [P] In `python/README.md`, add a core example: parse, `answer_schema`, `mcp_form`, `check_answer` (as quickstart §4), and the install table with `[langgraph]`.
-- [ ] T042 [P] In `docs/whitepaper.md` §10–11, align the names with [contracts/core-api.md](contracts/core-api.md) (`Driver`, `pause`, `resume(answer, ctx)`) and add a dated note at the top.
-- [ ] T043 [P] Update `CHANGELOG.md`:
+- [X] T040 [P] In `ARCHITECTURE.md`, list the core modules. Replace "A test enforcing this belongs to the first spec that adds a second module" with a pointer to `test_packaging.py` and the core-only CI step.
+- [X] T041 [P] In `python/README.md`, add a core example: parse, `answer_schema`, `mcp_form`, `check_answer` (as quickstart §4), and the install table with `[langgraph]`.
+- [X] T042 [P] In `docs/whitepaper.md` §10–11, align the names with [contracts/core-api.md](contracts/core-api.md) (`Driver`, `pause`, `resume(answer, ctx)`) and add a dated note at the top.
+- [X] T043 [P] Update `CHANGELOG.md`:
   - Added: `ext_r2c.core` (models, forms, answer check, fallback text, run events, `AgentSource` and `Driver`, `ToolSpec`);
   - Changed: extras `[langchain]` → `[langgraph]`, which no longer pulls `[a2a]`.
-- [ ] T044 Grep for stale names across `docs/`, `ARCHITECTURE.md`, `README.md`, `python/` and `WORKSTATE.md` (`[langchain]`, `ext-r2c[langchain]`, `form_schema`), until only the intentional hits in historical records remain.
-- [ ] T045 Run the final gate:
+- [X] T044 Grep for stale names across `docs/`, `ARCHITECTURE.md`, `README.md`, `python/` and `WORKSTATE.md` (`[langchain]`, `ext-r2c[langchain]`, `form_schema`), until only the intentional hits in historical records remain.
+- [X] T045 Run the final gate:
   - build once;
   - run the full suite in fresh venvs on Python 3.11, 3.12 and 3.13;
   - run the core-only check on each;
   - run the quickstart §5 mutations on a copy through `R2C_STANDARD_DIR`, and confirm each fails where the table says and the repository is untouched;
   - leak-scan `5a28998..HEAD`.
-- [ ] T046 SC-008: give a fresh-context reviewer only the installed core's docstrings (`help()` output) and `docs/design-docs/one-remote-two-doors.md`. Ask it to write one fake source of each style, and run its two sources through `agent_source_suite.py`. Record the result and any unclear points in `specs/002-python-core/research.md` "Outside review".
-- [ ] T047 In `WORKSTATE.md`, mark 002 closed and set the next step to `003-a2a-binding`. Tick every task here, with dated notes where reality differed. Commit `chore(002): close python core`.
+- [X] T046 SC-008: give a fresh-context reviewer only the installed core's docstrings (`help()` output) and `docs/design-docs/one-remote-two-doors.md`. Ask it to write one fake source of each style, and run its two sources through `agent_source_suite.py`. Record the result and any unclear points in `specs/002-python-core/research.md` "Outside review".
+- [X] T047 In `WORKSTATE.md`, mark 002 closed and set the next step to `003-a2a-binding`. Tick every task here, with dated notes where reality differed. Commit `chore(002): close python core`.
 
 ---
 
@@ -346,3 +346,20 @@ Phase 1 (US6) ─▶ Phase 2 (US1) ─▶ Phase 3 (US3) ─▶ Phase 4 (US2) ─
   the A2A door needs; tools (phase 6), which the MCP door needs.
 - Every phase ends green on the installed wheel and the core-only venv, and is committed. Nothing
   is pushed without the maintainer's go.
+
+## Notes: where reality differed (2026-11-20)
+
+- T019: `edit_offered` also requires a `tool_call` subject (R2C-APPROVAL-3).
+- T025: `invalid_answer` (the answer fails its own schema) runs right after the size check and
+  stops the check. `decision` fails closed: another `id`, the `caller`, or a decision not
+  offered also gives `deny`. A schema keyword outside the message table gives "This value is
+  not accepted." (core-api.md, research R6).
+- T029–T031: the suite needs each source to record the answers it received in `answers` (S3
+  and S5 read it). S10 is checked inside every scenario.
+- T034: one run per thread in a driver; `Driver.resume` on a held run raises `ValueError`; a
+  run starts when first read. A cancelled live source gets a declined answer with role `policy`
+  and up to 5 s to finish (core-api.md, data-model.md).
+- T038: arguments are checked against `input_schema` with the answer checker first, then
+  converted by the model; extra and positional-only parameters are refused (research R12).
+- T046: the outside review led to fuller `AgentSource`, `RunContext` and `Answer` docstrings and
+  a 10 s timeout per suite scenario (research "Outside review").

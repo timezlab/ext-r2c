@@ -59,7 +59,12 @@ class RunInput:
 
 
 class RunContext:
-    """What a source gets for one run: its thread, a cancel signal, and (live only) ``ask``."""
+    """What a source gets for one run.
+
+    - ``thread_id``: the run's thread; a checkpoint source keys its stored stopping point by it.
+    - ``cancelled``: an ``asyncio.Event``, set when the door cancels the run.
+    - ``ask(request)``: live sources only.
+    """
 
     def __init__(self, thread_id: str, ask: Callable[[Question | Approval], Any]) -> None:
         self.thread_id = thread_id
@@ -74,6 +79,26 @@ class RunContext:
 
 
 class AgentSource(Protocol):
+    """An agent behind R2C. Plain attributes ``card`` and ``pause``, and two methods that are
+    async generators (``async def`` with ``yield``) of run events.
+
+    - ``pause = "checkpoint"``: ``run`` yields ``Ask(request)`` and ends; the source keeps its
+      stopping point itself (keyed by ``ctx.thread_id``), and the driver later calls
+      ``resume(answer, ctx)``, which goes on from there. ``answer.id`` is the request's id.
+    - ``pause = "live"``: ``run`` calls ``answer = await ctx.ask(request)`` and goes on.
+      ``resume`` is never called; it may raise ``NotImplementedError``.
+
+    A source yields ``ReplyChunk``, ``ActivityEvent``, ``ArtifactEvent``, ``UsageEvent`` and (a
+    checkpoint source only) ``Ask``. It never yields ``AnswerEvent``, ``Done`` or ``Error``: the
+    driver emits those. The run ends with ``Error("protocol")`` when a source yields one of
+    them, asks while an ask is unanswered, yields ``Ask`` from a live source, yields anything
+    after its ``Ask`` (checkpoint), or calls ``ctx.ask`` from a checkpoint source. An exception
+    raised by the source ends the run with ``Error("failed")``, its message as the reason.
+
+    The answer's ``value`` is ``{field key: value}`` for a question and ``{"decision": ...,
+    "reason"?: ..., "args"?: ...}`` for an approval; a declined answer has none.
+    """
+
     card: CardInfo
     pause: Literal["checkpoint", "live"]
 
@@ -91,13 +116,13 @@ def _declined(request: Question | Approval) -> Answer:
                   note="The run was cancelled.")
 
 
-Factory = Callable[[RunContext], AsyncIterator[RunEvent]]
+_Factory = Callable[[RunContext], AsyncIterator[RunEvent]]
 
 
 class Run:
     """One run of a source: an async iterator of run events, answered with ``deliver``."""
 
-    def __init__(self, driver: Driver, thread_id: str, factory: Factory | None) -> None:
+    def __init__(self, driver: Driver, thread_id: str, factory: _Factory | None) -> None:
         self._driver = driver
         self._source = driver.source
         self._live = driver.source.pause == "live"
@@ -165,11 +190,11 @@ class Run:
 
     # --- the source's side ------------------------------------------------------------------
 
-    def _spawn(self, factory: Factory) -> None:
+    def _spawn(self, factory: _Factory) -> None:
         self._asked = False
         self._task = asyncio.get_running_loop().create_task(self._pump(factory))
 
-    async def _pump(self, factory: Factory) -> None:
+    async def _pump(self, factory: _Factory) -> None:
         events: AsyncIterator[RunEvent] | None = None
         try:
             events = factory(self._ctx)

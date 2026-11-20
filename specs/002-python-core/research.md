@@ -241,3 +241,26 @@ plain pytest functions; no `pytest-asyncio` or `anyio` is added to the dev group
 `[mcp]` unchanged. A test reads the installed distribution's metadata (`Provides-Extra`,
 `Requires-Dist`) and asserts the three extras and that no `langgraph` requirement names
 `ext-r2c[a2a]` or `a2a-sdk`.
+
+## Outside review (SC-008, 2026-11-20)
+
+A fresh-context reviewer got only the installed core's `help()` output (`ext_r2c.core.source`,
+`ext_r2c.core.events`, and the models' fields), `docs/design-docs/one-remote-two-doors.md`, and
+the suite's contract (the script, `make_source(**options)`, `answers`). It wrote one checkpoint
+source and one live source.
+
+**Result:** both passed all nine scenarios of `agent_source_suite.py` on the first run (18
+passed). SC-008 is met.
+
+**Unclear points it found, and what was done:**
+
+| Point | Done |
+|---|---|
+| `AgentSource` did not say that `card` and `pause` are plain attributes, that `run` and `resume` are async generators, which events a source may yield, or which sequence breaks end the run with `protocol` | `AgentSource` docstring lists all of it |
+| What an exception in a source becomes | same docstring: `Error("failed")`, with the message as the reason |
+| A checkpoint source's `resume` gets no request: keying its own store by `ctx.thread_id` was a guess | same docstring |
+| A live source must still define `resume`, with no word on what it does | same docstring: never called, may raise `NotImplementedError` |
+| `Answer.value` had no shape per kind; `note` looked like the place for a deny's reason | `Answer` docstring gives both shapes and says the reason is `value["reason"]` |
+| `RunContext.cancelled` did not show in `help()` (an instance attribute) | `RunContext` docstring lists its three members |
+| `Factory` showed in `help()` | renamed `_Factory` |
+| A live source that never asked twice made S9 hang instead of fail | the suite runs each scenario under a 10 s timeout (`TIMEOUT`), so it fails with `TimeoutError` |

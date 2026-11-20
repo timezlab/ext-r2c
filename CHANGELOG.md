@@ -21,6 +21,14 @@ All notable changes to this project are recorded here. The format follows
 - The wheel ships the schemas as `ext_r2c/schema/v1/`.
 - `R2C-VERSION-3`: a new value in a closed enum is a breaking change and needs
   a new major version.
+- `ext_r2c.core`, the protocol-free core (needs only pydantic and jsonschema):
+  models of the six kinds that round-trip every example; forms (the answer
+  schema, the flat MCP `requestedSchema`, a flat response back to an answer);
+  the answer check with readable problems, size limits and no external `$ref`;
+  fallback text; neutral run events; `AgentSource` with one `Driver` for
+  checkpoint and live sources; `ToolSpec` from a plain function.
+- Examples: `mcp/elicitation-question-many-other.json` and
+  `a2a/reask-empty-required.json`.
 
 ### Changed
 
@@ -31,3 +39,5 @@ All notable changes to this project are recorded here. The format follows
 - `R2C-MCP-2` and `R2C-MCP-3` spell out the flat forms: titles and descriptions,
   the `required` list, how `<key>_other` merges (`many` adds it once), what a
   flat `args_schema` is, and how edited `args` are rebuilt.
+- Extras: `[langchain]` is now `[langgraph]` (`langchain>=1.3`, `langgraph`),
+  and no longer pulls `[a2a]`.

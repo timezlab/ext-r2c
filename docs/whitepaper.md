@@ -11,6 +11,11 @@ written, it wins over this paper.
 > [`standard/v1/README.md`](../standard/v1/README.md) and wins over this paper. The wire excerpts
 > in §6.3 and §7 are taken from its examples. Deviations from the design brief (D1–D4) are listed
 > in [`specs/001-standard-v1/research.md`](../specs/001-standard-v1/research.md).
+>
+> **Note 2026-11-20 (spec 002):** `ext_r2c.core` now exists. §10.3 and §11 use its names
+> ([`specs/002-python-core/contracts/core-api.md`](../specs/002-python-core/contracts/core-api.md)):
+> a source declares `pause`, a checkpoint source is resumed with `resume(answer, ctx)`, one
+> `Driver` runs both styles, and a lost live run ends with the error `lost`.
 
 ---
 
@@ -587,8 +592,8 @@ flowchart LR
 python/src/ext_r2c/
   __init__.py         URI, MCP_KEY, STANDARD_VERSION, __version__, Remote, Skills
   core/               models (six kinds), forms → JSON Schema / flat requestedSchema,
-                      validation (size limits, no external $ref), text fallback,
-                      run events, AgentSource, ToolSpec
+                      check_answer (size limits, no external $ref), fallback_text,
+                      run events, AgentSource and Driver, ToolSpec
   a2a/                A2A door; caller-side client                         extra [a2a]
   mcp/                MCP door; MCP Skills; caller-side client             extra [mcp]
   bridges/langgraph/  LangGraphAgent; LangChain tools → ToolSpec           extra [langgraph]
@@ -624,7 +629,7 @@ was designed against).
 
 | Extension point | Interface | v1 ships | Later |
 |---|---|---|---|
-| Agent | `AgentSource`: card info; `run(input, ctx)` yielding run events | `LangGraphAgent` | Google ADK, OpenAI Agents SDK, Claude Agent SDK bridges |
+| Agent | `AgentSource`: card info; `pause`; `run(input, ctx)` yielding run events; `resume(answer, ctx)` for a checkpoint source | `LangGraphAgent` | Google ADK, OpenAI Agents SDK, Claude Agent SDK bridges |
 | Tool | `ToolSpec`: name, description, input schema, async `call` | plain callables, LangChain tools | each framework's tool type |
 | Door | A2A, MCP | both | fixed: two protocols |
 
@@ -637,11 +642,14 @@ suite: approval, deny with reason, re-ask, expiry, restart, streamed reply, acti
 
 | Pause style | Frameworks | How `AgentSource` sees it | Limits |
 |---|---|---|---|
-| **Checkpoint**: save the stopping point, return, resume later | LangGraph `interrupt()`, ADK resumability, OpenAI Agents SDK `RunState` | the run yields an `Ask` and ends; `resume(thread, answer)` continues it | none beyond a durable store |
-| **Live**: the run waits on an `await` in memory | Claude Agent SDK (`can_use_tool`, `AskUserQuestion`) | the run calls `await ctx.ask(...)` and continues when the answer arrives | lost on a restart (the task ends `failed` with a clear reason); over MCP the retry must reach the same process |
+| **Checkpoint** (`pause = "checkpoint"`): save the stopping point, return, resume later | LangGraph `interrupt()`, ADK resumability, OpenAI Agents SDK `RunState` | the run yields an `Ask` and ends; `resume(answer, ctx)` continues it on the same thread | none beyond a durable store |
+| **Live** (`pause = "live"`): the run waits on an `await` in memory | Claude Agent SDK (`can_use_tool`, `AskUserQuestion`) | the run calls `await ctx.ask(...)` and continues when the answer arrives | lost on a restart (the run ends with the error `lost` and a clear reason); over MCP the retry must reach the same process |
 
 `AgentSource` supports both from the first spec that defines it, tested with a fake source of
-each style, so adding a live-pause framework later does not change `core`.
+each style, so adding a live-pause framework later does not change `core`. One `Driver` runs
+either style: a door starts a run, reads its events, delivers an answer and cancels, and never
+knows which style it drives. The driver emits the answer and the single terminal event (`done`
+or `error`) itself.
 
 ### 11.3 The LangGraph bridge
 

@@ -9,8 +9,8 @@ Only S5 and S7 read the source's declared `pause`; no source is special-cased.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar
 
 import pytest
 
@@ -32,6 +32,12 @@ from ext_r2c.core import (
 )
 
 MakeSource = Callable[..., AgentSource]
+TIMEOUT = 10.0  # seconds: a source that never answers the driver fails instead of hanging
+
+
+def _run(coro: Coroutine[Any, Any, T]) -> T:
+    return asyncio.run(asyncio.wait_for(coro, TIMEOUT))
+T = TypeVar("T")
 THREAD = thread_id("a2a", "owner-1", "ctx-1")
 ASK_QUESTION = RunInput("Write the report")
 ASK_APPROVAL = RunInput("Write the report and publish it")
@@ -100,7 +106,7 @@ FULL = ["activity", "ask", "answer", "reply", "activity", "usage", "done"]
 
 
 def scenario_question_answered(make_source: MakeSource) -> None:  # S1
-    events = asyncio.run(_answered(make_source, ASK_QUESTION, TITLE))
+    events = _run(_answered(make_source, ASK_QUESTION, TITLE))
     assert [name(e) for e in events] == FULL
     assert _replies(events) == ["Got: October stock"]
     answer = events[2]
@@ -108,7 +114,7 @@ def scenario_question_answered(make_source: MakeSource) -> None:  # S1
 
 
 def scenario_approval_allowed(make_source: MakeSource) -> None:  # S2
-    events = asyncio.run(_answered(make_source, ASK_APPROVAL, ALLOW))
+    events = _run(_answered(make_source, ASK_APPROVAL, ALLOW))
     assert [name(e) for e in events] == FULL
     assert _replies(events) == ["Done"]
 
@@ -121,11 +127,11 @@ def scenario_approval_denied_with_reason(make_source: MakeSource) -> None:  # S3
         assert _replies(events) == ["Not done: Not before Monday."]
         assert source.answers == [DENY]  # type: ignore[attr-defined]
 
-    asyncio.run(go())
+    _run(go())
 
 
 def scenario_declined(make_source: MakeSource) -> None:  # S4
-    events = asyncio.run(_answered(make_source, ASK_QUESTION, DECLINED))
+    events = _run(_answered(make_source, ASK_QUESTION, DECLINED))
     assert [name(e) for e in events] == FULL
     assert _replies(events) == ["Declined"]
 
@@ -147,7 +153,7 @@ def scenario_cancelled_while_paused(make_source: MakeSource) -> None:  # S5
         with pytest.raises(ValueError):
             await run.deliver(TITLE)
 
-    asyncio.run(go())
+    _run(go())
 
 
 def scenario_delivered_with_nothing_pending(make_source: MakeSource) -> None:  # S6
@@ -165,7 +171,7 @@ def scenario_delivered_with_nothing_pending(make_source: MakeSource) -> None:  #
         with pytest.raises(ValueError):
             await run.deliver(TITLE)  # ended
 
-    asyncio.run(go())
+    _run(go())
 
 
 def scenario_restart(make_source: MakeSource) -> None:  # S7
@@ -186,7 +192,7 @@ def scenario_restart(make_source: MakeSource) -> None:  # S7
             assert isinstance(error, Error) and "lost" in error.reason
         await first.cancel()
 
-    asyncio.run(go())
+    _run(go())
 
 
 def scenario_raises_after_the_ask(make_source: MakeSource) -> None:  # S8
@@ -200,7 +206,7 @@ def scenario_raises_after_the_ask(make_source: MakeSource) -> None:  # S8
         error = events[-1]
         assert isinstance(error, Error) and error.reason
 
-    asyncio.run(go())
+    _run(go())
 
 
 def scenario_second_ask_before_the_answer(make_source: MakeSource) -> None:  # S9
@@ -211,7 +217,7 @@ def scenario_second_ask_before_the_answer(make_source: MakeSource) -> None:  # S
         assert [name(e) for e in events] == ["activity", "ask", "error:protocol"]
         assert run.pending is None
 
-    asyncio.run(go())
+    _run(go())
 
 
 SCENARIOS = [

@@ -178,8 +178,8 @@ def test_derived_answers(name: str) -> None:
 # --- Approval forms (R2C-MCP-3, O3) ------------------------------------------------------------
 
 
-def _decisions(form_schema: dict[str, Any]) -> list[str]:
-    return [o["const"] for o in form_schema["properties"]["decision"]["oneOf"]]
+def _decisions(requested: dict[str, Any]) -> list[str]:
+    return [o["const"] for o in requested["properties"]["decision"]["oneOf"]]
 
 
 def test_flat_args_keep_edit() -> None:

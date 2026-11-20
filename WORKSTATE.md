@@ -19,8 +19,22 @@ Last updated 2026-11-20. Read this first in a new session.
     and MCP 2026-07-28 types, and that every `wire` rule has an example;
   - the wheel ships the schemas as `ext_r2c/schema/v1/` (build hook `python/hatch_build.py`);
   - deviations from the brief (D1–D4) are in `specs/001-standard-v1/research.md`.
-- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (122 tests, run against the
-  installed wheel). CI in `.github/workflows/python.yml` does the same.
+- **Spec `002-python-core`, closed** (2026-11-20, `specs/002-python-core/`): `ext_r2c.core`,
+  needing only pydantic and jsonschema. Public names in `contracts/core-api.md`:
+  - models of the six kinds that round-trip every example object unchanged;
+  - forms: `answer_schema`, `mcp_form` (flat `requestedSchema`), `answer_from_mcp`;
+  - `check_answer` (readable problems with codes, size limits, no external `$ref`),
+    `decision` (fails closed), `fallback_text`;
+  - run events, `AgentSource` and one `Driver` for checkpoint and live sources, `thread_id`;
+    the `AgentSource` suite (`python/tests/agent_source_suite.py`) passes for a fake of each
+    style;
+  - `ToolSpec` from a plain function;
+  - extras: `[langchain]` → `[langgraph]`, no longer pulling `[a2a]`;
+  - the standard records O2 and O3 (R2C-QUESTION-5 required means not empty; R2C-MCP-2,
+    R2C-MCP-3 spell out the flat forms), with two new examples (39 valid in all: 30 A2A, 9 MCP).
+- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (363 tests, run against the
+  installed wheel; the core alone also runs `tests/core_only.py` with no dev group). CI in
+  `.github/workflows/python.yml` does the same.
 - **Harness:** Spec Kit 0.13.4 initialised (`specs/` at the root), constitution 1.0.0, rules,
   skills, reviewer agents.
 
@@ -28,8 +42,7 @@ Last updated 2026-11-20. Read this first in a new session.
 
 - The PyPI name `ext-r2c` is **not reserved** (maintainer, 2026-11-20). If it is taken by the
   time we publish, rename the distribution; the import name and identifiers stay.
-- The Python SDK does nothing yet beyond its constants and the packaged schemas: that starts
-  with spec 002.
+- The Python SDK has no door yet: nothing speaks A2A or MCP until specs 003 and 004.
 
 ## Next
 
@@ -38,11 +51,11 @@ Last updated 2026-11-20. Read this first in a new session.
   `specs/001-standard-v1/research.md` ("Outside review"), each with an owner spec. O1 is
   decided (2026-11-20): a new value in a closed enum is breaking and needs v2
   (`R2C-VERSION-3`). O11 is decided the same day: size limits are in MiB (constitution 1.1.1).
-- **Spec `002-python-core`: `spec.md` written** (2026-11-20, `specs/002-python-core/`). It
-  settles O2 and O3 (maintainer answers Q1–Q3, all A). **Next:** the maintainer approves
-  `spec.md`, then `/speckit-plan`.
+- **Spec 002 is closed** (2026-11-20). It settled O2 and O3 (maintainer answers Q1–Q3, all A).
+  Its outside review is in `specs/002-python-core/research.md` ("Outside review").
+- **Next: `003-a2a-binding`.** Start with `/speckit-specify`; the scope is item 3 below.
 
-## Spec sequence (001 approved and built; 002 onward proposed, awaiting the maintainer's approval)
+## Spec sequence (001 and 002 built; 003 onward proposed, awaiting the maintainer's approval)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -53,7 +66,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    a file artifact, usage); CI step validating every example; schemas shipped inside the wheel.
    Done when every example validates, the wheel carries byte-identical schemas, and a test
    fails if one example breaks its schema.
-2. **`002-python-core`** — `ext_r2c.core`: pydantic models for the six kinds, form → JSON
+2. **`002-python-core`** (closed 2026-11-20) — `ext_r2c.core`: pydantic models for the six kinds, form → JSON
    Schema and → flat `requestedSchema`, validation with size limits and no external `$ref`,
    text fallback, the neutral run events (reply chunk, activity, ask, answer, artifact, usage,
    done, error), and the extension points `AgentSource` (checkpoint and live pause) and

@@ -13,9 +13,15 @@ standard/v1/
 
 python/src/ext_r2c/
   __init__.py        URI, MCP_KEY, STANDARD_VERSION, __version__, Remote
-  core/              models (six kinds), forms (form → JSON Schema / flat requestedSchema),
-                     validate, fallback text, run events, AgentSource, ToolSpec
-                                                                   deps: pydantic, jsonschema
+  core/                                                            deps: pydantic, jsonschema
+    _schemas.py      packaged schema loader, date-time check, $ref scan
+    models.py        the six kinds and their parts; parse, to_json
+    forms.py         answer_schema, mcp_form (flat requestedSchema), answer_from_mcp
+    check.py         check_answer, decision, check_size, Limits, Problem
+    fallback.py      fallback_text
+    events.py        run events (reply chunk, activity, ask, answer, artifact, usage, done, error)
+    source.py        AgentSource, RunContext, Driver, Run, thread_id
+    tools.py         ToolSpec, tool_from_function
   a2a/               A2A door: run events ⇄ A2A wire (a2a-sdk), caller-side client  extra: [a2a]
   mcp/               MCP door: run events ⇄ MCP wire (an MCP SDK Extension), MCP Skills,
                      caller-side client (input_required ⇄ inputResponses + requestState)  [mcp]
@@ -30,8 +36,9 @@ Three extension points live in `core`: `AgentSource` (an agent framework; suppor
 checkpoint pause and a live pause), `ToolSpec` (a tool), and the run events both doors read.
 A new framework adds a bridge; `Remote` and the doors do not change.
 
-Only `__init__.py` exists today; the rest is the planned shape from the design brief and the
-ADR [one remote, two doors](docs/design-docs/one-remote-two-doors.md).
+`__init__.py` and `core/` exist today; the rest is the planned shape from the design brief and
+the ADR [one remote, two doors](docs/design-docs/one-remote-two-doors.md). The public names of
+`core` are in [specs/002-python-core/contracts/core-api.md](specs/002-python-core/contracts/core-api.md).
 
 ## Import direction
 
@@ -44,8 +51,9 @@ core  ←  remote   (loads a2a or mcp only when that door is enabled; imports no
 
 `core` imports no door, no bridge and no protocol SDK. `a2a`, `mcp` and the bridges never import
 each other. Importing `ext_r2c` or `ext_r2c.core` must work with no extra installed; opening a door
-whose extra is missing fails with a message naming the extra. A test enforcing this belongs to
-the first spec that adds a second module.
+whose extra is missing fails with a message naming the extra. `test_packaging.py` enforces the
+core's side (an `ast` scan of its imports, and a subprocess that imports it and loads no protocol
+SDK), and a CI step installs the wheel alone and runs `tests/core_only.py`.
 
 ## How the schemas reach the wheel
 
@@ -67,7 +75,8 @@ No copy is committed under `python/src/`.
 - `Remote` is tested with one agent source served through both doors in one process, and with
   each door alone.
 - Every bridge passes one shared conformance suite; `AgentSource` is also tested with a fake
-  checkpoint-style source and a fake live-style source.
+  checkpoint-style source and a fake live-style source (`tests/agent_source_suite.py`, run by
+  `test_agent_source.py`).
 - Every file in `standard/v1/examples/` is read by the tests: each R2C object is validated
   against its schema, each envelope against the real a2a-sdk or MCP types, each invalid object
   must fail where it says, and every `wire` rule of the standard must be shown by an example.

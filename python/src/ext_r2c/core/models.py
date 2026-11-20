@@ -198,6 +198,10 @@ class Approval(_Request):
 
 
 class Answer(_Kind):
+    """The reply to a request. ``value`` is present only when ``answered``: ``{field key: value}``
+    for a question, ``{"decision": "allow" | "edit" | "deny", "reason"?: str, "args"?: dict}``
+    for an approval. ``note`` is free text for people; a deny's reason is ``value["reason"]``."""
+
     _kind: ClassVar[str] = "answer"
     kind: Literal["answer"] = "answer"
     id: str
