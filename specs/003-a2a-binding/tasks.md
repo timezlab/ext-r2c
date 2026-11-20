@@ -383,7 +383,7 @@ durable store; a live one ends with "lost".
 
 **Independent test**: `test_a2a_client.py` against the door from phases 3–5.
 
-- [ ] T047 [P] [US5] Create `python/tests/test_a2a_client.py`:
+- [X] T047 [P] [US5] Create `python/tests/test_a2a_client.py`:
   - **reading:** `R2CClient.send` over the question flow yields `TaskItem`, `StatusItem`,
     `ActivityItem`, `StatusItem`, `RequestItem` in order. The client sets `pending`, `task_id`
     and `context_id`, and `active` is true.
@@ -408,8 +408,8 @@ durable store; a live one ends with "lost".
     - A same-origin file over `Limits(file_bytes=10)` gives `TooLarge`, and reading stops at the
       limit.
   - **cancel:** `cancel()` gives a canceled `StatusItem`.
-- [ ] T048 Run it; confirm it fails because `R2CClient` is missing.
-- [ ] T049 [US5] Create `python/src/ext_r2c/a2a/client.py` (contracts/a2a-api.md). It holds:
+- [X] T048 Run it; confirm it fails because `R2CClient` is missing.
+- [X] T049 [US5] Create `python/src/ext_r2c/a2a/client.py` (contracts/a2a-api.md). It holds:
   - the item dataclasses;
   - `R2CClient`, built on a2a-sdk `ClientFactory`;
   - the header through `ServiceParametersFactory` and `with_a2a_extensions`;
@@ -420,8 +420,20 @@ durable store; a live one ends with "lost".
   - `AnswerRejected`.
 
   Export the names.
-- [ ] T050 Run `test_a2a_client.py` until green, then the whole suite.
-- [ ] T051 Verify, then commit `feat(003): the caller's A2A client`.
+- [X] T050 Run `test_a2a_client.py` until green, then the whole suite.
+- [X] T051 Verify, then commit `feat(003): the caller's A2A client`.
+
+  *Note (2026-11-20):*
+  - `unknown-kind-ignored.json` gives `skipped == 2`, not 1: the `plan` activity is skipped
+    too (R2C-CORE-6), beside the `provenance` Part.
+  - The harness gained `WireExecutor`, `example_events` and `status` here, ahead of T057.
+  - A `TaskItem` (a reattach snapshot or `get_task`) is followed by the items of the status
+    message's R2C Parts, then one item per artifact. At input-required, `pending` falls back to
+    the task's history (research R2) when the status is a text-only refusal.
+  - `reattach` stops right after the snapshot when the task is already paused or over, since
+    a2a-sdk sends nothing more until the next message.
+  - `fetch` does not follow redirects. An artifact `data` Part still has no core content and
+    is left out of `ArtifactItem.parts`; phase 8 decides it with `artifact-no-metadata.json`.
 
 ---
 

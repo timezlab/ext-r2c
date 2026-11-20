@@ -8,20 +8,26 @@ in-process transport, and test authentication. Test helper only: not shipped in 
   turns the bearer into the owner (research R11).
 - `run(coro)` runs a test coroutine with a timeout, so a stream that never ends fails the test.
 - `send`, `answer` and `wire` drive a task and give back what came over the wire.
+- `WireExecutor(*events)` is a remote whose wire the test chooses (`example_events` reads it
+  from an example file, `status` builds one status update).
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 from collections.abc import AsyncIterator, Coroutine, Iterable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, TypeVar
 from uuid import uuid4
 
 import httpx
 from a2a.client import Client, ClientConfig, ClientFactory
-from a2a.server.agent_execution import AgentExecutor
+from a2a.helpers.proto_helpers import new_task_from_user_message
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskStore
 from a2a.types.a2a_pb2 import (
     AgentCapabilities,
@@ -33,6 +39,9 @@ from a2a.types.a2a_pb2 import (
     Role,
     SendMessageRequest,
     StreamResponse,
+    TaskArtifactUpdateEvent,
+    TaskStatus,
+    TaskStatusUpdateEvent,
 )
 from a2a_transport import StreamingASGITransport
 from ext_r2c import URI
@@ -192,6 +201,47 @@ def wire(events: Iterable[StreamResponse]) -> list[dict[str, Any]]:
         return node
 
     return [clean(json_format.MessageToDict(e)) for e in events]
+
+
+class WireExecutor(AgentExecutor):
+    """Sends the given status and artifact updates as they are, after the `Task`, with this
+    task's ids: a remote whose wire a test chooses, for the client's tests."""
+
+    def __init__(self, *events: TaskStatusUpdateEvent | TaskArtifactUpdateEvent) -> None:
+        self.events = events
+
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        if context.current_task is None and context.message is not None:
+            await event_queue.enqueue_event(new_task_from_user_message(context.message))
+        for event in self.events:
+            copy = type(event)()
+            copy.CopyFrom(event)
+            copy.task_id, copy.context_id = context.task_id or "", context.context_id or ""
+            await event_queue.enqueue_event(copy)
+
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        raise NotImplementedError
+
+
+def example_events(path: Path) -> list[TaskStatusUpdateEvent | TaskArtifactUpdateEvent]:
+    """The status and artifact updates among an example's remote steps."""
+    out: list[TaskStatusUpdateEvent | TaskArtifactUpdateEvent] = []
+    for step in json.loads(path.read_text("utf-8"))["steps"]:
+        if step["from"] != "remote" or step["type"] != "StreamResponse":
+            continue
+        event = json_format.ParseDict(step["body"], StreamResponse())
+        if event.HasField("status_update"):
+            out.append(event.status_update)
+        elif event.HasField("artifact_update"):
+            out.append(event.artifact_update)
+    return out
+
+
+def status(state: int, text: str = "") -> TaskStatusUpdateEvent:
+    """A status update with a text Part, for a `WireExecutor`."""
+    parts = [Part(text=text)] if text else []
+    message = Message(message_id=f"m-{uuid4().hex[:8]}", role=Role.ROLE_AGENT, parts=parts)
+    return TaskStatusUpdateEvent(status=TaskStatus(state=state, message=message))  # type: ignore[arg-type]
 
 
 def _state_names() -> dict[int, str]:

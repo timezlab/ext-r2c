@@ -136,3 +136,11 @@ def answer_text(answer: Answer, request: Question | Approval) -> str
 
 `send`, `answer` and `reattach` always ask for R2C (the `A2A-Extensions` header). A remote that
 does not echo it still works: the client then reads text and standard artifacts only.
+
+- `connect` and `from_card` add a response hook to the httpx client, to see the echoed header
+  of the JSON-RPC responses. `aclose` closes the httpx client only when `connect` made it.
+- An `activity` whose `type` is not `tool`, `step` or `reasoning` is skipped and counted, like
+  an unknown kind (R2C-CORE-6).
+- `fetch` never follows a redirect, so a same-origin `url` cannot lead to another origin.
+- `Link(url, media_type, name)` and `TooLarge(size)` are frozen dataclasses; `size` is `None`
+  when the remote did not declare a length.
