@@ -173,7 +173,7 @@ The schema change is in `args_schema`'s description: the `$ref` duty is the clie
 
 | # | Open point | Owner |
 |---|---|---|
-| O1 | New values of a closed enum (`decisions`, `presentation`, `state`, `outcome`, roles, field `type`): additive (old validators break) or breaking (needs v2)? | maintainer, before v1 leaves draft |
+| O1 | New values of a closed enum (`decisions`, `presentation`, `state`, `outcome`, roles, field `type`): additive (old validators break) or breaking (needs v2)? **Decided 2026-11-20 (maintainer): breaking, needs v2; written as `R2C-VERSION-3`.** | maintainer, before v1 leaves draft |
 | O2 | `requestedSchema` details: the `required` list when `other: true` and only `<key>_other` is filled; `many` + `<key>_other` (replace, add one item, or split); `required: true` on `text` accepting `""` and on `many` accepting `[]` | 002 (form → schema) |
 | O3 | Approval over MCP: argument names that collide with `decision` / `reason`; rebuilding `args` from the flat `content`; `decisions: ["edit"]` with a non-flat `args_schema` | 002, 004 |
 | O4 | MCP: several entries in one `inputRequests` versus one pending request per task; what a "task" is across multi-round-trip calls (also for cumulative `usage`) | 004 |
@@ -183,4 +183,4 @@ The schema change is in `args_schema`'s description: the `$ref` duty is the clie
 | O8 | A remote receiving an approval answer with `answered_by: caller`, or `policy` for `answer_by: approver`: reject or accept? A `policy` answer to a question: allowed? | 003 |
 | O9 | How a remote refuses a second unfinished task in a context (R2C-ID-2): error or text | 003 |
 | O10 | Whether an activity's `label` may change between updates; whether `usage` may share a message with a request or an activity | 003 |
-| O11 | MB in R2C-SAFETY-4: 10^6 bytes or 2^20 | maintainer (minor) |
+| O11 | MB in R2C-SAFETY-4: 10^6 bytes or 2^20 **Decided 2026-11-20 (maintainer): 2^20, written as MiB.** | maintainer (minor) |

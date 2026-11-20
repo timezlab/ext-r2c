@@ -498,8 +498,8 @@ form, and the client calls the tool again with its responses.
   - no `postMessage` bridge;
   - an "open in new tab" control always shown.
 - **R2C-SAFETY-4** · SHOULD · remote · prose
-  Content inside a message (`raw`, or `inline` text) is at most 5 MB after decoding; larger
-  content goes by `url`. A file fetched by `url` is at most 50 MB.
+  Content inside a message (`raw`, or `inline` text) is at most 5 MiB (5 × 2^20 bytes)
+  after decoding; larger content goes by `url`. A file fetched by `url` is at most 50 MiB.
 - **R2C-SAFETY-5** · MUST · client · prose
   A client enforces its own size limits (it MAY choose its own thresholds). It shows an oversized
   inline part as "content too large", and an oversized file as a link.
@@ -518,6 +518,11 @@ form, and the client calls the tool again with its responses.
 - **R2C-VERSION-2** · MUST · both · prose
   v1 is a draft until the first remote outside timezlab adopts it, and may change until then.
   Afterwards it takes additive changes only.
+- **R2C-VERSION-3** · MUST · both · prose
+  A new value in a closed enum (`decisions`, `presentation`, `state`, `outcome`, a role, a
+  field `type`) is a breaking change and needs a new major version: a receiver validating
+  against v1 rejects a value v1 does not list. Additive changes are new optional fields, new
+  kinds, and new `activity` types (`R2C-CORE-5`, `R2C-CORE-6`).
 
 ## 16. Rules not checked by a schema
 
@@ -532,7 +537,7 @@ examples show the ones marked `wire`.
 - Prose only:
   `R2C-ASK-2`, `R2C-QUESTION-4`, `R2C-APPROVAL-5`, `R2C-ANSWER-4`, `R2C-ANSWER-6`,
   `R2C-ARTIFACT-8`, `R2C-ARTIFACT-9`, `R2C-ACTIVITY-5`, `R2C-ACTIVITY-6`, `R2C-USAGE-3`,
-  `R2C-MCP-5`, `R2C-ID-1`–`4`, `R2C-SAFETY-1`–`7`, `R2C-VERSION-1`, `R2C-VERSION-2`.
+  `R2C-MCP-5`, `R2C-ID-1`–`4`, `R2C-SAFETY-1`–`7`, `R2C-VERSION-1`–`3`.
 
 Some of the rules marked `schema` above have a part a schema cannot check:
 - the "at most one per task" of `R2C-ARTIFACT-2`;

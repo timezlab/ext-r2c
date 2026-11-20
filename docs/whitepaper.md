@@ -488,7 +488,7 @@ thread_id = f(door, owner, context_id)
 | The user's token goes only to the connection's own origin; a `url` on another host is shown as a link and not fetched | a remote cannot make the caller leak credentials |
 | `inline` HTML/SVG renders in a sandboxed frame without `allow-same-origin`, or as source | remote content cannot script the caller |
 | `live`: `frame-src` lists only the caller's connection origins, no `postMessage` bridge, always "open in new tab" | the embedded page cannot drive the caller |
-| Content inside a message ≤ 5 MB; files fetched by `url` ≤ 50 MB (SHOULD for the remote, MUST for the client's own limits) | bounded memory and bandwidth |
+| Content inside a message ≤ 5 MiB; files fetched by `url` ≤ 50 MiB (SHOULD for the remote, MUST for the client's own limits) | bounded memory and bandwidth |
 | `activity` and `usage` are display data: escaped, never instructions, never billed from | they come from another party |
 | Reasoning and tool args leave a remote only when its owner turns them on | they may hold the remote's internal data |
 | `requestState` is sealed, expires and is bound to principal and audience | a client cannot forge or replay a stopping point |

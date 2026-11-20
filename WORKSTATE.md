@@ -12,7 +12,7 @@ Last updated 2026-11-20. Read this first in a new session.
 - **Repository skeleton:** license, README, CHANGELOG, Python package `ext-r2c` 0.0.1 exposing
   `URI`, `MCP_KEY`, `STANDARD_VERSION`, `__version__`.
 - **Spec `001-standard-v1`, closed** (2026-11-20, `specs/001-standard-v1/`):
-  - `standard/v1/README.md`: the normative text, 83 tagged rules (draft);
+  - `standard/v1/README.md`: the normative text, 84 tagged rules (draft);
   - `standard/v1/schema/`: six JSON Schemas; `standard/v1/examples/`: 37 wire examples
     (29 A2A, 8 MCP) and 20 invalid objects;
   - the tests check every object against its schema, every envelope against the real a2a-sdk
@@ -35,8 +35,9 @@ Last updated 2026-11-20. Read this first in a new session.
 
 - **Spec 001 is closed** (2026-11-20). An outside reviewer got every kind's fields and placement
   right from the README alone (SC-005). Its open points O1–O11 are in
-  `specs/001-standard-v1/research.md` ("Outside review"), each with an owner spec. O1 (new enum
-  values: additive or breaking) is for the maintainer, before v1 leaves draft.
+  `specs/001-standard-v1/research.md` ("Outside review"), each with an owner spec. O1 is
+  decided (2026-11-20): a new value in a closed enum is breaking and needs v2
+  (`R2C-VERSION-3`). O11 is decided the same day: size limits are in MiB (constitution 1.1.1).
 - **Next:** spec `002-python-core`, from `/speckit-specify`; it owns O2 and O3.
 
 ## Spec sequence (001 approved and built; 002 onward proposed, awaiting the maintainer's approval)

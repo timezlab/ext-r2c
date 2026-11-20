@@ -19,3 +19,10 @@ All notable changes to this project are recorded here. The format follows
 - Checks that validate every example's objects and envelopes (against the
   a2a-sdk and MCP SDK types) and that every wire rule has an example.
 - The wheel ships the schemas as `ext_r2c/schema/v1/`.
+- `R2C-VERSION-3`: a new value in a closed enum is a breaking change and needs
+  a new major version.
+
+### Changed
+
+- Size limits (`R2C-SAFETY-4`) are in MiB (2^20 bytes): 5 MiB inside a message,
+  50 MiB for a file by `url`.

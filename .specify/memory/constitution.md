@@ -1,6 +1,13 @@
 <!--
 Sync Impact Report
-- Version: 1.0.0 → 1.1.0 (2026-11-20)
+- Version: 1.1.0 → 1.1.1 (2026-11-20)
+- Wording: Technical Constraints size limits read MiB (2^20 bytes), not MB (maintainer, open
+  point O11 of specs/001-standard-v1/research.md). PATCH.
+- Docs updated in the same change: standard/v1/README.md (R2C-SAFETY-4), docs/whitepaper.md,
+  example a2a/artifact-file-raw.json. Historical records (brief, spec 001) keep "MB".
+- Templates: no edits needed
+
+Previous: 1.0.0 → 1.1.0 (2026-11-20)
 - Modified principle: VIII. A small core, bindings behind extras — the import list now reads
   core ← a2a, core ← mcp, core ← bridges.*, core ← remote (the LangGraph bridge no longer sits
   under a2a; one bridge and one extra per agent framework; remote is the only remote-side
@@ -95,7 +102,7 @@ changes only. The package version (SemVer) is separate from the standard's versi
 - Everything committed is written in English (specs, docs, code, commit messages).
 - Identity, tokens and transport belong to A2A, MCP and the deployment; the SDK never reads or
   issues credentials.
-- Size limits: content inside a message ≤ 5 MB; files fetched by `url` ≤ 50 MB (SHOULD for the
+- Size limits: content inside a message ≤ 5 MiB; files fetched by `url` ≤ 50 MiB (SHOULD for the
   remote, enforced by the client).
 
 ## Development Workflow
@@ -118,4 +125,4 @@ principle or section added; PATCH: wording), and fixes any template or doc it ma
 the same commit. Reviews check new specs and plans against the principles above; an exception
 is written into the plan's Complexity Tracking with its reason.
 
-**Version**: 1.1.0 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-20
+**Version**: 1.1.1 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-20
