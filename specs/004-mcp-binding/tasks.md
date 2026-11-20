@@ -139,46 +139,46 @@ back. The stopping point round-trips through JSON, and a round is claimed once.
 
 **Independent test**: `test_mcp_codec.py` over every MCP example.
 
-- [ ] T013 [P] Write `python/tests/test_mcp_codec.py`, decoding part:
+- [X] T013 [P] Write `python/tests/test_mcp_codec.py`, decoding part:
   - for every MCP example, every R2C object in a result `_meta`, an `input_requests` wrapper, a
     progress `_meta` or a content block `_meta` decodes to its core model and encodes back equal;
   - `read_input_required(result)` gives one `RequestItem`-like record per entry: key, R2C object
     (or `None` in `not-activated.json`), message and schema;
   - `read_result(result)` gives the reply, the artifacts with their presentation and the usage
     of `tool-result.json`.
-- [ ] T014 [P] Add the encoding part to `test_mcp_codec.py`:
+- [X] T014 [P] Add the encoding part to `test_mcp_codec.py`:
   - `input_required(request, state, *, active, usage)` for the requests of
     `elicitation-question.json`, `…-other.json`, `…-many-other.json` and
     `elicitation-approval*.json` equals the file's result, apart from `requestState` and the
     approval messages O5 corrects (marked xfail until T083);
   - without `active` there is no `_meta`;
   - with `usage` it sits beside `input_requests`.
-- [ ] T015 [P] Add `test_message_rule` to `test_mcp_codec.py` (research R7). Cover: title only;
+- [X] T015 [P] Add `test_message_rule` to `test_mcp_codec.py` (research R7). Cover: title only;
   title and description; with `origin` (`Inventory agent asks: …`); a re-ask with two errors; a
   refusal sentence first.
-- [ ] T016 [P] Add `test_progress_notification` to `test_mcp_codec.py`:
+- [X] T016 [P] Add `test_progress_notification` to `test_mcp_codec.py`:
   - `progress_params(activity, token, n, *, active)` equals the two notifications of
     `progress-activity.json`;
   - without `active` there is no `_meta`.
-- [ ] T017 [P] Add `test_content_blocks` to `test_mcp_codec.py`, one case per row of
+- [X] T017 [P] Add `test_content_blocks` to `test_mcp_codec.py`, one case per row of
   [wire-mapping.md](contracts/wire-mapping.md#the-final-result), including:
   - the `urn:r2c:artifact:<id>` uri for bytes without a url;
   - `image` and `audio` for inline media (O7);
   - an embedded resource for other inline bytes.
-- [ ] T018 [P] Add `test_mcp_response_inverts_answer_from_mcp` to `test_mcp_codec.py`. For each
+- [X] T018 [P] Add `test_mcp_response_inverts_answer_from_mcp` to `test_mcp_codec.py`. For each
   example's derived answer (from its description), `answer_from_mcp(request,
   *mcp_response(request, answer))` equals the answer. Cover:
   - `other` text for a `one` field;
   - extra values for a `many` field;
   - `edit` with args;
   - `declined`.
-- [ ] T019 [P] Write `python/tests/test_mcp_state.py`:
+- [X] T019 [P] Write `python/tests/test_mcp_state.py`:
   - the stopping point round-trips through `dump`/`load`;
   - an unknown `v` raises `LostState`;
   - `MemoryLedger.claim` gives True once per nonce, False after, and True again once the entry
     is past its expiry and swept.
-- [ ] T020 Run T013–T019. They fail with `ImportError` (no `_codec`, no `_state`).
-- [ ] T021 Implement `python/src/ext_r2c/mcp/_codec.py`:
+- [X] T020 Run T013–T019. They fail with `ImportError` (no `_codec`, no `_state`).
+- [X] T021 Implement `python/src/ext_r2c/mcp/_codec.py`:
   - `message`;
   - `input_required`;
   - `read_input_required`;
@@ -190,13 +190,13 @@ back. The stopping point round-trips through JSON, and a round is claimed once.
 
   The block mapping lives in one table, and the size of gathered output is checked with the
   core's `check_size`.
-- [ ] T022 Implement `python/src/ext_r2c/mcp/_state.py`:
+- [X] T022 Implement `python/src/ext_r2c/mcp/_state.py`:
   - `StoppingPoint` (a frozen dataclass, fields as in
     [data-model.md](data-model.md#stopping-point));
   - `dump`, `load` and `LostState`;
   - the `RoundLedger` protocol;
   - `MemoryLedger` (a dict of nonce to expiry, swept on each claim).
-- [ ] T023 Verify, then commit `feat(004): the MCP codec and the stopping point`.
+- [X] T023 Verify, then commit `feat(004): the MCP codec and the stopping point`.
 
 ---
 
