@@ -262,20 +262,24 @@ scenarios 1–3).
 **Independent test**: US4 scenarios 1–2. Grep for each doc's dated note, and for the deviation
 table in research.md.
 
-- [ ] T045 [P] [US4] Add a dated note under the status line of `docs/research/2026-11-20-r2c-v1-design-brief.md`, without rewriting the body: the normative text now lives in `standard/v1/README.md` and wins, and deviations D1–D4 are listed in `specs/001-standard-v1/research.md`.
-- [ ] T046 [P] [US4] Update `docs/whitepaper.md`:
+- [X] T045 [P] [US4] Add a dated note under the status line of `docs/research/2026-11-20-r2c-v1-design-brief.md`, without rewriting the body: the normative text now lives in `standard/v1/README.md` and wins, and deviations D1–D4 are listed in `specs/001-standard-v1/research.md`.
+- [X] T046 [P] [US4] Update `docs/whitepaper.md`:
   - a dated note at the top (same message);
   - replace the illustrative MCP JSON in §7 with an excerpt of `standard/v1/examples/mcp/elicitation-approval.json`, showing the D1 placement;
   - in the §7 table, change the `question` row to say the R2C object sits in the `InputRequiredResult`'s `_meta`;
   - change §6.3's wire excerpt to an excerpt of `full-streamed-run.json`.
-- [ ] T047 [P] [US4] Update `docs/design-docs/one-remote-two-doors.md` and `docs/design-docs/activity-and-usage-kinds.md` only where they state MCP placement that D1 changed. Grep `_meta` in `docs/` and fix each stale hit.
-- [ ] T048 [US4] Update:
+- [X] T047 [P] [US4] Update `docs/design-docs/one-remote-two-doors.md` and `docs/design-docs/activity-and-usage-kinds.md` only where they state MCP placement that D1 changed. Grep `_meta` in `docs/` and fix each stale hit.
+
+  *Note 2026-11-20:* neither design doc states where a request sits on MCP, so neither changed. The only stale hits were in the white paper (fixed in T046) and in the brief's body (kept as written, covered by T045's note).
+- [X] T048 [US4] Update:
   - `standard/v1/README.md` status line ("draft, written 2026-11-20");
   - `AGENTS.md` docs-table row "Read the normative standard" (drop "once written");
   - `WORKSTATE.md` (001 done; next 002);
   - `CHANGELOG.md` `[Unreleased]` → `Added`: the standard v1 text, schemas, examples, checks, and packaged schemas.
 
   Then verify and commit `docs: the standard is the source of truth`.
+
+  *Note 2026-11-20:* the stale-doc sweep also fixed the root `README.md` (status, and the pointer to the brief "until the normative text is written") and `ARCHITECTURE.md` (the schema-packaging section, which left the decision to this plan, and the testing shape).
 
 **Checkpoint**: every user story is complete.
 

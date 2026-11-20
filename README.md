@@ -19,8 +19,9 @@ them over A2A, MCP, or both (a setting), so the remote's own logic does not
 change. Everything travels on the protocol's own stream: A2A status and
 artifact updates, MCP progress notifications and tool results.
 
-> **Status: pre-alpha.** The standard (`standard/v1`) is being written. Names
-> and shapes may change until `v1` is tagged.
+> **Status: pre-alpha.** The standard (`standard/v1`) is written and in draft;
+> the Python SDK does not do anything yet. Names and shapes may change until
+> `v1` leaves draft.
 
 ## Identifiers
 
@@ -39,9 +40,10 @@ python/        the Python SDK (package ext-r2c, import ext_r2c)
 The JSON Schemas are the single source of shape. The wire examples under
 `standard/v1/examples/` are the shared test suite every SDK must pass.
 
-Until the normative text is written, the
-[v1 design brief](docs/research/2026-11-20-r2c-v1-design-brief.md) describes every kind, both
-bindings and the reasons behind them; the decisions are in [`docs/design-docs/`](docs/design-docs/).
+The normative text is [`standard/v1/README.md`](standard/v1/README.md). The
+[white paper](docs/whitepaper.md) explains R2C end to end, and the
+[v1 design brief](docs/research/2026-11-20-r2c-v1-design-brief.md) with the ADRs in
+[`docs/design-docs/`](docs/design-docs/) records the reasons behind it.
 
 ## Python
 

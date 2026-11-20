@@ -7,6 +7,11 @@
 in [`design-docs/`](design-docs/)). Nothing here is normative: once `standard/v1/README.md` is
 written, it wins over this paper.
 
+> **Note 2026-11-20:** the normative text is now written in
+> [`standard/v1/README.md`](../standard/v1/README.md) and wins over this paper. The wire excerpts
+> in §6.3 and §7 are taken from its examples. Deviations from the design brief (D1–D4) are listed
+> in [`specs/001-standard-v1/research.md`](../specs/001-standard-v1/research.md).
+
 ---
 
 ## Contents
@@ -309,37 +314,54 @@ spreadsheet, and needs approval before publishing.
 sequenceDiagram
     participant C as Caller
     participant R as Remote (A2A door)
-    C->>R: SendStreamingMessage "Build the October inventory report" (A2A-Extensions: r2c)
-    R-->>C: status working · activity tool read_inventory running
-    R-->>C: artifact_update response (append=false) "Let me pull the October data.\n\n"
-    R-->>C: status working · activity tool read_inventory done (120 ms, "42 rows")
-    R-->>C: artifact_update inventory-2026-10.xlsx (presentation=file)
+    C->>R: SendStreamingMessage "Build the October report and publish it" (A2A-Extensions: r2c)
+    R-->>C: task submitted (A2A-Extensions echoed)
+    R-->>C: status working · activity step "Building the October report" running
+    R-->>C: artifact_update response (append=false) "I'll read the inventory first. "
+    R-->>C: status working · activity tool read_inventory running (under the step)
+    R-->>C: status working · activity tool read_inventory done (840 ms, "412 items")
+    R-->>C: artifact_update response (append=true) "412 items read; 3 are below their reorder level. "
+    R-->>C: artifact_update inventory-2026-10.csv (presentation=file)
     R-->>C: status input-required · approval publish_page (TextPart fallback + DataPart)
     Note over C: shows an approval dialog to the person; records who approved
     C->>R: SendMessage taskId, contextId · answer {decision: allow}
     R-->>C: status working · activity tool publish_page running → done
-    R-->>C: artifact_update response (append=true) "Published. The report is attached."
-    R-->>C: artifact_update response (last_chunk=true)
+    R-->>C: artifact_update response (append=true, lastChunk=true) "The report is published on the team page."
+    R-->>C: status working · activity step done
     R-->>C: status completed · usage {tokens, duration, cost}
 ```
 
-On the wire, the approval step looks like this:
+On the wire, the approval step looks like this (step 9 of
+[`examples/a2a/full-streamed-run.json`](../standard/v1/examples/a2a/full-streamed-run.json)):
 
-```jsonc
-{ "statusUpdate": { "taskId": "t-1", "contextId": "c-42",
-    "status": { "state": "TASK_STATE_INPUT_REQUIRED",
-      "message": { "role": "ROLE_AGENT", "parts": [
-        { "text": "Publish the inventory report to the public site? allow | deny" },
-        { "data": { "kind": "approval", "id": "ap-1", "title": "Publish the inventory report",
-                    "answer_by": { "role": "person" },
-                    "subject": { "type": "tool_call", "name": "publish_page",
-                                 "args": { "page_id": "inventory-2026-10" } },
-                    "decisions": ["allow", "deny"] },
-          "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} } } ] } } } }
+```json
+{
+  "statusUpdate": {
+    "taskId": "task-1", "contextId": "ctx-1",
+    "status": {
+      "state": "TASK_STATE_INPUT_REQUIRED",
+      "message": {
+        "messageId": "msg-r4", "role": "ROLE_AGENT",
+        "parts": [
+          { "text": "Publish inventory-2026-10.csv to the team page? allow | deny" },
+          {
+            "data": {
+              "kind": "approval", "id": "ap-1", "title": "Publish inventory-2026-10.csv to the team page",
+              "answer_by": { "role": "person" },
+              "subject": { "type": "tool_call", "name": "publish_page", "args": { "page": "team/reports", "file": "inventory-2026-10.csv" } },
+              "decisions": ["allow", "deny"]
+            },
+            "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+          }
+        ]
+      }
+    }
+  }
+}
 ```
 
-Exact JSON field and enum spellings follow A2A 1.0 and are fixed by the wire examples in
-`standard/v1/examples/a2a/`.
+The whole run, every message complete, is that example file. Field and enum spellings follow
+A2A 1.0's JSON form, and every example's envelope is checked against the a2a-sdk types.
 
 ### 6.4 Resume, re-ask, refuse
 
@@ -360,34 +382,65 @@ same `requestState`.
 
 | R2C | MCP mapping |
 |---|---|
-| `question` | elicitation form: `message` = title + description, `requestedSchema` generated from the form (flattened: `one` → enum, `one` + other → enum plus a `<key>_other` string, `many` → array enum), the R2C object in `_meta[key]` |
-| `approval` | elicitation with `decision` (enum) and optional `reason`; `edit` survives only when `args_schema` is flat |
-| `answer` | `accept` → `answered`; `decline` / `cancel` → `declined`; `answered_by` is always `person` (MCP requires the user to review responses) |
+| `question` | elicitation form: `message` = title + description, `requestedSchema` generated from the form (flattened: `one` → `oneOf` of titled consts, `one` + other → the same plus a `<key>_other` string, `many` → array of titled consts); the R2C object in the `InputRequiredResult`'s `_meta[key].input_requests[<request key>]` (an elicitation's params have no `_meta` in MCP 2026-07-28) |
+| `approval` | elicitation with `decision` (`oneOf` the offered decisions) and optional `reason`; `edit` survives only when `args_schema` is flat, each argument pre-filled as a `default`; the R2C object placed like a question's |
+| `answer` | derived by the remote, never sent: `accept` → `answered` with `content` as the value; `decline` / `cancel` → `declined`; `answered_by` is always `person` (MCP requires the user to review responses), so a `policy` answer does not exist on MCP |
 | `artifact` | `file`: `resource_link` or embedded `resource`; `inline`: text content; `live`: `resource_link` + `_meta[key]`; all with the tool result |
 | `activity` | `notifications/progress` (`message` = label, object in `_meta[key]`), when the client sent a `progressToken` |
 | `usage` | `_meta[key]` on the tool result |
 | stopping point | packed into `requestState`, sealed and time-limited by the MCP SDK's `RequestStateBoundary` (AES-GCM, TTL, principal, audience) |
 
-Illustrative exchange for a tool flagged for approval:
+An approval of a tool call, from
+[`examples/mcp/elicitation-approval.json`](../standard/v1/examples/mcp/elicitation-approval.json)
+(the `args_schema` and two of the three arguments are shortened here). The server answers
+`tools/call` with an input request; the R2C object sits in the result's `_meta`, keyed like
+`inputRequests`:
 
 ```jsonc
-// server → client (result of tools/call publish_page)
-{ "resultType": "input_required",
-  "inputRequests": { "ap-1": { "method": "elicitation/create", "params": {
-      "message": "Publish the inventory report to the public site?",
-      "requestedSchema": { "type": "object", "properties": {
-          "decision": { "type": "string", "enum": ["allow", "deny"] },
-          "reason":   { "type": "string" } }, "required": ["decision"] },
-      "_meta": { "io.github.timezlab/r2c": { "kind": "approval", "id": "ap-1", … } } } } },
-  "requestState": "<sealed>" }
-
-// client → server (tools/call again)
-{ "name": "publish_page", "arguments": { … },
-  "inputResponses": { "ap-1": { "action": "accept", "content": { "decision": "allow" } } },
-  "requestState": "<sealed, echoed unchanged>" }
+{ "jsonrpc": "2.0", "id": 1,
+  "result": {
+    "resultType": "input_required",
+    "inputRequests": {
+      "ap-1": { "method": "elicitation/create", "params": {
+        "mode": "form",
+        "message": "Place a reorder of 500 units of A-113 from supplier S-7?",
+        "requestedSchema": { "type": "object", "properties": {
+          "decision": { "type": "string", "title": "Decision", "oneOf": [
+            { "const": "allow", "title": "Allow" }, { "const": "edit", "title": "Edit" },
+            { "const": "deny", "title": "Deny" } ] },
+          "reason":   { "type": "string", "title": "Reason" },
+          "quantity": { "type": "number", "title": "quantity", "minimum": 1, "maximum": 1000, "default": 500 },
+          … }, "required": ["decision"] } } } },
+    "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTQifQ",
+    "_meta": { "io.github.timezlab/r2c": { "input_requests": { "ap-1": {
+      "kind": "approval", "id": "ap-1", "title": "Place a reorder of 500 units of A-113",
+      "answer_by": { "role": "person" },
+      "subject": { "type": "tool_call", "name": "place_order",
+                   "args": { "item": "A-113", "quantity": 500, "supplier": "S-7" },
+                   "args_schema": { … } },
+      "decisions": ["allow", "edit", "deny"] } } } } } }
 ```
 
-Field shapes follow MCP 2026-07-28 and are fixed by `standard/v1/examples/mcp/`.
+The client calls the tool again with its responses, the unchanged `requestState`, and the
+request `_meta` every 2026-07-28 request carries:
+
+```json
+{ "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+  "params": {
+    "name": "reorder_low_stock", "arguments": {},
+    "inputResponses": { "ap-1": { "action": "accept",
+      "content": { "decision": "edit", "item": "A-113", "quantity": 300, "supplier": "S-7" } } },
+    "requestState": "eyJzdGF0ZSI6InNlYWxlZC1leGFtcGxlLTQifQ",
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {
+        "elicitation": { "form": {} }, "extensions": { "io.github.timezlab/r2c": {} } } } } }
+```
+
+The remote derives the answer `{decision: edit, args: {item: A-113, quantity: 300, supplier:
+S-7}}`, answered by a person. Every message in `standard/v1/examples/mcp/` is complete and
+checked against the MCP SDK's 2026-07-28 types, `server/discover` included (`resultType`,
+`cacheScope`, `ttlMs`).
 
 What MCP cannot carry: token streaming of the reply (a tool result arrives once), a `live`
 artifact before the call ends, and a run longer than the deployment's request timeout (until MCP

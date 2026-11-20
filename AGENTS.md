@@ -54,7 +54,7 @@ neutral data only (constitution VI).
 | Know why the standard and SDK share a repo, and why `standard/` | `docs/design-docs/standard-and-sdk-in-one-repo.md` |
 | Know why no model ever answers an approval       | `docs/design-docs/approval-never-answered-by-a-model.md`    |
 | Know why the thread is keyed by owner and context | `docs/design-docs/thread-per-owner-and-context.md`         |
-| Read the normative standard (once written)       | `standard/v1/README.md`                                     |
+| Read the normative standard                      | `standard/v1/README.md`                                     |
 | Find active feature work                         | `specs/NNN-<name>/`                                         |
 
 ## Harness

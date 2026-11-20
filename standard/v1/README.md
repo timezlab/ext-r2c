@@ -1,7 +1,7 @@
 # R2C standard, version 1
 
-> **Status: draft.** v1 may still change until the first remote outside timezlab adopts it;
-> after that it takes additive changes only (`R2C-VERSION-2`).
+> **Status: draft, written 2026-11-20.** v1 may still change until the first remote outside
+> timezlab adopts it; after that it takes additive changes only (`R2C-VERSION-2`).
 
 R2C (Remote-to-Caller) is an extension for [A2A](https://a2a-protocol.org/) and
 [MCP](https://modelcontextprotocol.io/). A **remote** (an A2A agent or an MCP server) uses it to

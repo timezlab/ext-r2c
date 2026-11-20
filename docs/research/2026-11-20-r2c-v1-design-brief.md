@@ -5,6 +5,13 @@ Spec Kit feature (`specs/001-standard-v1/`). It records what was decided and why
 normative text will live in `standard/v1/README.md`, and where the two disagree the standard
 wins once it is written.
 
+> **Note 2026-11-20:** the normative text is now written in
+> [`standard/v1/README.md`](../../standard/v1/README.md), with its schemas and wire examples,
+> and it wins over this brief. Where it differs (D1–D4: the MCP placement of a request, the
+> derived answer on MCP, complete MCP messages, a skill in every agent card), the deviations
+> are listed in [`specs/001-standard-v1/research.md`](../../specs/001-standard-v1/research.md).
+> The body below is kept as written.
+
 **Decisions with their own ADR:** [own extension, not Structured Input](../design-docs/own-extension-not-structured-input.md),
 [four kinds](../design-docs/four-kinds.md), [standard and SDK in one repo](../design-docs/standard-and-sdk-in-one-repo.md),
 [approval is never answered by a model](../design-docs/approval-never-answered-by-a-model.md),

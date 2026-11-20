@@ -9,6 +9,7 @@ standard/v1/
   schema/*.json      one JSON Schema per kind      ← single source of shape
   examples/a2a/      wire examples (A2A binding)   ← shared test suite
   examples/mcp/      wire examples (MCP binding)
+  examples/invalid/  objects each schema must reject
 
 python/src/ext_r2c/
   __init__.py        URI, MCP_KEY, STANDARD_VERSION, __version__, Remote
@@ -49,9 +50,14 @@ the first spec that adds a second module.
 ## How the schemas reach the wheel
 
 The schemas live in `standard/`, outside `python/`, but the installed package needs them at
-runtime. How they are copied into the wheel (and kept identical to the source) is a decision for
-the plan of `specs/001-standard-v1`. Constraint: `uv build` builds the wheel from the sdist, so
-the sdist must carry them too.
+runtime, as `ext_r2c/schema/v1/*.json`. `uv build` builds the wheel from the sdist, so:
+
+- the sdist carries `standard/v1/schema/` (a `force-include` in `pyproject.toml`);
+- the build hook `python/hatch_build.py` puts that folder into the wheel, from the checkout or
+  from the unpacked sdist, and fails the build when it finds neither;
+- `test_packaged_schemas.py` checks that the installed files are byte for byte the source.
+
+No copy is committed under `python/src/`.
 
 ## Testing shape
 
@@ -62,4 +68,7 @@ the sdist must carry them too.
   each door alone.
 - Every bridge passes one shared conformance suite; `AgentSource` is also tested with a fake
   checkpoint-style source and a fake live-style source.
-- Every file in `standard/v1/examples/` is validated against its schema and replayed.
+- Every file in `standard/v1/examples/` is read by the tests: each R2C object is validated
+  against its schema, each envelope against the real a2a-sdk or MCP types, each invalid object
+  must fail where it says, and every `wire` rule of the standard must be shown by an example.
+  The SDK bindings will also replay them.

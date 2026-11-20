@@ -9,9 +9,17 @@ Last updated 2026-11-20. Read this first in a new session.
 - **Amended the same day:** six kinds (`activity`, `usage` added; reasoning only when the
   remote's owner turns it on), and the reply is one streamed `inline` artifact holding all
   the model's text. ADR `activity-and-usage-kinds.md`; amendment note at the top of the brief.
-- **Repository skeleton:** license, README, CHANGELOG, `standard/v1/README.md` (placeholder),
-  Python package `ext-r2c` 0.0.1 exposing `URI`, `MCP_KEY`, `STANDARD_VERSION`, `__version__`.
-- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (5 smoke tests, run against the
+- **Repository skeleton:** license, README, CHANGELOG, Python package `ext-r2c` 0.0.1 exposing
+  `URI`, `MCP_KEY`, `STANDARD_VERSION`, `__version__`.
+- **Spec `001-standard-v1`, phases 1–6** (2026-11-20, `specs/001-standard-v1/`):
+  - `standard/v1/README.md`: the normative text, 83 tagged rules (draft);
+  - `standard/v1/schema/`: six JSON Schemas; `standard/v1/examples/`: 37 wire examples
+    (29 A2A, 8 MCP) and 20 invalid objects;
+  - the tests check every object against its schema, every envelope against the real a2a-sdk
+    and MCP 2026-07-28 types, and that every `wire` rule has an example;
+  - the wheel ships the schemas as `ext_r2c/schema/v1/` (build hook `python/hatch_build.py`);
+  - deviations from the brief (D1–D4) are in `specs/001-standard-v1/research.md`.
+- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (122 tests, run against the
   installed wheel). CI in `.github/workflows/python.yml` does the same.
 - **Harness:** Spec Kit 0.13.4 initialised (`specs/` at the root), constitution 1.0.0, rules,
   skills, reviewer agents.
@@ -20,14 +28,20 @@ Last updated 2026-11-20. Read this first in a new session.
 
 - The PyPI name `ext-r2c` is **not reserved** (maintainer, 2026-11-20). If it is taken by the
   time we publish, rename the distribution; the import name and identifiers stay.
-- No normative text, schema or example yet: that is spec 001.
+- The Python SDK does nothing yet beyond its constants and the packaged schemas: that starts
+  with spec 002.
 
-## Next: proposed spec sequence (awaiting the maintainer's approval)
+## Next
+
+- **Now:** phase 7 of spec 001 (an outside review of the standard, then the final gate).
+- **Then:** spec `002-python-core`, from `/speckit-specify`.
+
+## Spec sequence (001 approved and built; 002 onward proposed, awaiting the maintainer's approval)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
 
-1. **`001-standard-v1`** — normative text in `standard/v1/README.md`; JSON Schemas for
+1. **`001-standard-v1`** (built, phases 1–6 on 2026-11-20) — normative text in `standard/v1/README.md`; JSON Schemas for
    `question`, `approval`, `answer`, `artifact-meta`, `activity`, `usage`; wire examples (A2A
    and MCP) covering every rule, including a full streamed run (reply chunks, tool activities,
    a file artifact, usage); CI step validating every example; schemas shipped inside the wheel.
