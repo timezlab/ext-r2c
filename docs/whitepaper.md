@@ -377,6 +377,7 @@ A2A 1.0's JSON form, and every example's envelope is checked against the a2a-sdk
 | Wrong `id`, or after `expires_at` | refuses in text; the request stays pending (or expires) |
 | Client did not activate R2C and replies in text | accepted only when the form has exactly one `one` or `text` field and the text fits; otherwise asks again |
 | Stream cut by a proxy | the caller reattaches with `SubscribeToTask`; `GetTask` returns the task's artifacts and status |
+| A new task in a context whose task is unfinished | opens it and ends it `TASK_STATE_REJECTED`, naming the unfinished task, which is untouched (per owner) |
 
 ## 7. How it works on MCP
 
@@ -543,7 +544,7 @@ two lists in step.
 | Passed in | A2A door | MCP door |
 |---|---|---|
 | `agent=` an agent source (e.g. `LangGraphAgent(graph)`) | the agent: card, streamed runs, questions, approvals, artifacts | one tool `{message, context_id?}` only with `mcp_tool=True` |
-| `agent=` a hand-written a2a-sdk executor | the agent | never (that would be protocol translation) |
+| `agent=` a hand-written a2a-sdk executor | the agent; `R2CTask` gives it the same R2C wire | never (that would be protocol translation) |
 | `tools=` | not exposed (A2A has no tools) | tools |
 | `approve=` | — | approval before a direct tool call |
 | `skills=` | not on the card | MCP skills |
@@ -594,7 +595,8 @@ python/src/ext_r2c/
   core/               models (six kinds), forms → JSON Schema / flat requestedSchema,
                       check_answer (size limits, no external $ref), fallback_text,
                       run events, AgentSource and Driver, ToolSpec
-  a2a/                A2A door; caller-side client                         extra [a2a]
+  a2a/                A2A door (a2a_app, SourceExecutor, agent_card; R2CTask
+                      for a hand-written executor); caller-side R2CClient  extra [a2a]
   mcp/                MCP door; MCP Skills; caller-side client             extra [mcp]
   bridges/langgraph/  LangGraphAgent; LangChain tools → ToolSpec           extra [langgraph]
   bridges/<other>/    later, one extra each

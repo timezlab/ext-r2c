@@ -238,6 +238,9 @@ class R2CClient:
         self.active = URI in get_requested_extensions([echoed])
 
     async def aclose(self) -> None:
+        hooks = self.http.event_hooks
+        hooks["response"] = [h for h in hooks.get("response", []) if h != self._record_echo]
+        self.http.event_hooks = hooks
         await self.client.close()
         if self._owns_http:
             await self.http.aclose()
@@ -280,9 +283,16 @@ class R2CClient:
                     return
 
     async def get_task(self, task_id: str | None = None) -> list[Item]:
-        """The task as stored: its state, last status and artifacts (R2C-A2A-6)."""
+        """The task as stored: its state, last status and artifacts (R2C-A2A-6). Reading another
+        task than this conversation's leaves ``task_id``, ``context_id`` and ``pending`` alone."""
         task = await self.client.get_task(GetTaskRequest(id=self._task(task_id)), context=self._context)
-        return list(self._task_items(task))
+        if task_id is None or task_id == self.task_id:
+            return list(self._task_items(task))
+        kept = (self.task_id, self.context_id, self.pending)
+        try:
+            return list(self._task_items(task))
+        finally:
+            self.task_id, self.context_id, self.pending = kept
 
     async def cancel(self, task_id: str | None = None) -> StatusItem:
         task = await self.client.cancel_task(CancelTaskRequest(id=self._task(task_id)), context=self._context)
@@ -291,16 +301,19 @@ class R2CClient:
 
     async def fetch(self, item: ArtifactItem) -> bytes | Link | TooLarge:
         """The file of an artifact. A ``url`` is fetched only on this connection's origin, with no
-        redirect followed; reading stops at ``Limits.file_bytes``."""
+        redirect followed and no compression asked for; reading stops at ``Limits.file_bytes``.
+        A page (a ``live`` artifact, or a ``link`` guessed for an html ``url``) is never fetched:
+        it comes back as a ``Link`` for the user to open (R2C-ARTIFACT-7)."""
         content = next((c for c in item.parts if not isinstance(c, TextContent)), None)
         limit = self.limits.file_bytes
         if isinstance(content, BytesContent):
             return content.data if len(content.data) <= limit else TooLarge(len(content.data))
         if not isinstance(content, UrlContent):
             raise ValueError(f"artifact {item.artifact_id} has no file")
-        if _origin(content.url) != _origin(self.url):
+        if item.presentation in ("live", "link") or _origin(content.url) != _origin(self.url):
             return Link(content.url, content.media_type, content.name)
-        async with self.http.stream("GET", content.url, follow_redirects=False) as response:
+        async with self.http.stream("GET", content.url, follow_redirects=False,
+                                    headers={"Accept-Encoding": "identity"}) as response:
             response.raise_for_status()
             declared = response.headers.get("content-length")
             size = int(declared) if declared and declared.isdigit() else None

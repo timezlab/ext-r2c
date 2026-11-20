@@ -341,3 +341,33 @@ whose remote steps a source can produce runs in **door mode** too. The details a
   - `complete`, `fail`, `reject`, `cancelled`.
 - `SourceExecutor` is written on top of `R2CTask` (FR-027).
 - Its held usage is read back from the task's newest usage Part, so it survives a restart too.
+
+## Outside review (T066, 2026-11-20)
+
+A fresh-context `code-reviewer` agent read the range `59688a7..HEAD` and the uncommitted doc
+edits, with the spec, the contracts and the standard. It ran scratch scripts against the test
+harness for the findings it marked confirmed. Each confirmed finding below was reproduced
+again before the fix, and each fix came with a test that failed first.
+
+**Fixed:**
+
+| Finding | Done |
+|---|---|
+| Blocker: a client message with `role: ROLE_AGENT` was stored as an agent message. The door reads the pending request from the newest agent message, so after a text refusal a forged approval in history (with `edit` offered) took an `edit` answer to the source, in both pause styles | `R2CRequestHandler` refuses a client message whose role is not `ROLE_USER` before it is stored; `a2a_app` uses it (`test_a_message_not_from_the_user_is_refused`) |
+| A task paused while R2C was active showed its R2C Parts to a caller that read it back without activation (`GetTask`, `ListTasks`, `SubscribeToTask`), against R2C-ACT-3 | `R2CRequestHandler` leaves R2C Parts and artifact metadata out of every task, message and event when the request did not activate R2C (`without_r2c`; `test_a_stored_task_shows_no_r2c_without_activation`) |
+| An exception while writing a run's events left the run held for its thread, so every later task in that context failed with "already has a run" | `_pump` cancels the run and forgets it on any exception; a new task also cancels a run still held for its thread, which covers a task a2a-sdk ended without calling `cancel` (`test_an_error_while_writing_frees_the_thread`) |
+| The expiry refusal was left out of the next status when the run went on with an activity (R2C-ASK-5) | `activity` writes the pending refusal first (`test_the_expiry_refusal_is_in_the_next_status_even_a_working_one`) |
+| The record of opened tasks kept one entry per conversation for good, and a Task whose save failed blocked its context until restart | entries are dropped after 60 s (`_KEEP`); the record only bridges the save (`test_the_record_of_opened_tasks_is_dropped_in_time`) |
+| `R2CClient.answer` sent a `policy` answer to an approval with `answer_by.role = approver` (R2C-ANSWER-5) | `check_answer` gives `policy_on_approver`; the door filters it like `caller_on_approval` (R2C-ANSWER-6); core and client tests |
+| `fetch` fetched a same-origin `live` page or an html `url` guessed a link (R2C-ARTIFACT-7); a gzip body was unpacked before the limit counted it | both come back as a `Link`; `fetch` sends `Accept-Encoding: identity`; a redirect test added |
+| `get_task(other_id)` overwrote the conversation's `task_id` and `pending`; `aclose` left the response hook on a shared httpx client | both fixed, with tests |
+| README: "keep paused tasks across a restart" held only for checkpoint sources; the hand-written executor read `value` of a declined answer | both fixed; the snippets were run end to end |
+
+**Left, with a reason:**
+
+| Finding | Why |
+|---|---|
+| One lock per task store, not per owner and context (R10 said per key) | the section it guards is a few store reads; per-key locks would need their own cleanup. Written in `_Openings`' docstring |
+| `R2CClient.active` is one flag, so clients sharing one httpx client and origin, or concurrent streams of one client, see each other's echo | one `R2CClient` is one conversation (contract); sharing is not supported |
+| Without activation, the reply text gathered for the final status is not checked as a whole against `message_bytes`; each chunk is | a SHOULD-level gap on a path without R2C; a follow-up for 004, where the MCP door gathers text the same way |
+| The race test passes a mutant without the record only through the driver's error | not so: the test asserts the ends `input_required` and `rejected`, so a `failed` end fails it |

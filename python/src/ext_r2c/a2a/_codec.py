@@ -16,9 +16,18 @@ import json
 import math
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
-from a2a.types import Artifact, Message, Part, Role, Task, TaskArtifactUpdateEvent, TaskState
+from a2a.types import (
+    Artifact,
+    Message,
+    Part,
+    Role,
+    Task,
+    TaskArtifactUpdateEvent,
+    TaskState,
+    TaskStatusUpdateEvent,
+)
 from google.protobuf import json_format, struct_pb2
 
 from .. import URI
@@ -185,6 +194,38 @@ def read_artifact(artifact: Artifact) -> tuple[ArtifactMeta | None, tuple[Conten
         meta = found if isinstance(found, ArtifactMeta) else None
     contents = tuple(c for c in (part_to_content(p) for p in artifact.parts) if c is not None)
     return meta, contents
+
+
+# --- Without activation (R2C-ACT-3) -------------------------------------------------------------
+
+Shown = TypeVar("Shown", Task, Message, TaskStatusUpdateEvent, TaskArtifactUpdateEvent)
+
+
+def without_r2c(event: Shown) -> Shown:
+    """A copy of ``event`` with its R2C Parts and R2C artifact metadata left out: what a caller
+    that did not activate R2C sees of a task written while R2C was active."""
+    clean = type(event)()
+    clean.CopyFrom(event)
+    messages: list[Message] = []
+    artifacts: list[Artifact] = []
+    if isinstance(clean, Task):
+        messages = [clean.status.message, *clean.history]
+        artifacts = list(clean.artifacts)
+    elif isinstance(clean, Message):
+        messages = [clean]
+    elif isinstance(clean, TaskStatusUpdateEvent):
+        messages = [clean.status.message]
+    else:
+        artifacts = [clean.artifact]
+    for message in messages:
+        kept = [p for p in message.parts if not (p.HasField("data") and URI in p.metadata)]
+        if len(kept) != len(message.parts):
+            del message.parts[:]
+            message.parts.extend(kept)
+    for artifact in artifacts:
+        if URI in artifact.metadata:
+            del artifact.metadata.fields[URI]
+    return clean
 
 
 # --- What a stored task says (research R2) ------------------------------------------------------

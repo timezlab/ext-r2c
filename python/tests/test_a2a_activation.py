@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-from a2a.types.a2a_pb2 import AgentCard, StreamResponse
+from a2a.types.a2a_pb2 import AgentCard, GetTaskRequest, ListTasksRequest, StreamResponse, SubscribeToTaskRequest
 from ext_r2c import URI
 from ext_r2c.a2a import SourceExecutor, agent_card
 from ext_r2c.core import (
@@ -100,6 +100,32 @@ def test_not_active(style: str) -> None:
             assert _r2c_anywhere(first + second) == []  # SC-004
             assert tc.echoed() == [None, None]
             assert [a.value for a in source.answers] == [{"title": "October"}]
+
+    run(go())
+
+
+def test_a_stored_task_shows_no_r2c_without_activation() -> None:
+    """A task paused while R2C was active, read back by a caller that did not activate it: the
+    stored R2C Parts and artifact metadata are left out (R2C-ACT-3, found by the outside review)."""
+
+    async def go() -> None:
+        async with serve(SourceExecutor(Warehouse()), _card()) as served:
+            async with a2a_client(served, user="alice") as tc:
+                first = await send(tc, "Count the stock")
+                task_id = ids(first)["task_id"]
+                active = await tc.client.get_task(GetTaskRequest(id=task_id))
+                assert _r2c_anywhere([StreamResponse(task=active)])  # the control: it is stored
+            async with a2a_client(served, user="alice", r2c=False) as plain:
+                task = await plain.client.get_task(GetTaskRequest(id=task_id))
+                listed = await plain.client.list_tasks(ListTasksRequest())
+                snapshot = []
+                async for event in plain.client.subscribe(SubscribeToTaskRequest(id=task_id)):
+                    snapshot.append(event)
+                    break
+                seen = [StreamResponse(task=task), *(StreamResponse(task=t) for t in listed.tasks), *snapshot]
+                assert _r2c_anywhere(seen) == []
+                assert task.status.message.parts and all(p.HasField("text") for p in task.status.message.parts)
+                assert plain.echoed() == [None, None, None]
 
     run(go())
 

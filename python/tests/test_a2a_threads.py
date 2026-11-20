@@ -13,9 +13,12 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from a2a.server.owner_resolver import resolve_user_scope
+from a2a.server.tasks import InMemoryTaskStore
 from a2a.types.a2a_pb2 import GetTaskRequest, StreamResponse, TaskState
 from a2a.utils.errors import TaskNotFoundError
 from ext_r2c.a2a import SourceExecutor, agent_card
+from ext_r2c.a2a import task as task_module
 from ext_r2c.core import Answer, RunContext, RunEvent, RunInput, thread_id
 
 from a2a_harness import a2a_client, answer, ids, kinds, run, send, serve
@@ -114,5 +117,31 @@ def test_two_new_messages_at_once_give_one_task_and_one_rejection() -> None:
             ends = sorted(kinds(events)[-1] for events in both)
             assert ends == ["input_required", "rejected"]
             assert len(source.threads) == 1
+
+    run(go())
+
+
+def test_the_record_of_opened_tasks_is_dropped_in_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The record only bridges the moment before a2a-sdk saves the Task, so it does not grow with
+    every conversation, and a Task that was never saved stops blocking its context (found by the
+    outside review)."""
+    now = {"t": 1000.0}
+    monkeypatch.setattr(task_module, "_monotonic", lambda: now["t"])
+    store = InMemoryTaskStore(owner_resolver=resolve_user_scope)
+
+    async def go() -> None:
+        async with serve(SourceExecutor(Recorder()), _card(), store=store) as served, \
+                a2a_client(served, user="alice") as alice:
+            for n in range(3):
+                await send(alice, "Write the report", context_id=f"ctx-{n}")
+            record = task_module._openings(store).opened
+            (owner,) = {key[0] for key in record}
+            record[(owner, "ctx-5")] = {"ghost": now["t"]}  # opened, never saved
+            blocked = await send(alice, "Write the report", context_id="ctx-5")
+            assert kinds(blocked)[-1] == "rejected" and "ghost" in _text(blocked[-1])
+            now["t"] += 120
+            freed = await send(alice, "Write the report", context_id="ctx-5")
+            assert kinds(freed)[-1] == "input_required"
+            assert [key[1] for key in record] == ["ctx-5"]  # only the task just opened
 
     run(go())

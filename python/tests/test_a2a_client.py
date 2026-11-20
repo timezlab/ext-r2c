@@ -104,6 +104,23 @@ def _step(state: str) -> ActivityEvent:
                                          "label": "Preparing", "state": state}))
 
 
+class Asking:
+    """A live source that asks one request, then replies."""
+
+    pause = "live"
+    card = CARD
+
+    def __init__(self, request: Any) -> None:
+        self.request = request
+
+    async def run(self, input: RunInput, ctx: RunContext) -> AsyncIterator[RunEvent]:
+        await ctx.ask(self.request)
+        yield ReplyChunk("Done.", last=True)
+
+    def resume(self, answer: Answer, ctx: RunContext) -> AsyncIterator[RunEvent]:
+        raise NotImplementedError
+
+
 class Gated:
     """A live source that waits on `gate` after its first activity, then asks `QUESTION`."""
 
@@ -188,6 +205,24 @@ def test_an_approval_is_never_answered_as_caller() -> None:
             with pytest.raises(AnswerRejected) as caught:
                 await _all(client.answer(by_caller))
             assert [p.code for p in caught.value.problems] == ["caller_on_approval"]  # R2C-ANSWER-4
+            assert len(seen.requests) == before
+
+    run(go())
+
+
+def test_an_approver_approval_is_never_answered_by_policy() -> None:
+    """R2C-ANSWER-5: a rule held by the client never answers an approval that asks every time."""
+    every_time = APPROVAL.model_copy(update={"answer_by": APPROVAL.answer_by.model_copy(update={"role": "approver"})})
+
+    async def go() -> None:
+        async with serve(SourceExecutor(Asking(every_time)), _card()) as served, _client(served) as (client, seen):
+            await _all(client.send("Publish"))
+            before = len(seen.requests)
+            by_rule = Answer(id="ap-1", outcome="answered", answered_by={"role": "policy"},
+                             value={"decision": "allow"})
+            with pytest.raises(AnswerRejected) as caught:
+                await _all(client.answer(by_rule))
+            assert [p.code for p in caught.value.problems] == ["policy_on_approver"]
             assert len(seen.requests) == before
 
     run(go())
@@ -286,6 +321,78 @@ def test_fetch_reads_own_origin_only() -> None:
             assert await client.fetch(other) == Link(OTHER, "text/csv", "x")
             assert await client.fetch(raw) == b"a,b\n"
             assert "other.example.com" not in seen.hosts()  # SC-008
+
+    run(go())
+
+
+PAGE = "https://remote.example.com/files/page.html"
+
+
+def test_fetch_never_fetches_a_link_or_a_page() -> None:
+    """R2C-ARTIFACT-7: an html `url` without metadata (guessed a link) and a live page are
+    opened by the user, never fetched by the client."""
+    updates = [
+        artifact_update("", "", "f-0", (UrlContent(PAGE, "text/html", "page.html"),), meta=None, last_chunk=True),
+        artifact_update("", "", "f-1", (UrlContent(OWN, "text/csv", "report.csv"),),
+                        meta=ArtifactMeta(presentation="live", state="open"), last_chunk=False),
+    ]
+    executor = WireExecutor(*updates, status(TaskState.TASK_STATE_COMPLETED, "Done."))
+
+    async def go() -> None:
+        async with serve(executor, _card()) as served, _client(served) as (client, seen):
+            _serve_file(served, b"item,count\n")
+            guessed, live = [i for i in await _all(client.send("Files")) if isinstance(i, ArtifactItem)]
+            assert guessed.presentation == "link"
+            before = len(seen.requests)
+            assert await client.fetch(guessed) == Link(PAGE, "text/html", "page.html")
+            assert await client.fetch(live) == Link(OWN, "text/csv", "report.csv")
+            assert len(seen.requests) == before
+
+    run(go())
+
+
+def test_fetch_follows_no_redirect_and_asks_for_no_compression() -> None:
+    executor = _files(UrlContent(OWN, "text/csv", "report.csv"))
+
+    async def go() -> None:
+        async with serve(executor, _card()) as served, _client(served) as (client, seen):
+            async def moved(request: Request) -> Response:
+                return Response(status_code=302, headers={"location": OTHER})
+
+            served.app.router.routes.append(Route("/files/report.csv", moved))
+            (own,) = [i for i in await _all(client.send("Files")) if isinstance(i, ArtifactItem)]
+            with pytest.raises(httpx.HTTPStatusError):
+                await client.fetch(own)
+            assert "other.example.com" not in seen.hosts()  # SC-008
+            assert seen.requests[-1].headers["accept-encoding"] == "identity"  # no unpacked bomb
+
+    run(go())
+
+
+def test_get_task_of_another_task_leaves_the_conversation_alone() -> None:
+    async def go() -> None:
+        async with serve(SourceExecutor(LiveFake()), _card()) as served, _client(served) as (client, _):
+            await _all(client.send("Write the report", context_id="ctx-1"))
+            first = (client.task_id, client.pending)
+            await client.cancel()
+            await _all(client.send("Write the report", context_id="ctx-1"))
+            current = (client.task_id, client.context_id, client.pending)
+            back = await client.get_task(first[0])
+            assert isinstance(back[0], TaskItem) and back[0].state == "canceled"
+            assert (client.task_id, client.context_id, client.pending) == current
+
+    run(go())
+
+
+def test_aclose_removes_the_response_hook() -> None:
+    async def go() -> None:
+        async with serve(SourceExecutor(LiveFake()), _card()) as served:
+            http = httpx.AsyncClient(transport=StreamingASGITransport(served.app), timeout=TIMEOUT)
+            client = await R2CClient.connect(URL, httpx_client=http)
+            assert len(http.event_hooks["response"]) == 1
+            await client.aclose()
+            assert http.event_hooks["response"] == []
+            await http.aclose()
 
     run(go())
 

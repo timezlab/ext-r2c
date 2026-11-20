@@ -43,9 +43,20 @@ def a2a_app(executor: AgentExecutor, card: AgentCard, *, task_store: TaskStore |
             middleware: Sequence[Middleware] = ()) -> Starlette
     # card route + JSON-RPC route + R2CContextBuilder + EchoExtensions; the same resolver for
     # the store (default InMemoryTaskStore(owner_resolver=...)) and the executor; `middleware`
-    # goes outside (authentication there sets the owner); the handler is
-    # `app.state.request_handler`, closed on shutdown
+    # goes outside (authentication there sets the owner); the handler is an R2CRequestHandler
+    # at `app.state.request_handler`, closed on shutdown
+
+class R2CRequestHandler(DefaultRequestHandlerV2):
+    # refuses a client message whose role is not ROLE_USER (InvalidParamsError) before it is
+    # stored; without activation, leaves R2C Parts and artifact metadata out of every task,
+    # message and event it returns (send, stream, get, list, cancel, subscribe; R2C-ACT-3)
 ```
+
+*Note (2026-11-20, outside review):* `R2CRequestHandler` was added. Without it, a client message
+with the agent's role was stored as an agent message, so it could put a request of its own in
+the history the door reads the pending request from. And a task paused while R2C was active
+showed its R2C Parts to a caller that read it back without activation. An app that builds its
+own handler uses `R2CRequestHandler`.
 
 ## Activation
 
@@ -96,7 +107,9 @@ An executor written by hand:
    a caller that did not activate R2C cannot answer by text);
 2. calls `open(store=..., owner_resolver=...)`. `a2a_app` binds only a `SourceExecutor`, so a
    hand-written executor that wants the R2C-ID-2 check gives the same store to `a2a_app` and to
-   `open`;
+   `open`. It is served by `a2a_app`, or by an app whose handler is an `R2CRequestHandler`:
+   `R2CTask` reads the pending request from the task's agent messages, so a client message
+   with the agent's role must never be stored;
 3. on a message to a paused task, calls `take_answer()` and returns at once when it gives
    `None`;
 4. otherwise goes on with the answer.
@@ -147,7 +160,14 @@ does not echo it still works: the client then reads text and standard artifacts 
   of the JSON-RPC responses. `aclose` closes the httpx client only when `connect` made it.
 - An `activity` whose `type` is not `tool`, `step` or `reasoning` is skipped and counted, like
   an unknown kind (R2C-CORE-6).
-- `fetch` never follows a redirect, so a same-origin `url` cannot lead to another origin.
+- `fetch` never follows a redirect, so a same-origin `url` cannot lead to another origin. It
+  asks for no compression (`Accept-Encoding: identity`), so the limit counts the bytes as they
+  arrive. A `live` artifact, or one guessed a `link`, comes back as a `Link`, never fetched.
+- `answer` also refuses a `policy` answer to an approval with `answer_by.role = approver`
+  (`policy_on_approver`, R2C-ANSWER-5); the door takes it as given, like `caller`.
+- `get_task(other_id)` leaves `task_id`, `context_id` and `pending` alone; `aclose` removes
+  the response hook. One `R2CClient` is one conversation: `active` is that of its last
+  response.
 - `ArtifactItem.presentation` is the metadata's presentation. Without R2C metadata the client
   guesses it (R2C-ARTIFACT-7): an html `url` → `link`; raw bytes, or a `url` with a filename →
   `file`; text or data → `inline`; anything else → `link`. `ArtifactItem.data` holds the data

@@ -48,6 +48,7 @@ class SourceExecutor(AgentExecutor):
         self.limits = limits
         self.memory = PendingMemory()
         self._runs: dict[str, Run] = {}
+        self._threads: dict[str, str] = {}  # task id → thread of the run in `_runs`
         self._store: TaskStore | None = None
         self._owner: OwnerResolver | None = None
 
@@ -67,8 +68,9 @@ class SourceExecutor(AgentExecutor):
         if context.current_task is None:
             if not await task.open(store=self._store, owner_resolver=self._owner):
                 return
+            await self._drop_stale(thread)
             run = self.driver.start(thread, _input(context))
-            self._runs[task.task_id] = run
+            self._hold(task.task_id, thread, run)
         else:
             request = task.pending
             answer = await task.take_answer()
@@ -80,8 +82,25 @@ class SourceExecutor(AgentExecutor):
                 await run.deliver(answer)
             else:
                 run = self.driver.resume(thread, request, answer)
-                self._runs[task.task_id] = run
+                self._hold(task.task_id, thread, run)
         await self._pump(task, run)
+
+    def _hold(self, task_id: str, thread: str, run: Run) -> None:
+        self._runs[task_id] = run
+        self._threads[task_id] = thread
+
+    def _forget(self, task_id: str) -> Run | None:
+        self._threads.pop(task_id, None)
+        return self._runs.pop(task_id, None)
+
+    async def _drop_stale(self, thread: str) -> None:
+        """Cancel a run still held for ``thread``. ``open`` found no unfinished task of this owner
+        in this context, so such a run belongs to a task a2a-sdk ended without asking us, as on
+        a failed write."""
+        for task_id in [t for t, held in self._threads.items() if held == thread]:
+            run = self._forget(task_id)
+            if run is not None:
+                await run.cancel()
 
     async def _pump(self, task: R2CTask, run: Run) -> None:
         try:
@@ -105,12 +124,16 @@ class SourceExecutor(AgentExecutor):
                 # only `cancel` cancels a run, and it writes the canceled status itself.
         except ContentTooLarge:
             await run.cancel()  # the task has already ended failed
-        self._runs.pop(task.task_id, None)
+        except Exception:
+            await run.cancel()  # a2a-sdk ends the task failed; the thread is free again
+            self._forget(task.task_id)
+            raise
+        self._forget(task.task_id)
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         """Cancel the run through the driver and end the task canceled (FR-005)."""
         task = self._task(context, event_queue)
-        run = self._runs.pop(task.task_id, None)
+        run = self._forget(task.task_id)
         if run is not None:
             await run.cancel()
         await task.cancelled()

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from ._codec import answer_text
 from .activation import EchoExtensions, R2CContextBuilder, is_active
-from .app import a2a_app
+from .app import R2CRequestHandler, a2a_app
 from .card import agent_card
 from .client import (
     ActivityItem,
@@ -39,6 +39,7 @@ __all__ = [
     "PendingMemory",
     "R2CClient",
     "R2CContextBuilder",
+    "R2CRequestHandler",
     "R2CTask",
     "ReplyItem",
     "RequestItem",

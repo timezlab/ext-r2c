@@ -32,9 +32,26 @@ Last updated 2026-11-20. Read this first in a new session.
   - extras: `[langchain]` → `[langgraph]`, no longer pulling `[a2a]`;
   - the standard records O2 and O3 (R2C-QUESTION-5 required means not empty; R2C-MCP-2,
     R2C-MCP-3 spell out the flat forms), with two new examples (39 valid in all: 30 A2A, 9 MCP).
-- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (363 tests, run against the
-  installed wheel; the core alone also runs `tests/core_only.py` with no dev group). CI in
-  `.github/workflows/python.yml` does the same.
+- **Spec `003-a2a-binding`, closed** (2026-11-20, `specs/003-a2a-binding/`): `ext_r2c.a2a`
+  behind the `[a2a]` extra, on a2a-sdk 1.3. Public names in `contracts/a2a-api.md`:
+  - `a2a_app` and `SourceExecutor` serve an `AgentSource`; `agent_card` declares the
+    extension; activation per request and the echoed header;
+  - answers checked, re-asked with `errors`, or refused (wrong `id`, expired); text answers
+    without activation;
+  - threads per owner and context; one unfinished task per context (a second is rejected);
+    paused tasks resumed after a restart through the task store;
+  - `R2CTask` and `PendingMemory` for an executor written by hand; `R2CRequestHandler`
+    (client messages with the user's role only; no stored R2C content without activation);
+  - `R2CClient` for the caller: typed items, answers checked before sending, `reattach`,
+    `get_task`, `cancel`, same-origin `fetch`;
+  - every A2A example replayed as a real in-process round trip, against the client and
+    against the door (`tests/a2a_replay_kit.py`);
+  - the standard records O8, O9 and O10 (R2C-ANSWER-6, R2C-ID-2, R2C-ACTIVITY-2, R2C-A2A-4,
+    the §11 card note), with two new examples (41 valid in all: 32 A2A, 9 MCP).
+- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (669 tests, run against the
+  installed wheel; the core alone runs `tests/core_only.py` and the wheel with `[a2a]` alone
+  runs `tests/a2a_only.py`, both with no dev group). CI in `.github/workflows/python.yml` does
+  the same.
 - **Harness:** Spec Kit 0.13.4 initialised (`specs/` at the root), constitution 1.0.0, rules,
   skills, reviewer agents.
 
@@ -42,7 +59,7 @@ Last updated 2026-11-20. Read this first in a new session.
 
 - The PyPI name `ext-r2c` is **not reserved** (maintainer, 2026-11-20). If it is taken by the
   time we publish, rename the distribution; the import name and identifiers stay.
-- The Python SDK has no door yet: nothing speaks A2A or MCP until specs 003 and 004.
+- The Python SDK has no MCP door yet: nothing speaks MCP until spec 004.
 
 ## Next
 
@@ -53,9 +70,13 @@ Last updated 2026-11-20. Read this first in a new session.
   (`R2C-VERSION-3`). O11 is decided the same day: size limits are in MiB (constitution 1.1.1).
 - **Spec 002 is closed** (2026-11-20). It settled O2 and O3 (maintainer answers Q1–Q3, all A).
   Its outside review is in `specs/002-python-core/research.md` ("Outside review").
-- **Next: `003-a2a-binding`.** Start with `/speckit-specify`; the scope is item 3 below.
+- **Spec 003 is closed** (2026-11-20). It settled O8, O9 and O10. Where it differed from its
+  plan is at the end of `specs/003-a2a-binding/tasks.md`; its outside review is in
+  `specs/003-a2a-binding/research.md` ("Outside review").
+- **Next: `004-mcp-binding`.** Start with `/speckit-specify`; the scope is item 4 below. Read
+  the open points of `specs/001-standard-v1/research.md` that 004 owns first.
 
-## Spec sequence (001 and 002 built; 003 onward proposed, awaiting the maintainer's approval)
+## Spec sequence (001–003 built; 004 onward proposed, awaiting the maintainer's approval)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -74,7 +95,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    Done when every example round-trips through the models unchanged, `import ext_r2c` works
    with no extra, and a fake checkpoint-style and a fake live-style source both pass the
    `AgentSource` contract tests.
-3. **`003-a2a-binding`** — `ext_r2c.a2a`: run events ⇄ A2A wire over a2a-sdk 1.3, and the
+3. **`003-a2a-binding`** (closed 2026-11-20) — `ext_r2c.a2a`: run events ⇄ A2A wire over a2a-sdk 1.3, and the
    caller-side client; real round trips in process; streamed `response` artifact, `activity`,
    `usage`, re-ask with `errors`, expiry, wrong `id`, artifact presentation, one unfinished
    task per context, `thread_id = f(door, owner, contextId)`; a hand-written `AgentExecutor`.

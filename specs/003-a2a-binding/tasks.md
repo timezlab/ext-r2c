@@ -543,7 +543,7 @@ O10 and the card note.
 **Goal**: the docs say what exists. The suite passes on all three Pythons. An outside review is
 done.
 
-- [ ] T063 [P] Update the docs:
+- [X] T063 [P] Update the docs:
   - **`ARCHITECTURE.md`:** list the `a2a/` modules, and the test bed (`a2a_transport.py`,
     `a2a_harness.py`).
   - **`python/README.md`:** serving a source with `a2a_app`; a hand-written executor with
@@ -552,16 +552,23 @@ done.
   - **`CHANGELOG.md`:** under Added, the A2A door, the client and `ReplyChunk.last`; under
     Changed, R2C-ANSWER-6, R2C-ID-2, R2C-ACTIVITY-2, R2C-A2A-4, the §11 note and the two new
     examples.
-- [ ] T064 [P] Update the remaining records:
+- [X] T064 [P] Update the remaining records:
   - **`WORKSTATE.md`:** 003 closed; next `004-mcp-binding`.
   - **`docs/whitepaper.md`:** wherever it names the A2A door's API.
   - **`specs/002-python-core/contracts/core-api.md`:** a dated note for `ReplyChunk.last`.
-- [ ] T065 Run the verify steps on Python 3.11, 3.12 and 3.13 (SC-009).
-- [ ] T066 Get an outside review of the 003 diff: the `code-reviewer` agent, briefed with the
+- [X] T065 Run the verify steps on Python 3.11, 3.12 and 3.13 (SC-009).
+- [X] T066 Get an outside review of the 003 diff: the `code-reviewer` agent, briefed with the
   range, the spec and the contracts. Fix what it confirms, and record what was left with a
   reason in `research.md` "Outside review".
-- [ ] T067 Tick every task, and add "Notes: where reality differed" at the end of this file.
-- [ ] T068 Verify, then commit `chore(003): close the A2A binding`.
+- [X] T067 Tick every task, and add "Notes: where reality differed" at the end of this file.
+- [X] T068 Verify, then commit `chore(003): close the A2A binding`.
+
+  *Note (2026-11-20):*
+  - T063: the root `README.md` also said the SDK did nothing yet; it now names the core and the
+    A2A door. The `python/README.md` snippets were run end to end against both a source and a
+    hand-written executor.
+  - T066: the review found one blocker and three should-fix gaps, all fixed with a failing test
+    first; see `research.md` "Outside review". The suite grew from 656 to 669 tests.
 
 ---
 
@@ -598,3 +605,25 @@ Phases 3–7 ──▶ Phase 8 (US7) ──▶ Phase 9
 - Phase 6 gives callers their side.
 - Phase 8 is the proof against the standard.
 - Each phase ends with a commit and a report. The maintainer says "tiếp" for the next one.
+
+## Notes: where reality differed (2026-11-20)
+
+The dated notes under each phase hold the detail. In short:
+
+- **The new-task check (R10)** needed more than a lock: a2a-sdk saves an emitted Task after
+  `execute` goes on, so `_Openings` also records the tasks it opened until the store shows
+  them, for at most 60 s. The lock is per store, not per owner and context.
+- **Without activation** the pending request lives in a `PendingMemory`, not in the task, since
+  the door writes no R2C Part then (research R2 note).
+- **The request handler** is R2C's own (`R2CRequestHandler`), not a2a-sdk's as it is. The outside
+  review showed that a client message with the agent's role could forge the pending request,
+  and that a stored task showed its R2C Parts to a caller that did not activate R2C.
+- **The client** gained `clock`, `ArtifactItem.presentation` (guessed without metadata) and
+  `ArtifactItem.data`, found while writing the replay. `fetch` returns pages as links.
+- **The core** gained `ReplyChunk.last` (phase 1) and the `policy_on_approver` problem
+  (R2C-ANSWER-5, from the review).
+- **The replay** lives in its own kit, `tests/a2a_replay_kit.py`. It found two door bugs (a live
+  artifact closed too early, a usage held past the next activity) and no bug in an example.
+- **The standard** gained the texts of O8, O9 and O10 and the §11 card note, with two new A2A
+  examples; no rule was removed or changed in meaning.
+- **Test count:** 363 before 003, 669 after.

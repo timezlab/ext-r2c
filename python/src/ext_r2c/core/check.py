@@ -23,7 +23,7 @@ from .models import Answer, Approval, ErrorItem, Question
 __all__ = ["Limits", "Problem", "check_answer", "check_size", "decision"]
 
 Code = Literal[
-    "too_large", "invalid_answer", "wrong_id", "caller_on_approval", "expired",
+    "too_large", "invalid_answer", "wrong_id", "caller_on_approval", "policy_on_approver", "expired",
     "invalid_value", "not_offered", "invalid_args",
 ]
 
@@ -177,6 +177,9 @@ def check_answer(
     is_approval = isinstance(request, Approval)
     if is_approval and answer.answered_by.role == "caller":
         problems.append(Problem("caller_on_approval", None, "An approval cannot be answered by the caller."))
+    if is_approval and answer.answered_by.role == "policy" and request.answer_by.role == "approver":
+        problems.append(Problem("policy_on_approver", None,
+                                "This approval asks every time; a rule cannot answer it."))  # R2C-ANSWER-5
     if answer.outcome == "declined":
         return problems
 

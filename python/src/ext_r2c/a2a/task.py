@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import time
 import weakref
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
@@ -97,6 +98,9 @@ def _expired(request: Question | Approval, now: datetime) -> bool:
     return expires is not None and now >= expires
 
 
+_KEEP = 60.0  # seconds an opened Task is remembered while a2a-sdk saves it
+_monotonic = time.monotonic
+
 _UNFINISHED = (TaskState.TASK_STATE_SUBMITTED, TaskState.TASK_STATE_WORKING,
                TaskState.TASK_STATE_INPUT_REQUIRED, TaskState.TASK_STATE_AUTH_REQUIRED)
 
@@ -106,19 +110,34 @@ class _Openings:
 
     a2a-sdk saves an emitted ``Task`` after ``open`` returns, so two new tasks checked at once
     could both find the store empty. Under ``lock``, ``opened`` keeps each task this process
-    opened until the store shows it."""
+    opened (with the time it opened) until the store shows it, and never longer than ``_KEEP``
+    seconds: the record only bridges the save, so it does not grow with every conversation, and
+    a Task whose save failed stops blocking its context.
+
+    The lock is one per store, not per owner and context: the section it guards is a few store
+    reads, and per-key locks would need their own cleanup."""
 
     def __init__(self) -> None:
         self.lock = asyncio.Lock()
-        self.opened: dict[tuple[str, str], set[str]] = {}
+        self.opened: dict[tuple[str, str], dict[str, float]] = {}
+
+    def forget_old(self) -> None:
+        cutoff = _monotonic() - _KEEP
+        for key in list(self.opened):
+            waiting = self.opened[key]
+            for task_id in [t for t, at in waiting.items() if at < cutoff]:
+                del waiting[task_id]
+            if not waiting:
+                del self.opened[key]
 
     async def unfinished(self, store: TaskStore, call: ServerCallContext, key: tuple[str, str]) -> str | None:
         """The id of an unfinished task of this owner in this context, if there is one."""
-        waiting = self.opened.get(key, set())
+        self.forget_old()
+        waiting = self.opened.get(key, {})
         for task_id in sorted(waiting):
             if await store.get(task_id, call) is None:
                 return task_id  # opened here, not saved yet
-            waiting.discard(task_id)  # saved: the listing below sees it
+            del waiting[task_id]  # saved: the listing below sees it
         if not waiting:
             self.opened.pop(key, None)
         for state in _UNFINISHED:
@@ -212,7 +231,7 @@ class R2CTask:
             other = await openings.unfinished(store, call, key)
             await self.queue.enqueue_event(new_task_from_user_message(self.context.message))
             if other is None:
-                openings.opened.setdefault(key, set()).add(self.task_id)
+                openings.opened.setdefault(key, {})[self.task_id] = _monotonic()
                 return True
         await self.reject(f"Task {other} in this context is not finished; answer or cancel it "
                           "before starting another.")
@@ -233,8 +252,9 @@ class R2CTask:
             return
         usage = self._usage if self._usage_new else None  # beside the activity once (O10)
         self._usage_new = False
-        await self._updater.update_status(TaskState.TASK_STATE_WORKING,
-                                          self._message(fallback_text(activity), activity, usage))
+        text = _join(self._note, fallback_text(activity))  # a refusal goes in the next status
+        self._note = None
+        await self._updater.update_status(TaskState.TASK_STATE_WORKING, self._message(text, activity, usage))
 
     async def reply(self, text: str, *, last: bool = False) -> None:
         """The next piece of the reply: a chunk of the ``reply`` artifact, or, without activation,
@@ -337,9 +357,9 @@ class R2CTask:
         return answer
 
     def _problems(self, answer: Answer, request: Question | Approval) -> list[Problem]:
-        # The remote takes the role claim as given (O8, FR-012).
+        # The remote takes the role claim as given (O8, FR-012, R2C-ANSWER-6).
         found = check_answer(answer, request, now=self._clock(), limits=self.limits)
-        return [p for p in found if p.code != "caller_on_approval"]
+        return [p for p in found if p.code not in ("caller_on_approval", "policy_on_approver")]
 
     def _size(self, part: Part) -> Problem | None:
         """``too_large`` for an R2C Part above the message limit (R2C-SAFETY-4)."""

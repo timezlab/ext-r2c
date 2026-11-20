@@ -23,6 +23,14 @@ python/src/ext_r2c/
     source.py        AgentSource, RunContext, Driver, Run, thread_id
     tools.py         ToolSpec, tool_from_function
   a2a/               A2A door: run events ⇄ A2A wire (a2a-sdk), caller-side client  extra: [a2a]
+    _codec.py        R2C objects ⇄ A2A Parts and Artifacts; what a stored Task says
+    activation.py    activation per request, the echoed header
+    card.py          agent_card: the card with the extension declared
+    task.py          R2CTask, PendingMemory: R2C on one task, for any executor
+    executor.py      SourceExecutor: serves an AgentSource through Driver
+    app.py           a2a_app: the Starlette app; R2CRequestHandler (user-role messages only,
+                     no stored R2C content without activation)
+    client.py        R2CClient and its typed items, for the caller
   mcp/               MCP door: run events ⇄ MCP wire (an MCP SDK Extension), MCP Skills,
                      caller-side client (input_required ⇄ inputResponses + requestState)  [mcp]
   bridges/langgraph/ LangGraphAgent (graph → run events: HITL interrupts, reply tokens, tool
@@ -36,9 +44,10 @@ Three extension points live in `core`: `AgentSource` (an agent framework; suppor
 checkpoint pause and a live pause), `ToolSpec` (a tool), and the run events both doors read.
 A new framework adds a bridge; `Remote` and the doors do not change.
 
-`__init__.py` and `core/` exist today; the rest is the planned shape from the design brief and
-the ADR [one remote, two doors](docs/design-docs/one-remote-two-doors.md). The public names of
-`core` are in [specs/002-python-core/contracts/core-api.md](specs/002-python-core/contracts/core-api.md).
+`__init__.py`, `core/` and `a2a/` exist today; the rest is the planned shape from the design
+brief and the ADR [one remote, two doors](docs/design-docs/one-remote-two-doors.md). The public
+names of `core` are in [specs/002-python-core/contracts/core-api.md](specs/002-python-core/contracts/core-api.md),
+and those of `a2a` in [specs/003-a2a-binding/contracts/a2a-api.md](specs/003-a2a-binding/contracts/a2a-api.md).
 
 ## Import direction
 
@@ -71,7 +80,10 @@ No copy is committed under `python/src/`.
 
 - Tests run against the installed wheel in a clean venv (`test_smoke.py` asserts this).
 - Binding tests are round trips: a real a2a-sdk or MCP SDK client talks to a real server in
-  process. Models are faked; protocols are not.
+  process. Models are faked; protocols are not. For A2A the test bed is
+  `tests/a2a_transport.py` (an httpx transport that streams SSE from the ASGI app) and
+  `tests/a2a_harness.py` (serve an executor, a client per user, drive a task). A CI step
+  installs the wheel with `[a2a]` alone and runs `tests/a2a_only.py`.
 - `Remote` is tested with one agent source served through both doors in one process, and with
   each door alone.
 - Every bridge passes one shared conformance suite; `AgentSource` is also tested with a fake
@@ -80,4 +92,5 @@ No copy is committed under `python/src/`.
 - Every file in `standard/v1/examples/` is read by the tests: each R2C object is validated
   against its schema, each envelope against the real a2a-sdk or MCP types, each invalid object
   must fail where it says, and every `wire` rule of the standard must be shown by an example.
-  The SDK bindings will also replay them.
+  Every A2A example is also replayed as a real round trip, against the client and against the
+  door (`tests/a2a_replay_kit.py`, `test_a2a_replay.py`); the MCP binding will do the same.

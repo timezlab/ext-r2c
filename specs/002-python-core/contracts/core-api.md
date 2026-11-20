@@ -74,7 +74,8 @@ problem it finds:
      `invalid_answer` and stops;
 2. `wrong_id`;
 3. `expired`;
-4. `caller_on_approval`;
+4. `caller_on_approval`; then `policy_on_approver` (an approval with
+   `answer_by.role = approver` answered by `policy`, R2C-ANSWER-5; added 2026-11-20, spec 003);
 5. a declined answer stops here;
 6. a question's value against `answer_schema` gives `invalid_value`, one problem per field;
 7. an approval's value:
@@ -123,6 +124,10 @@ def thread_id(door: Literal["a2a", "mcp"], owner: str, context_id: str) -> str
   raises `ValueError`.
 - The run starts when the door first reads it, so `start` needs no running loop.
 - A source that is not one of the two styles is refused by `Driver(...)` with `TypeError`.
+
+*Note (2026-11-20, spec 003):* `ReplyChunk` gained `last: bool = False`. The source sets it on
+the reply's final chunk, since only it knows the reply has ended; the A2A door writes it as the
+`response` artifact's `last_chunk` (spec 003, research R5).
 
 ## Tools
 

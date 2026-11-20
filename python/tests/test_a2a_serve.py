@@ -12,8 +12,9 @@ from typing import Any
 
 import pytest
 from a2a.types.a2a_pb2 import CancelTaskRequest, StreamResponse, TaskState
+from a2a.utils.errors import InternalError
 from ext_r2c import URI
-from ext_r2c.a2a import SourceExecutor, agent_card
+from ext_r2c.a2a import R2CTask, SourceExecutor, agent_card
 from ext_r2c.a2a._codec import read_artifact, read_part
 from ext_r2c.core import (
     Activity,
@@ -199,6 +200,31 @@ def test_content_over_the_limit_fails_the_task(what: str) -> None:
             text = events[-1].status_update.status.message.parts[0].text
             assert "32 B" in text or "larger than" in text
             assert source.cancelled
+
+    run(go())
+
+
+def test_an_error_while_writing_frees_the_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One failed write ends the task, cancels its run, and leaves the context free for the next
+    task (found by the outside review)."""
+    writes = {"n": 0}
+    write = R2CTask.activity
+
+    async def flaky(self: R2CTask, activity: Activity) -> None:
+        writes["n"] += 1
+        if writes["n"] == 1:
+            raise RuntimeError("the queue broke once")
+        await write(self, activity)
+
+    monkeypatch.setattr(R2CTask, "activity", flaky)
+    source = LiveFake()
+
+    async def go() -> None:
+        async with serve(SourceExecutor(source), _card()) as served, a2a_client(served) as tc:
+            with pytest.raises(InternalError, match="the queue broke once"):
+                await send(tc, "Write the report", context_id="ctx-1")
+            again = await send(tc, "Write the report", context_id="ctx-1")
+            assert kinds(again)[-1] == "input_required"
 
     run(go())
 

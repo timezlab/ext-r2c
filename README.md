@@ -19,9 +19,10 @@ them over A2A, MCP, or both (a setting), so the remote's own logic does not
 change. Everything travels on the protocol's own stream: A2A status and
 artifact updates, MCP progress notifications and tool results.
 
-> **Status: pre-alpha.** The standard (`standard/v1`) is written and in draft;
-> the Python SDK does not do anything yet. Names and shapes may change until
-> `v1` leaves draft.
+> **Status: pre-alpha.** The standard (`standard/v1`) is written and in draft.
+> The Python SDK has its core and the A2A door (see [`python/`](python/README.md));
+> the MCP door, the LangGraph bridge and `Remote` come next. Names and shapes
+> may change until `v1` leaves draft.
 
 ## Identifiers
 

@@ -29,6 +29,23 @@ All notable changes to this project are recorded here. The format follows
   checkpoint and live sources; `ToolSpec` from a plain function.
 - Examples: `mcp/elicitation-question-many-other.json` and
   `a2a/reask-empty-required.json`.
+- `ext_r2c.a2a`, the A2A door on a2a-sdk (the `[a2a]` extra): `a2a_app` and
+  `SourceExecutor` serve an `AgentSource`; activation and the echoed header;
+  `agent_card` with the extension declared; answers checked, re-asked with
+  `errors` or refused; one unfinished task per owner and context; paused tasks
+  resumed after a restart through the task store; `R2CTask` and
+  `PendingMemory` for an executor written by hand; `R2CRequestHandler`, which
+  refuses a client message without the user's role and shows a caller that did
+  not activate R2C no stored R2C content.
+- `R2CClient`, the caller's A2A client: typed items for every R2C object,
+  answers checked before they are sent, `reattach` after a cut, `get_task`,
+  `cancel`, and a same-origin `fetch` with a size limit.
+- `ReplyChunk.last`: the source marks the reply's final chunk.
+- `check_answer` gives `policy_on_approver` for a `policy` answer to an
+  approval that asks an approver every time (R2C-ANSWER-5).
+- Every A2A example is replayed as a real in-process round trip, against the
+  client and against the door.
+- Examples: `a2a/second-task-rejected.json` and `a2a/usage-with-activity.json`.
 
 ### Changed
 
@@ -41,3 +58,14 @@ All notable changes to this project are recorded here. The format follows
   flat `args_schema` is, and how edited `args` are rebuilt.
 - Extras: `[langchain]` is now `[langgraph]` (`langchain>=1.3`, `langgraph`),
   and no longer pulls `[a2a]`.
+- `R2C-ANSWER-6`: the remote takes `answered_by.role` as given and need not
+  refuse an answer for it; `R2C-ANSWER-4` and `R2C-ANSWER-5` are enforced by
+  the client.
+- `R2C-ID-2`: over A2A a second task is opened and ended in
+  `TASK_STATE_REJECTED`, naming the unfinished task; another owner's task does
+  not count.
+- `R2C-ACTIVITY-2`: an update may change an activity's `label`.
+- `R2C-A2A-4`: a usage may travel in any status message, at most one per
+  message, beside a request or an activity.
+- §11 (A2A binding): an SDK may leave out `required: false` in an agent card;
+  absent means the same.
