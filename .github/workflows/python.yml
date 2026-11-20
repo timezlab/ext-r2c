@@ -28,3 +28,8 @@ jobs:
           uv pip install --python ../.ci-venv dist/*.whl --group dev
       - name: Test against the installed wheel
         run: ../.ci-venv/bin/pytest
+      - name: The core alone works (wheel only, no dev group, no extra)
+        run: |
+          uv venv --python ${{ matrix.python }} ../.core-venv
+          uv pip install --python ../.core-venv dist/*.whl
+          ../.core-venv/bin/python -I tests/core_only.py

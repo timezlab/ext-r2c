@@ -45,26 +45,26 @@ the answer schema.
 
 **Independent test**: `test_packaging.py` on the wheel; `core_only.py` in `../.core-venv`.
 
-- [ ] T001 [P] [US6] Create `python/tests/test_packaging.py` (research R15, R16) with:
+- [X] T001 [P] [US6] Create `python/tests/test_packaging.py` (research R15, R16) with:
   - `test_extras`: reads `importlib.metadata.metadata("ext-r2c")`; asserts `Provides-Extra` is exactly `{"a2a", "mcp", "langgraph"}`, and that no `Requires-Dist` entry marked `extra == "langgraph"` names `a2a-sdk` or `ext-r2c[a2a]`;
   - `test_core_imports_only_allowed_modules`: finds the installed `ext_r2c/core/` with `importlib.resources.files("ext_r2c") / "core"`, parses every `.py` with `ast`, and allows only `sys.stdlib_module_names`, `pydantic`, `pydantic_core`, `jsonschema`, `ext_r2c` and relative imports; the failure lists `file:line module`;
   - `test_core_import_loads_no_protocol_sdk`: a subprocess with `sys.executable -I -c` imports `ext_r2c.core` and prints the loaded top-level modules among `a2a`, `mcp`, `langchain`, `langgraph`; asserts none.
-- [ ] T002 [P] [US6] Create `python/tests/core_only.py`, a script that is not collected by pytest. It runs with the wheel alone and, in phase 1:
+- [X] T002 [P] [US6] Create `python/tests/core_only.py`, a script that is not collected by pytest. It runs with the wheel alone and, in phase 1:
   - imports `ext_r2c` and `ext_r2c.core`;
   - asserts that `importlib.util.find_spec("rfc3339_validator") is None` and that no `a2a`, `mcp`, `langchain` or `langgraph` module is loaded;
   - prints `core only: ok`.
 
   Leave a `# phase 2:` comment where the model checks go (T014).
-- [ ] T003 [US6] Build, install, and run `pytest tests/test_packaging.py`. Confirm the failures are the expected ones:
+- [X] T003 [US6] Build, install, and run `pytest tests/test_packaging.py`. Confirm the failures are the expected ones:
   - `langchain` is still an extra;
   - `ext_r2c/core` does not exist.
-- [ ] T004 [US6] In `python/pyproject.toml`, replace `langchain = ["ext-r2c[a2a]", "langchain>=1.3", "langgraph"]` with `langgraph = ["langchain>=1.3", "langgraph"]`.
-- [ ] T005 [US6] Create `python/src/ext_r2c/core/__init__.py` with a module docstring (the protocol-free core; see `ARCHITECTURE.md`) and `__all__: list[str] = []`.
-- [ ] T006 [P] [US6] In `.github/workflows/python.yml`, add a step after the tests:
+- [X] T004 [US6] In `python/pyproject.toml`, replace `langchain = ["ext-r2c[a2a]", "langchain>=1.3", "langgraph"]` with `langgraph = ["langchain>=1.3", "langgraph"]`.
+- [X] T005 [US6] Create `python/src/ext_r2c/core/__init__.py` with a module docstring (the protocol-free core; see `ARCHITECTURE.md`) and `__all__: list[str] = []`.
+- [X] T006 [P] [US6] In `.github/workflows/python.yml`, add a step after the tests:
   1. `uv venv --python ${{ matrix.python }} ../.core-venv`;
   2. `uv pip install --python ../.core-venv dist/*.whl`;
   3. `../.core-venv/bin/python -I tests/core_only.py`.
-- [ ] T007 [US6] Verify (all six steps) and commit `build(002): langgraph extra, core package, import rules`.
+- [X] T007 [US6] Verify (all six steps) and commit `build(002): langgraph extra, core package, import rules`.
 
 **Checkpoint**: 125 tests pass (122 + 3); `core only: ok`.
 

@@ -12,6 +12,7 @@ htmlcov/
 uv.lock
 .DS_Store
 .ci-venv/
+.core-venv/
 .wheel-venv/
 .claude/worktrees/
 .claude/settings.local.json
