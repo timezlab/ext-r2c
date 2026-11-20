@@ -38,6 +38,6 @@
   wire terms (task states, `SubscribeToTask`, `GetTask`), but no module layout, class or
   function names; those belong to `plan.md`.
 - Three markers, one per open point owned by 003, were answered by the maintainer on
-  2026-11-20: Q1 C, then widened (O8: the remote refuses no `answered_by` claim by default; a
-  setting, off by default, checks R2C-ANSWER-4 and -5), Q2 A (O9: `TASK_STATE_REJECTED` with a text),
+  2026-11-20: Q1 C, then widened (O8: the remote checks no `answered_by` role; no setting in
+  this spec), Q2 A (O9: `TASK_STATE_REJECTED` with a text),
   Q3 A (O10: the label may change; one usage Part in any status message). All items pass.
