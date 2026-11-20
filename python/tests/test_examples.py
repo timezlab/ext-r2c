@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from ext_r2c.core import Question, answer_schema
+from ext_r2c.core import Answer, Problem, check_answer, parse
 
 from r2c_check import (
     EXAMPLE_FORMAT,
@@ -22,7 +22,6 @@ from r2c_check import (
     load_json,
     load_schemas,
     pointer,
-    subschema_validator,
     unknown_kinds,
     validator,
 )
@@ -54,24 +53,11 @@ def test_some_valid_example_carries_an_unknown_kind(standard_dir: Path) -> None:
     assert found, "no valid example carries an unknown kind, so R2C-CORE-5 is never exercised"
 
 
-def _answer_problems(answer: dict[str, Any], request: dict[str, Any], schemas: dict[str, Any]) -> list[str]:
-    """Why an answer's value does not fit its request (empty when it fits, or when declined)."""
-    if answer.get("outcome") != "answered":
-        return []
-    value = answer.get("value")
-    if request["kind"] == "question":
-        errors = error_paths(validator(answer_schema(Question.parse(request))), value)
-        return [f"value does not fit question {request['id']} at {errors}"] if errors else []
-    errors = error_paths(subschema_validator(schemas["answer"], "approval_value"), value)
-    if errors:
-        return [f"not an approval value at {errors}"]
-    if value["decision"] not in request["decisions"]:
-        return [f"decision {value['decision']!r} not offered"]
-    args_schema = request.get("subject", {}).get("args_schema")
-    if value["decision"] == "edit" and args_schema:
-        errors = error_paths(validator(args_schema), value["args"])
-        return [f"edited args break args_schema at {errors}"] if errors else []
-    return []
+def _answer_problems(answer: dict[str, Any], request: dict[str, Any]) -> list[Problem]:
+    """The core's check of an answer against its request (FR-032). Expiry is left out: it depends
+    on the clock, and a2a/refuse-expired.json shows that refusal in text."""
+    problems = check_answer(Answer.parse(answer), parse(request))  # type: ignore[arg-type]
+    return [p for p in problems if p.code != "expired"]
 
 
 @pytest.mark.parametrize("path", VALID, ids=_id)
@@ -105,7 +91,7 @@ def test_valid_example(path: Path, standard_dir: Path) -> None:
 
     # An answer the remote asks again for (same id, with `errors`) must fail; any other must fit.
     for n, where, answer, request in answers:
-        problems = _answer_problems(answer, request, schemas)
+        problems = _answer_problems(answer, request)
         if any(rid == answer["id"] and m > n for m, rid in reasks):
             assert problems, f"{where}: re-asked with errors, but the answer fits its request"
         else:

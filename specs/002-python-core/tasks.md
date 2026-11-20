@@ -191,7 +191,7 @@ new examples.
 **Independent test**: `test_check.py`, `test_fallback.py`; `test_examples.py` pairing through
 `check_answer`.
 
-- [ ] T022 [P] [US2] Create `python/tests/test_check.py` ([contracts/core-api.md](contracts/core-api.md) "Answer checking", research R6):
+- [X] T022 [P] [US2] Create `python/tests/test_check.py` ([contracts/core-api.md](contracts/core-api.md) "Answer checking", research R6):
   - one bad answer per FR-015 rule, each with its expected `code` and `key`:
     - `too_large`, with a small custom `Limits`;
     - `invalid_answer`;
@@ -216,7 +216,7 @@ new examples.
     - `raw_base64` is counted by its decoded size, without decoding;
     - a custom threshold applies;
   - an external `$ref` to `https://example.invalid/args.json` opens no socket (a fixture patches `socket.socket.connect` to fail).
-- [ ] T023 [P] [US2] Create `python/tests/test_fallback.py` ([contracts/forms.md](contracts/forms.md#fallback-text)):
+- [X] T023 [P] [US2] Create `python/tests/test_fallback.py` ([contracts/forms.md](contracts/forms.md#fallback-text)):
   - exact strings for hand-built cases:
     - a question with every field type;
     - an optional field;
@@ -226,11 +226,11 @@ new examples.
     - an approval with `approver_role`, `expires_at` and an `edit`;
     - an activity with and without `detail`;
   - for every request and activity in the examples, the text is not empty, and it holds the `title` (or `label`) and every option label.
-- [ ] T024 [US2] Run the tests and confirm that both files fail on `ImportError`.
-- [ ] T025 [US2] Create `python/src/ext_r2c/core/check.py`: `Problem`, `Limits` (5 × 2^20, 50 × 2^20), `check_answer` in the documented order, `decision`, `check_size`. Export them.
-- [ ] T026 [P] [US2] Create `python/src/ext_r2c/core/fallback.py`: `fallback_text` (research R13). Export it.
-- [ ] T027 [US2] FR-032, second half: in `python/tests/test_examples.py`, replace `_answer_problems` with `check_answer(Answer.parse(answer), parse(request))`. Ignore problems with code `expired`: expiry depends on the clock, and `a2a/refuse-expired.json` shows the refusal in text. Keep the re-ask pairing rule.
-- [ ] T028 [US2] Verify and commit `feat(002): answer check and fallback text`.
+- [X] T024 [US2] Run the tests and confirm that both files fail on `ImportError`.
+- [X] T025 [US2] Create `python/src/ext_r2c/core/check.py`: `Problem`, `Limits` (5 × 2^20, 50 × 2^20), `check_answer` in the documented order, `decision`, `check_size`. Export them.
+- [X] T026 [P] [US2] Create `python/src/ext_r2c/core/fallback.py`: `fallback_text` (research R13). Export it.
+- [X] T027 [US2] FR-032, second half: in `python/tests/test_examples.py`, replace `_answer_problems` with `check_answer(Answer.parse(answer), parse(request))`. Ignore problems with code `expired`: expiry depends on the clock, and `a2a/refuse-expired.json` shows the refusal in text. Keep the re-ask pairing rule.
+- [X] T028 [US2] Verify and commit `feat(002): answer check and fallback text`.
 
 **Checkpoint**: SC-004 is met.
 

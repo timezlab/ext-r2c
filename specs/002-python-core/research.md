@@ -81,7 +81,8 @@ spec 001 tests use. No registry is needed.
 step of the error path. For a `required` error the missing names come from the validator's
 `required` list. `message` is short English for a person, from a small table per JSON Schema
 keyword (`type`, `enum`, `minLength`, `minItems`, `required`, `minimum`, `maximum`,
-`uniqueItems`), falling back to jsonschema's own message. `Problem.as_error_item()` gives the
+`uniqueItems`), falling back to "This value is not accepted." (jsonschema's own messages quote
+JSON). `Problem.as_error_item()` gives the
 re-ask `errors` entry (R2C-ASK-6).
 
 **Rationale:** a door decides from `code` whether to re-ask (`invalid_value`, `invalid_args`,

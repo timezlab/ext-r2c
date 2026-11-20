@@ -70,6 +70,8 @@ def check_size(*, text: str | None = None, raw_base64: str | None = None,
 problem it finds:
 
 1. size: the answer's JSON is larger than `message_bytes` gives `too_large` and stops;
+   - the answer fails its own schema (`value` with `declined`, or none with `answered`) gives
+     `invalid_answer` and stops;
 2. `wrong_id`;
 3. `expired`;
 4. `caller_on_approval`;
@@ -81,7 +83,8 @@ problem it finds:
      is false;
    - `args` against `args_schema` give `invalid_args`, one problem per argument.
 
-`decision` returns `deny` for a declined or expired answer.
+`decision` returns `deny` for a declined or expired answer. It fails closed: an answer for
+another `id`, from the `caller`, or with a decision that is not offered also gives `deny`.
 
 ## Fallback text
 
