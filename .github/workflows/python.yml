@@ -25,6 +25,6 @@ jobs:
       - name: Install the wheel into a clean venv
         run: |
           uv venv --python ${{ matrix.python }} ../.ci-venv
-          uv pip install --python ../.ci-venv dist/*.whl pytest
+          uv pip install --python ../.ci-venv dist/*.whl --group dev
       - name: Test against the installed wheel
         run: ../.ci-venv/bin/pytest

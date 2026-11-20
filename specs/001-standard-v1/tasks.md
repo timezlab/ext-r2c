@@ -38,15 +38,15 @@ phase per go**: finish it, verify, commit, report, stop.
 **Purpose**: test-only dependencies, a way for the tests to find `standard/v1`, and CI installing
 both.
 
-- [ ] T001 Add `a2a-sdk>=1.3,<2`, `mcp>=2.3,<3` and `jsonschema[format-nongpl]>=4` to `[dependency-groups] dev` in `python/pyproject.toml`. Leave `[project.dependencies]` and the extras unchanged (FR-025; research R7).
-- [ ] T002 [P] Change `.github/workflows/python.yml`: replace `uv pip install --python ../.ci-venv dist/*.whl pytest` with `uv pip install --python ../.ci-venv dist/*.whl --group dev`.
-- [ ] T003 [P] Create `python/tests/conftest.py` with a session fixture `standard_dir`:
+- [X] T001 Add `a2a-sdk>=1.3,<2`, `mcp>=2.3,<3` and `jsonschema[format-nongpl]>=4` to `[dependency-groups] dev` in `python/pyproject.toml`. Leave `[project.dependencies]` and the extras unchanged (FR-025; research R7).
+- [X] T002 [P] Change `.github/workflows/python.yml`: replace `uv pip install --python ../.ci-venv dist/*.whl pytest` with `uv pip install --python ../.ci-venv dist/*.whl --group dev`.
+- [X] T003 [P] Create `python/tests/conftest.py` with a session fixture `standard_dir`:
   - it returns `Path(os.environ["R2C_STANDARD_DIR"])` when that variable is set, else `Path(__file__).resolve().parents[2] / "standard" / "v1"`;
   - it fails with a clear message when the directory does not exist.
-- [ ] T004 [P] Add a test to `python/tests/test_smoke.py`:
+- [X] T004 [P] Add a test to `python/tests/test_smoke.py`:
   - a subprocess runs `python -c "import ext_r2c, sys; print('a2a' in sys.modules or 'mcp' in sys.modules)"` with `sys.executable`;
   - it asserts the output is `False` (research R7: the test venv now has both SDKs installed).
-- [ ] T005 Verify (see Format) and commit `chore(001): test-only protocol SDKs and standard_dir fixture`.
+- [X] T005 Verify (see Format) and commit `chore(001): test-only protocol SDKs and standard_dir fixture`.
 
 **Checkpoint**: the 5 existing tests plus the new smoke test pass against the installed wheel.
 

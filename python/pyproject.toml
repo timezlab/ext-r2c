@@ -37,7 +37,13 @@ Source = "https://github.com/timezlab/ext-r2c"
 Changelog = "https://github.com/timezlab/ext-r2c/blob/main/CHANGELOG.md"
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+  "pytest>=8",
+  # Test-only: the wire examples' envelopes are checked against the real protocol types.
+  "a2a-sdk>=1.3,<2",
+  "mcp>=2.3,<3",
+  "jsonschema[format-nongpl]>=4",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ext_r2c"]
