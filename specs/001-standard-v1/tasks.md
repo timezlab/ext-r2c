@@ -57,7 +57,7 @@ both.
 **Purpose**: the test harness of FR-021 and FR-021a. Each test is written first and **fails for
 the expected reason** while `standard/v1/` is still empty.
 
-- [ ] T006 Create the helper module `python/tests/r2c_check.py` (test code, not shipped), following [contracts/example-file.md](contracts/example-file.md):
+- [X] T006 Create the helper module `python/tests/r2c_check.py` (test code, not shipped), following [contracts/example-file.md](contracts/example-file.md):
   - `load_schemas(standard_dir)` returns a `{kind: schema}` map; the file `artifact-meta.json` gives kind `artifact`;
   - `validator(schema)` returns a `Draft202012Validator` with `FormatChecker()`;
   - `find_r2c_objects(binding, body)` yields `(json_pointer, obj)` using the three placement forms, including the MCP `{"input_requests": {...}}` form;
@@ -65,31 +65,31 @@ the expected reason** while `standard/v1/` is still empty.
   - `check_mcp(step)` handles `request`, `result`, `notification` and `discover` through `mcp_types.jsonrpc` and `mcp_types.methods` at `"2026-07-28"`. It runs the dropped-key diff (keys inside `_meta` exempt) and checks every `requestedSchema` property against `PrimitiveSchemaDefinition` (research R2);
   - `form_schema(question)` implements the data-model "Form → schema mapping" (A2A column);
   - `parse_rules(readme_text)` returns rule records parsed with the regular expression in [contracts/rule-format.md](contracts/rule-format.md), and raises on a duplicate id.
-- [ ] T007 [P] Create `python/tests/test_check_helpers.py`. It proves that the helpers reject bad input, using inline fixtures (taken from the research prototype):
+- [X] T007 [P] Create `python/tests/test_check_helpers.py`. It proves that the helpers reject bad input, using inline fixtures (taken from the research prototype):
   - A2A: a misspelled field `messsage`; enum `INPUT_REQUIRED`; a `Message` without `messageId`; an `AgentCard` without skills.
   - MCP: `inputRequest` instead of `inputRequests`; a `tools/call` result without `resultType`; `server/discover` without `cacheScope` / `ttlMs`; a `tools/call` request whose `_meta` lacks `io.modelcontextprotocol/clientCapabilities`; a nested `requestedSchema` property.
   - Rules: a duplicate rule id, and a malformed tag line.
   - It also proves that each correct counterpart passes.
-- [ ] T008 [P] Create `python/tests/test_schemas.py`:
+- [X] T008 [P] Create `python/tests/test_schemas.py`:
   - exactly six files exist in `standard/v1/schema/`;
   - each passes `Draft202012Validator.check_schema` and has `$id` equal to `https://github.com/timezlab/ext-r2c/tree/main/standard/v1/schema/<file>`;
   - each contains no `$ref` that does not start with `#` (FR-015);
   - no object schema sets `additionalProperties: false` or `unevaluatedProperties: false` (FR-016).
-- [ ] T009 [P] Create `python/tests/test_examples.py`:
+- [X] T009 [P] Create `python/tests/test_examples.py`:
   - it is parametrised over every file in `examples/a2a/` and `examples/mcp/`;
   - it checks the top-level example format (title, binding equal to the folder name, rules, steps);
   - it checks each step's envelope with `check_a2a` or `check_mcp`;
   - it validates every R2C object found against its kind's schema and skips unknown kinds, collecting them;
   - it pairs answers with earlier questions and approvals, using `form_schema(question)`, `answer.json#/$defs/approval_value`, and `decision ∈ decisions`;
   - a second parametrised test over `examples/invalid/` asserts that validation fails with an error whose path equals `fails_at`.
-- [ ] T010 [P] Create `python/tests/test_rules.py`:
+- [X] T010 [P] Create `python/tests/test_rules.py`:
   - the README has at least one rule;
   - every cited rule id exists;
   - every `wire` rule is cited by at least one valid example;
   - every `schema` rule is cited by at least one invalid example;
   - every rule cited by an invalid example is marked `schema`;
   - every file under `standard/v1/examples/` is a `.json` file in `a2a/`, `mcp/` or `invalid/` (no unread file).
-- [ ] T011 Run the suite on the wheel. Confirm `test_check_helpers.py` passes, and that `test_schemas.py`, `test_examples.py` and `test_rules.py` fail **only** with "no schema files", "no examples" and "no rules found". Then commit `test(001): example, schema and rule checks (failing: standard not written yet)`.
+- [X] T011 Run the suite on the wheel. Confirm `test_check_helpers.py` passes, and that `test_schemas.py`, `test_examples.py` and `test_rules.py` fail **only** with "no schema files", "no examples" and "no rules found". Then commit `test(001): example, schema and rule checks (failing: standard not written yet)`.
 
 **Checkpoint**: the harness exists and proves it can fail. No standard content yet.
 
