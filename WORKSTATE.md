@@ -38,7 +38,9 @@ Last updated 2026-11-20. Read this first in a new session.
   `specs/001-standard-v1/research.md` ("Outside review"), each with an owner spec. O1 is
   decided (2026-11-20): a new value in a closed enum is breaking and needs v2
   (`R2C-VERSION-3`). O11 is decided the same day: size limits are in MiB (constitution 1.1.1).
-- **Next:** spec `002-python-core`, from `/speckit-specify`; it owns O2 and O3.
+- **Spec `002-python-core`: `spec.md` written** (2026-11-20, `specs/002-python-core/`). It
+  settles O2 and O3 (maintainer answers Q1–Q3, all A). **Next:** the maintainer approves
+  `spec.md`, then `/speckit-plan`.
 
 ## Spec sequence (001 approved and built; 002 onward proposed, awaiting the maintainer's approval)
 
