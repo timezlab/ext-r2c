@@ -262,6 +262,10 @@ class R2CTask:
         await self._check(check_size(text=text, limits=self.limits))
         if not self.active:
             self._gathered.append(text)
+            whole = check_size(text="".join(self._gathered), limits=self.limits)
+            if whole is not None:  # the next status would carry it all (spec 004, FR-014)
+                self._gathered = []
+                await self._check(whole)
             return
         update = artifact_update(self.task_id, self.context_id, REPLY_ID, (TextContent(text),), meta=_REPLY_META,
                                  append=self._reply_started, last_chunk=last)

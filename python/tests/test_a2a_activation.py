@@ -130,6 +130,33 @@ def test_a_stored_task_shows_no_r2c_without_activation() -> None:
     run(go())
 
 
+class Chatty:
+    """Three reply chunks of 2 MiB each: each passes the limit, together they do not."""
+
+    pause = "live"
+    card = CARD
+
+    async def run(self, input: RunInput, ctx: RunContext) -> AsyncIterator[RunEvent]:
+        for last in (False, False, True):
+            yield ReplyChunk("x" * (2 * 2**20), last=last)
+
+    def resume(self, answer: Answer, ctx: RunContext) -> AsyncIterator[RunEvent]:
+        raise NotImplementedError
+
+
+def test_a2a_gathered_reply_too_large() -> None:
+    """Without activation the reply is gathered into the next status; the whole text is checked
+    against the message limit (spec 004 FR-014, a follow-up of spec 003's outside review)."""
+
+    async def go() -> None:
+        async with serve(SourceExecutor(Chatty()), _card()) as served, a2a_client(served, r2c=False) as tc:
+            events = await send(tc, "Talk")
+        assert kinds(events)[-1] == "failed"
+        assert _texts(events[-1]) == ["The content is larger than 5 MiB."]
+
+    run(go())
+
+
 # --- Reasoning ----------------------------------------------------------------------------------
 
 

@@ -353,38 +353,38 @@ source or runs a tool.
 **Independent test**: each bad retry to a paused call; the source's received answers and the
 tool's count stay 0.
 
-- [ ] T053 [P] [US3] Write `python/tests/test_mcp_answers.py`:
+- [X] T053 [P] [US3] Write `python/tests/test_mcp_answers.py`:
   - **Re-ask**: a response leaving a required field empty is re-asked with the same key and
     `id`; `errors` names the field; the message lists the error (scenario 1).
   - **Missing response**: a retry with no entry for the pending key, or only other keys, is
     re-asked with `No response was received for "<title>".` first (scenario 2).
-- [ ] T054 [P] [US3] Add `test_expired`, with a clock moved past `expires_at` (scenario 3):
+- [X] T054 [P] [US3] Add `test_expired`, with a clock moved past `expires_at` (scenario 3):
   - **Question**: it counts as declined, and the final result starts with the "too late" text.
   - **Approval**: it counts as deny, and the tool does not run.
-- [ ] T055 [P] [US3] Add `test_state_refused_by_the_boundary` (scenario 4). Each of these gets
+- [X] T055 [P] [US3] Add `test_state_refused_by_the_boundary` (scenario 4). Each of these gets
   `-32602`, and the source and the tool see nothing:
   - an altered token;
   - another tool's token;
   - other arguments;
   - another owner's token;
   - a token past a short TTL (`RequestStateSecurity(keys=..., ttl=0.5)`).
-- [ ] T056 [P] [US3] Add `test_response_too_large` (scenario 5): a response over
+- [X] T056 [P] [US3] Add `test_response_too_large` (scenario 5): a response over
   `Limits.message_bytes` is re-asked with `too_large`.
-- [ ] T057 [P] [US3] Add `test_roles_not_checked_on_the_door`. A derived answer is always
+- [X] T057 [P] [US3] Add `test_roles_not_checked_on_the_door`. A derived answer is always
   `person`; the door applies no role problem.
-- [ ] T058 [P] [US3] Add `test_gathered_reply_too_large` (FR-014). A source whose reply chunks
+- [X] T058 [P] [US3] Add `test_gathered_reply_too_large` (FR-014). A source whose reply chunks
   add up to more than 5 MiB ends with a tool error naming the size.
-- [ ] T059 [P] [US3] Add `test_a2a_gathered_reply_too_large` to
+- [X] T059 [P] [US3] Add `test_a2a_gathered_reply_too_large` to
   `python/tests/test_a2a_activation.py` (FR-014, spec 003 follow-up). Without activation, reply
   chunks that add up to more than 5 MiB end the task failed with a reason naming the size.
-- [ ] T060 Run T053–T059. They fail for the expected reasons.
-- [ ] T061 [US3] Implement the retry outcome table in `source_tool.py` and `tools.py`, through
+- [X] T060 Run T053–T059. They fail for the expected reasons.
+- [X] T061 [US3] Implement the retry outcome table in `source_tool.py` and `tools.py`, through
   one function, `outcome(point, responses, clock, limits)`: claimed, missing, expired, re-ask,
   accepted (data-model). Refusal sentences come from `_codec.message`.
-- [ ] T062 [US3] Add the whole-text size check for the gathered reply in
+- [X] T062 [US3] Add the whole-text size check for the gathered reply in
   `python/src/ext_r2c/a2a/task.py`. Without activation, gathering raises `ContentTooLarge` after
   the task ends failed, as `reply` does with activation.
-- [ ] T063 Verify (SC-005), then commit `feat(004): refuse and re-ask over MCP`.
+- [X] T063 Verify (SC-005), then commit `feat(004): refuse and re-ask over MCP`.
 
 ---
 
