@@ -4,8 +4,11 @@ Last updated 2026-11-20. Read this first in a new session.
 
 ## Done
 
-- **Design approved** (2026-11-20): `docs/research/2026-11-20-r2c-v1-design-brief.md`, with five
+- **Design approved** (2026-11-20): `docs/research/2026-11-20-r2c-v1-design-brief.md`, with
   ADRs in `docs/design-docs/`. Every question about the extension itself is settled.
+- **Amended the same day:** six kinds (`activity`, `usage` added; reasoning only when the
+  remote's owner turns it on), and the reply is one streamed `inline` artifact holding all
+  the model's text. ADR `activity-and-usage-kinds.md`; amendment note at the top of the brief.
 - **Repository skeleton:** license, README, CHANGELOG, `standard/v1/README.md` (placeholder),
   Python package `ext-r2c` 0.0.1 exposing `URI`, `MCP_KEY`, `STANDARD_VERSION`, `__version__`.
 - **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (5 smoke tests, run against the
@@ -25,28 +28,57 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
 `/speckit-implement`, one phase per go).
 
 1. **`001-standard-v1`** — normative text in `standard/v1/README.md`; JSON Schemas for
-   `question`, `approval`, `answer`, `artifact-meta`; wire examples (A2A and MCP) covering every
-   rule; CI step validating every example; schemas shipped inside the wheel. Done when every
-   example validates, the wheel carries byte-identical schemas, and a test fails if one example
-   breaks its schema.
-2. **`002-python-core`** — `ext_r2c.core`: pydantic models matching the schemas, form → JSON
+   `question`, `approval`, `answer`, `artifact-meta`, `activity`, `usage`; wire examples (A2A
+   and MCP) covering every rule, including a full streamed run (reply chunks, tool activities,
+   a file artifact, usage); CI step validating every example; schemas shipped inside the wheel.
+   Done when every example validates, the wheel carries byte-identical schemas, and a test
+   fails if one example breaks its schema.
+2. **`002-python-core`** — `ext_r2c.core`: pydantic models for the six kinds, form → JSON
    Schema and → flat `requestedSchema`, validation with size limits and no external `$ref`,
-   text fallback. Done when every example round-trips through the models unchanged.
-3. **`003-a2a-binding`** — `ext_r2c.a2a` server wrapper and client; real round trips through
-   a2a-sdk 1.3 in process; re-ask with `errors`, expiry, wrong `id`, artifact presentation,
-   one unfinished task per context, `thread_id = f(owner, contextId)`.
-4. **`004-langchain-bridge`** — `serve(graph, card)`: `HumanInTheLoopMiddleware` in `batched`
-   and `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end,
-   file content blocks → artifacts. Success criteria 1–5 of the brief.
-5. **`005-mcp-binding`** — `ext_r2c.mcp`: elicitation from forms and approvals, answer mapping,
-   artifacts as tool-result content, `RequestStateBoundary`. Success criterion 6.
-6. Later: `examples/langchain_agent/`, publishing to PyPI, a TypeScript SDK.
+   text fallback, the neutral run events (reply chunk, activity, ask, answer, artifact, usage,
+   done, error), and the extension points `AgentSource` (checkpoint and live pause) and
+   `ToolSpec`. Extras reshaped (`[langchain]` → `[langgraph]`, no longer pulling `[a2a]`).
+   Done when every example round-trips through the models unchanged, `import ext_r2c` works
+   with no extra, and a fake checkpoint-style and a fake live-style source both pass the
+   `AgentSource` contract tests.
+3. **`003-a2a-binding`** — `ext_r2c.a2a`: run events ⇄ A2A wire over a2a-sdk 1.3, and the
+   caller-side client; real round trips in process; streamed `response` artifact, `activity`,
+   `usage`, re-ask with `errors`, expiry, wrong `id`, artifact presentation, one unfinished
+   task per context, `thread_id = f(door, owner, contextId)`; a hand-written `AgentExecutor`.
+4. **`004-mcp-binding`** — `ext_r2c.mcp`: an MCP SDK `Extension`; elicitation from forms and
+   approvals (tool approval through MRTR), answer mapping, `activity` through
+   `notifications/progress`, `usage` and artifacts on tool results, `RequestStateBoundary`,
+   MCP Skills (SEP-2640), the caller-side client. Success criterion 6.
+5. **`005-langgraph-bridge`** — `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain
+   tools → `ToolSpec`), passing the shared bridge conformance suite: graph → run events;
+   `HumanInTheLoopMiddleware` in `batched` and `per_call` modes, hand-written `interrupt()`,
+   the `status = "input_required"` turn end, reply tokens, tool activity, reasoning (opt-in),
+   usage, file content blocks → artifacts.
+6. **`006-remote`** — `Remote`, the only remote-side adapter, configured declaratively:
+   `expose` = A2A, MCP or both; one ASGI app; `agent=` (an `AgentSource` or an a2a-sdk
+   executor), `tools=`, `approve=`, `skills=` (folders, include / exclude), `resources=`,
+   `prompts=`, `mcp_server=`; `mcp_tool=True`; build-time errors for a door with nothing to
+   serve, something no door serves, or a missing extra. Success criteria 1–5 of the brief,
+   served by `Remote`, plus one agent through both doors in one process.
+7. Later: `examples/langgraph_agent/`, bridges for other agent frameworks (Google ADK, OpenAI
+   Agents SDK, Claude Agent SDK; the last one is a live-pause source), MCP Tasks for long agent
+   runs over MCP, publishing to PyPI, a TypeScript SDK.
+
+**Decided 2026-11-20:** `Remote` is the only remote-side adapter and exposes A2A, MCP or both
+by a setting; agent, tools and skills are passed in (no decorators); MCP approvals are
+`approve=` on `Remote`, separate from the agent framework's own approval config; skills are
+read from folders with include / exclude; card skills and MCP skills stay separate; the agent
+is an MCP tool only with `mcp_tool=True`; one thread per door; LangGraph is the first bridge
+behind `AgentSource`, and `Remote` imports no bridge; `activity` keeps `type: step`. ADR
+`one-remote-two-doors.md`; constitution 1.1.0 (principle VIII import list).
 
 ## Open, outside this repo
 
 How a particular caller routes `answer_by: caller` to its agent, its "Always allow" scope,
 and live-view embedding belong to that caller's own project. The brief's §8 records only the
-shapes R2C was designed against.
+shapes R2C was designed against. The first caller's own spec still says "no `plan` / `step`
+kind"; it must follow the `activity` / `usage` amendment, and check that a remote's SSE
+reaches it while the remote runs (not buffered by a proxy).
 
 ## Working rules worth repeating
 

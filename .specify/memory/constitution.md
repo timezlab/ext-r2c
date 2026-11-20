@@ -1,10 +1,19 @@
 <!--
 Sync Impact Report
-- Version: template → 1.0.0 (first ratification)
-- Principles added: I–IX (all new)
-- Sections added: Technical Constraints, Development Workflow, Governance
+- Version: 1.0.0 → 1.1.0 (2026-11-20)
+- Modified principle: VIII. A small core, bindings behind extras — the import list now reads
+  core ← a2a, core ← mcp, core ← bridges.*, core ← remote (the LangGraph bridge no longer sits
+  under a2a; one bridge and one extra per agent framework; remote is the only remote-side
+  adapter and imports no bridge). The principle itself is unchanged, so MINOR.
+- Modified section: Technical Constraints — extra [langgraph] replaces [langchain].
+- Source: ADR docs/design-docs/one-remote-two-doors.md
+- Docs updated in the same change: ARCHITECTURE.md, design brief amendment, WORKSTATE.md
 - Templates: plan-template.md "Constitution Check" reads this file as is; no template edits needed
-- Deferred: none
+- Deferred: pyproject.toml extras ([langchain] → [langgraph], no longer pulling [a2a]) change
+  with spec 002
+
+Previous: template → 1.0.0 (first ratification): principles I–IX, Technical Constraints,
+Development Workflow, Governance.
 -->
 
 # ext-r2c Constitution
@@ -64,8 +73,11 @@ and the network edge.
 ### VIII. A small core, bindings behind extras
 
 The core depends only on `pydantic` and `jsonschema`. Protocol SDKs come in through extras
-(`[a2a]`, `[mcp]`, `[langchain]`). Imports run one way: `core` ← `a2a`, `core` ← `mcp`,
-`a2a` ← `a2a.langchain`. `core` imports no binding, and `a2a` and `mcp` never import each other.
+(`[a2a]`, `[mcp]`) and agent frameworks through one extra per bridge (`[langgraph]`, later
+others). Imports run one way: `core` ← `a2a`, `core` ← `mcp`, `core` ← `bridges.*`, `core` ←
+`remote`. `core` imports no door and no bridge; `a2a`, `mcp` and the bridges never import each
+other; `remote` (the only remote-side adapter) imports no bridge and loads a door only when it
+is enabled.
 
 ### IX. Versioned by URI
 
@@ -76,7 +88,8 @@ changes only. The package version (SemVer) is separate from the standard's versi
 
 ## Technical Constraints
 
-- Python ≥ 3.11; `a2a-sdk>=1.3`, `mcp>=2.3`, `langchain>=1.3` + `langgraph` in their extras.
+- Python ≥ 3.11; `a2a-sdk>=1.3` in `[a2a]`, `mcp>=2.3` in `[mcp]`, `langchain>=1.3` +
+  `langgraph` in `[langgraph]`.
 - Build with hatchling through `uv build`; tests with pytest.
 - License Apache-2.0.
 - Everything committed is written in English (specs, docs, code, commit messages).
@@ -105,4 +118,4 @@ principle or section added; PATCH: wording), and fixes any template or doc it ma
 the same commit. Reviews check new specs and plans against the principles above; an exception
 is written into the plan's Complexity Tracking with its reason.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-20
+**Version**: 1.1.0 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-20

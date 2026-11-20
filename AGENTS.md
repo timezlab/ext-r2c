@@ -2,7 +2,8 @@
 
 **What:** R2C (Remote-to-Caller), an extension for A2A and MCP. A **remote** (an A2A agent or
 an MCP server) uses it to ask its **caller** a `question`, request an `approval`, and hand back
-an `artifact`; the caller replies with an `answer`. Adapters wrap an existing remote, so its own
+an `artifact`, and reports `activity` and `usage`; the caller replies with an `answer`. One
+adapter, `Remote`, wraps an existing remote and exposes it over A2A, MCP or both, so its own
 logic does not change.
 **This repo** holds the standard (`standard/`) and the Python SDK (`python/`). It is **public**:
 neutral data only (constitution VI).
@@ -44,9 +45,12 @@ neutral data only (constitution VI).
 |--------------------------------------------------|-------------------------------------------------------------|
 | Know the current state and the next step         | `WORKSTATE.md`                                              |
 | Understand the layout and import rules           | `ARCHITECTURE.md`                                           |
+| Explain R2C end to end (white paper, not normative) | `docs/whitepaper.md`                                     |
 | Know the whole v1 design and why                 | `docs/research/2026-11-20-r2c-v1-design-brief.md`           |
 | Know why R2C is not built on Structured Input    | `docs/design-docs/own-extension-not-structured-input.md`    |
-| Know why there are exactly four kinds            | `docs/design-docs/four-kinds.md`                            |
+| Know why the first four kinds                    | `docs/design-docs/four-kinds.md`                            |
+| Know why `activity`, `usage` and the streamed reply | `docs/design-docs/activity-and-usage-kinds.md`           |
+| Know why one adapter (`Remote`) for A2A, MCP or both | `docs/design-docs/one-remote-two-doors.md`              |
 | Know why the standard and SDK share a repo, and why `standard/` | `docs/design-docs/standard-and-sdk-in-one-repo.md` |
 | Know why no model ever answers an approval       | `docs/design-docs/approval-never-answered-by-a-model.md`    |
 | Know why the thread is keyed by owner and context | `docs/design-docs/thread-per-owner-and-context.md`         |

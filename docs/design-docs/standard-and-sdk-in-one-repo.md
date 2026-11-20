@@ -20,7 +20,7 @@ and generates `contracts/` folders.
 - **The wire examples are the shared test suite.** Every example validates in CI, and every SDK
   replays all of them.
 - The Python SDK lives in `python/` (PyPI `ext-r2c`, import `ext_r2c`, extras `[a2a]`, `[mcp]`,
-  `[langchain]`). A TypeScript SDK would sit beside it as `typescript/` (npm `@timezlab/ext-r2c`).
+  `[langgraph]`, later one per agent framework). A TypeScript SDK would sit beside it as `typescript/` (npm `@timezlab/ext-r2c`).
 
 ## Alternatives
 

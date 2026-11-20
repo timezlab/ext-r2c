@@ -1,6 +1,8 @@
 # Exactly four kinds in v1
 
-**Status:** accepted, 2026-11-20.
+**Status:** accepted, 2026-11-20. **Superseded in part, 2026-11-20:** the "No `plan` / `step`"
+decision is replaced by [activity and usage kinds](activity-and-usage-kinds.md); v1 now has six
+kinds (`activity` and `usage` added). The rest stands.
 
 ## Context
 

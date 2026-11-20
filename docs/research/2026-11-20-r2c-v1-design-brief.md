@@ -8,7 +8,38 @@ wins once it is written.
 **Decisions with their own ADR:** [own extension, not Structured Input](../design-docs/own-extension-not-structured-input.md),
 [four kinds](../design-docs/four-kinds.md), [standard and SDK in one repo](../design-docs/standard-and-sdk-in-one-repo.md),
 [approval is never answered by a model](../design-docs/approval-never-answered-by-a-model.md),
-[thread per owner and context](../design-docs/thread-per-owner-and-context.md).
+[thread per owner and context](../design-docs/thread-per-owner-and-context.md),
+[activity, usage and the streamed reply](../design-docs/activity-and-usage-kinds.md).
+
+> **Amendment, 2026-11-20 (after approval).** Approved by the maintainer the same day; the
+> body below is kept as approved and these points override it:
+> - **Six kinds, not four.** `activity` (`type: tool | step | reasoning`, with `state`, `label`,
+>   optional `args`, `detail`, `duration_ms`, `parent_id`, `delta`) and `usage` (tokens,
+>   `duration_ms`, `cost {amount, currency}`, `model`) join v1. This replaces §3 "Progress: the
+>   remote's SSE, not a kind", the "Progress" row of the §1 table, `progress(text)` in §5, the
+>   "Progress" row of §6, and the "`plan` / `step` kinds" row of the alternatives.
+> - **Reasoning is the remote's decision:** sent only when the remote's owner turns it on.
+> - **The reply is one streamed `inline` artifact** (`response: true`), holding all the model's
+>   text during the task including narration between tool calls; files stay separate
+>   artifacts. This sharpens §2 `artifact` ("the final text answer is still a message or an
+>   `inline` artifact") and the "Result" row of §6.
+>
+> Shapes and placement: the [ADR](../design-docs/activity-and-usage-kinds.md). Exact field
+> names are settled by the schemas of `specs/001-standard-v1`.
+>
+> **Amendment 2, 2026-11-20: one adapter, `Remote`.** See the
+> [ADR](../design-docs/one-remote-two-doors.md). It overrides:
+> - §4 layout and extras: the LangGraph bridge is `bridges/langgraph` under `core` (no longer
+>   `a2a/langchain`); extra `[langgraph]` replaces `[langchain]` and no longer pulls `[a2a]`;
+>   one bridge and one extra per agent framework later; a new `remote` module holds `Remote`.
+> - §5 and §6: `serve(graph, card)` and the `AgentExecutor` wrapper become what is passed to
+>   `Remote` (`agent=LangGraphAgent(graph)` or `agent=<executor>`), exposed over A2A, MCP or
+>   both by a setting. Tools, skills, resources and prompts are passed in too; no decorators.
+> - §7 "No framework bridge on the server side": the agent may also be one MCP tool, only when
+>   asked (`mcp_tool=True`); approvals for direct MCP tool calls are `approve=` on `Remote`,
+>   separate from the agent framework's own approval configuration.
+> - §3b: `thread_id = f(door, owner, context_id)`; a thread is never shared across doors.
+> - Success criteria 1–5 read "served by `Remote`" where they say "served by `serve()`".
 
 ## Goal
 
@@ -367,6 +398,9 @@ to ask the user something.
    bridge, and an "open in new tab" button is always shown.
 
 ### 3. Progress: the remote's SSE, not a kind
+
+> **Superseded, 2026-11-20:** progress is now the `activity` kind, plus `usage`; see the
+> amendment at the top and the [ADR](../design-docs/activity-and-usage-kinds.md).
 
 A streaming remote sends `TaskStatusUpdateEvent` with state `working` and a text message. The
 caller relays these to its own UI (a browser usually cannot reach the remote directly: it needs

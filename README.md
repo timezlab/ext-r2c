@@ -10,11 +10,14 @@ runs:
 | `question` | A form for the person, an approver, or the caller agent       |
 | `approval` | A request to allow, edit, or deny one action                  |
 | `answer`   | The reply to a `question` or an `approval`                    |
-| `artifact` | A file, inline content, or a live link handed back to the caller |
+| `artifact` | A file, inline content (the streamed reply), or a live link handed back to the caller |
+| `activity` | What the remote is doing: a tool call, a step, or (if the remote allows) reasoning |
+| `usage`    | Tokens, time and cost the remote reports for the task |
 
-Adapters wrap an existing agent or server, so the remote's own logic does not
-change. Progress is not part of R2C: it stays in the protocol's own status
-stream.
+One adapter, `Remote`, wraps an existing agent, tools and skills and exposes
+them over A2A, MCP, or both (a setting), so the remote's own logic does not
+change. Everything travels on the protocol's own stream: A2A status and
+artifact updates, MCP progress notifications and tool results.
 
 > **Status: pre-alpha.** The standard (`standard/v1`) is being written. Names
 > and shapes may change until `v1` is tagged.
