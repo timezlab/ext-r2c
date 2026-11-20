@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ext-r2c"
+version = "0.0.1"
+description = "R2C (Remote-to-Caller): an extension for A2A and MCP that lets a remote ask its caller, request approval and hand back files."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "timezlab" }]
+keywords = ["a2a", "mcp", "agents", "human-in-the-loop", "extension"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = [
+  "pydantic>=2",
+  "jsonschema>=4",
+]
+
+[project.optional-dependencies]
+a2a = ["a2a-sdk>=1.3"]
+mcp = ["mcp>=2.3"]
+langchain = ["ext-r2c[a2a]", "langchain>=1.3", "langgraph"]
+
+[project.urls]
+Homepage = "https://github.com/timezlab/ext-r2c"
+Source = "https://github.com/timezlab/ext-r2c"
+Changelog = "https://github.com/timezlab/ext-r2c/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ext_r2c"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/ext_r2c", "tests", "README.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers"]

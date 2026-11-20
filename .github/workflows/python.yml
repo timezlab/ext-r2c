@@ -1,0 +1,30 @@
+name: python
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  wheel:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: License copy matches the root
+        run: cmp LICENSE ../LICENSE
+      - name: Build wheel and sdist
+        run: uv build
+      - name: Install the wheel into a clean venv
+        run: |
+          uv venv --python ${{ matrix.python }} ../.ci-venv
+          uv pip install --python ../.ci-venv dist/*.whl pytest
+      - name: Test against the installed wheel
+        run: ../.ci-venv/bin/pytest
