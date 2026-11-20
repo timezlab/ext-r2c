@@ -13,6 +13,7 @@ uv.lock
 .DS_Store
 .ci-venv/
 .core-venv/
+.a2a-venv/
 .wheel-venv/
 .claude/worktrees/
 .claude/settings.local.json

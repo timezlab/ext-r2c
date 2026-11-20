@@ -95,3 +95,12 @@ def test_events_are_frozen() -> None:
             with pytest.raises(dataclasses.FrozenInstanceError):
                 setattr(event, field, "changed")
     assert TextContent("Hi").media_type == "text/plain"
+
+
+def test_reply_chunk_last() -> None:
+    # spec 003 research R5: the source marks the reply's final chunk.
+    assert ReplyChunk("x").last is False
+    chunk = ReplyChunk("x", last=True)
+    assert chunk.last is True
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        chunk.last = False  # type: ignore[misc]

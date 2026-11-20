@@ -52,7 +52,7 @@ authentication, and factories for an app and a client.
 **Independent test**: `test_packaging.py`; `a2a_only.py` in `../.a2a-venv`; a trivial round
 trip that sees events one by one.
 
-- [ ] T001 [P] Extend `python/tests/test_packaging.py`:
+- [X] T001 [P] Extend `python/tests/test_packaging.py`:
   - **`test_extras`:** the `a2a` extra requires `a2a-sdk[http-server]` with a version range
     `>=1.3,<2`.
   - **`test_a2a_imports_only_allowed_modules`:** AST over the installed `ext_r2c/a2a/`. Allowed:
@@ -61,35 +61,35 @@ trip that sees events one by one.
     `pydantic`, and relative imports. A failure lists `file:line module`.
   - **`test_a2a_import_loads_no_other_door`:** a subprocess that imports `ext_r2c.a2a` loads no
     `mcp`, `langchain` or `langgraph`.
-- [ ] T002 [P] Create `python/tests/a2a_only.py`, a script that pytest does not collect. It:
+- [X] T002 [P] Create `python/tests/a2a_only.py`, a script that pytest does not collect. It:
   - imports `ext_r2c.a2a`;
   - asserts that no `mcp`, `langchain` or `langgraph` module is loaded;
   - prints `a2a only: ok`.
 
   Leave a `# phase 3:` comment where the app and card checks go (T030).
-- [ ] T003 [P] Add `test_reply_chunk_last` to `python/tests/test_agent_source.py`:
+- [X] T003 [P] Add `test_reply_chunk_last` to `python/tests/test_agent_source.py`:
   - `ReplyChunk("x").last is False`;
   - `ReplyChunk("x", last=True).last is True`;
   - the dataclass stays frozen.
-- [ ] T004 Build, install, run the new tests. Confirm the expected failures:
+- [X] T004 Build, install, run the new tests. Confirm the expected failures:
   - the extra has no `http-server`;
   - `ext_r2c.a2a` is missing;
   - `ReplyChunk` has no `last`.
-- [ ] T005 Change `python/pyproject.toml`:
+- [X] T005 Change `python/pyproject.toml`:
   - `a2a = ["a2a-sdk[http-server]>=1.3,<2"]`;
   - in the dev group, `a2a-sdk[http-server,sqlite]>=1.3,<2`.
-- [ ] T006 Create `python/src/ext_r2c/a2a/__init__.py`: a module docstring and an empty
+- [X] T006 Create `python/src/ext_r2c/a2a/__init__.py`: a module docstring and an empty
   `__all__`.
-- [ ] T007 Add `last: bool = False` to `ReplyChunk` in `python/src/ext_r2c/core/events.py`, with
+- [X] T007 Add `last: bool = False` to `ReplyChunk` in `python/src/ext_r2c/core/events.py`, with
   a docstring line: the source sets it on the reply's final chunk (research R5).
-- [ ] T008 [P] Create `python/tests/a2a_transport.py` (research R14). It holds
+- [X] T008 [P] Create `python/tests/a2a_transport.py` (research R14). It holds
   `StreamingASGITransport(app)`, an `httpx.AsyncBaseTransport` that:
   - runs the ASGI app in a task;
   - yields body chunks as they are sent;
   - sends `http.disconnect` when the response is closed.
 
   Add a module docstring that says why `httpx.ASGITransport` cannot be used.
-- [ ] T009 [P] Create `python/tests/a2a_harness.py` with:
+- [X] T009 [P] Create `python/tests/a2a_harness.py` with:
   - **`BearerAuth`**: a Starlette `AuthenticationBackend` mapping `Authorization: Bearer <name>`
     to `SimpleUser(name)`.
   - **`serve(executor, card, *, store=None)`**: an async context manager that yields a running
@@ -99,12 +99,19 @@ trip that sees events one by one.
     with the bearer header and a response hook that records headers.
   - **`TIMEOUT`**: 10 s, with `run(coro)` wrapping `asyncio.wait_for`, like
     `agent_source_suite._run`.
-- [ ] T010 Add `test_transport_streams_event_by_event` in `python/tests/test_a2a_transport.py`. A
+
+  *Note (2026-11-20):* `serve` yields a `Served` (app, handler, card, store), and
+  `a2a_client(served, *, user=None)` takes it in place of `(app, card)`.
+- [X] T010 Add `test_transport_streams_event_by_event` in `python/tests/test_a2a_transport.py`. A
   tiny executor emits a `Task` and three working statuses 0.1 s apart. The client must receive
   the first status before the executor emits the third.
-- [ ] T011 Add the A2A-only step to `.github/workflows/python.yml`, after the core-only step:
+
+  *Note (2026-11-20):* the test uses a handshake instead of sleeps, so it does not depend on
+  timing. After the first status, the executor waits (up to 2 s) until the client signals that
+  it has seen it. With `httpx.ASGITransport` in place, the test fails as it should.
+- [X] T011 Add the A2A-only step to `.github/workflows/python.yml`, after the core-only step:
   `uv venv ../.a2a-venv`, `uv pip install "<wheel>[a2a]"`, then `python -I tests/a2a_only.py`.
-- [ ] T012 Verify, then commit `feat(003): a2a extra, test transport, ReplyChunk.last`.
+- [X] T012 Verify, then commit `feat(003): a2a extra, test transport, ReplyChunk.last`.
 
 ---
 

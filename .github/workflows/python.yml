@@ -33,3 +33,8 @@ jobs:
           uv venv --python ${{ matrix.python }} ../.core-venv
           uv pip install --python ../.core-venv dist/*.whl
           ../.core-venv/bin/python -I tests/core_only.py
+      - name: The A2A door works with only its extra (wheel + [a2a], no dev group)
+        run: |
+          uv venv --python ${{ matrix.python }} ../.a2a-venv
+          uv pip install --python ../.a2a-venv "$(ls dist/*.whl)[a2a]"
+          ../.a2a-venv/bin/python -I tests/a2a_only.py

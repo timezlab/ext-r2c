@@ -42,9 +42,11 @@ Content: TypeAlias = TextContent | BytesContent | UrlContent
 
 @dataclass(frozen=True, slots=True)
 class ReplyChunk:
-    """The next piece of the reply; chunks concatenate in order."""
+    """The next piece of the reply; chunks concatenate in order. The source sets ``last`` on the
+    reply's final chunk, since only it knows the reply has ended (spec 003, research R5)."""
 
     text: str
+    last: bool = False
 
 
 @dataclass(frozen=True, slots=True)
