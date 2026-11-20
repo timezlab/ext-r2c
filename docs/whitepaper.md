@@ -530,7 +530,7 @@ app = remote.app()                                          # one ASGI app
 # uvicorn myapp.serve:app → agent card + A2A JSON-RPC at "/", MCP at "/mcp"
 ```
 
-Names are illustrative until spec `006-remote` fixes the API.
+Names are illustrative until spec `007-remote` fixes the API.
 
 **Approvals are declared where each caller path is.** When the agent calls a tool, approval is
 the agent framework's own configuration (here `interrupt_on`), turned into an R2C `approval` by
@@ -735,9 +735,10 @@ Breaking changes move to a new URI (`…/standard/v2`) and an MCP `revision` bum
 | `001-standard-v1` | normative text, JSON Schemas for the six kinds, A2A and MCP wire examples (including a full streamed run), CI validating them, schemas shipped in the wheel |
 | `002-python-core` | models, form → schema generation, validation, text fallback, neutral run events, `AgentSource` (both pause styles) and `ToolSpec`, extras |
 | `003-a2a-binding` | A2A door and client: streamed reply, activity, usage, ask/answer/re-ask/expiry, artifacts, threads |
-| `004-mcp-binding` | MCP door and client: elicitation, tool approval, progress, artifacts, sealed `requestState`, MCP Skills |
-| `005-langgraph-bridge` | `LangGraphAgent`, passing the bridge conformance suite: HITL in both modes, `interrupt()`, tokens, tool activity, reasoning, usage, files |
-| `006-remote` | `Remote`: one app, A2A / MCP / both, agent / tools / approvals / skills (include, exclude) passed in, agent as MCP tool on request |
+| `004-mcp-binding` | MCP door and client: elicitation, tool approval, progress, artifacts, usage, sealed `requestState`, threads |
+| `005-mcp-skills` | MCP Skills (SEP-2640) served from folders, with include and exclude |
+| `006-langgraph-bridge` | `LangGraphAgent`, passing the bridge conformance suite: HITL in both modes, `interrupt()`, tokens, tool activity, reasoning, usage, files |
+| `007-remote` | `Remote`: one app, A2A / MCP / both, agent / tools / approvals / skills (include, exclude) passed in, agent as MCP tool on request |
 | later | a sample remote; bridges for Google ADK, the OpenAI Agents SDK and the Claude Agent SDK; MCP Tasks for long runs; PyPI release; TypeScript SDK |
 
 **Success criteria for v1** (from the brief): an approval round trip where the approved tool runs

@@ -73,10 +73,11 @@ Last updated 2026-11-20. Read this first in a new session.
 - **Spec 003 is closed** (2026-11-20). It settled O8, O9 and O10. Where it differed from its
   plan is at the end of `specs/003-a2a-binding/tasks.md`; its outside review is in
   `specs/003-a2a-binding/research.md` ("Outside review").
-- **Next: `004-mcp-binding`.** Start with `/speckit-specify`; the scope is item 4 below. Read
-  the open points of `specs/001-standard-v1/research.md` that 004 owns first.
+- **Now: `004-mcp-binding`.** `spec.md` approved 2026-11-20 (Q1 A: Skills split out to 005;
+  Q2 A: usage beside `input_requests` while waiting). Next: `plan.md` and `tasks.md`, then
+  implement one phase per go.
 
-## Spec sequence (001–003 built; 004 onward proposed, awaiting the maintainer's approval)
+## Spec sequence (001–003 built; 004 in progress; 005 onward proposed, awaiting approval)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -99,22 +100,25 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    caller-side client; real round trips in process; streamed `response` artifact, `activity`,
    `usage`, re-ask with `errors`, expiry, wrong `id`, artifact presentation, one unfinished
    task per context, `thread_id = f(door, owner, contextId)`; a hand-written `AgentExecutor`.
-4. **`004-mcp-binding`** — `ext_r2c.mcp`: an MCP SDK `Extension`; elicitation from forms and
-   approvals (tool approval through MRTR), answer mapping, `activity` through
-   `notifications/progress`, `usage` and artifacts on tool results, `RequestStateBoundary`,
-   MCP Skills (SEP-2640), the caller-side client. Success criterion 6.
-5. **`005-langgraph-bridge`** — `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain
+4. **`004-mcp-binding`** (spec approved 2026-11-20) — `ext_r2c.mcp`: an MCP SDK `Extension`;
+   elicitation from forms and approvals (tool approval through MRTR), answer mapping,
+   `activity` through `notifications/progress`, `usage` and artifacts on tool results,
+   `RequestStateBoundary`, the caller-side client. Success criterion 6. Settles O4–O7.
+5. **`005-mcp-skills`** — MCP Skills (SEP-2640, `io.modelcontextprotocol/skills`) in
+   `ext_r2c.mcp`, read from folders with include / exclude, on the SDK's `Extension`. Split out
+   of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C.
+6. **`006-langgraph-bridge`** — `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain
    tools → `ToolSpec`), passing the shared bridge conformance suite: graph → run events;
    `HumanInTheLoopMiddleware` in `batched` and `per_call` modes, hand-written `interrupt()`,
    the `status = "input_required"` turn end, reply tokens, tool activity, reasoning (opt-in),
    usage, file content blocks → artifacts.
-6. **`006-remote`** — `Remote`, the only remote-side adapter, configured declaratively:
+7. **`007-remote`** — `Remote`, the only remote-side adapter, configured declaratively:
    `expose` = A2A, MCP or both; one ASGI app; `agent=` (an `AgentSource` or an a2a-sdk
    executor), `tools=`, `approve=`, `skills=` (folders, include / exclude), `resources=`,
    `prompts=`, `mcp_server=`; `mcp_tool=True`; build-time errors for a door with nothing to
    serve, something no door serves, or a missing extra. Success criteria 1–5 of the brief,
    served by `Remote`, plus one agent through both doors in one process.
-7. Later: `examples/langgraph_agent/`, bridges for other agent frameworks (Google ADK, OpenAI
+8. Later: `examples/langgraph_agent/`, bridges for other agent frameworks (Google ADK, OpenAI
    Agents SDK, Claude Agent SDK; the last one is a live-pause source), MCP Tasks for long agent
    runs over MCP, publishing to PyPI, a TypeScript SDK.
 

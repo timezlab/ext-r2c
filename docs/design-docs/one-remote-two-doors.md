@@ -61,7 +61,8 @@ remote = Remote(
 app = remote.app()                                          # one ASGI app
 ```
 
-Names are illustrative; the spec of `006-remote` settles the API.
+Names are illustrative; the spec of `007-remote` settles the API (renumbered 2026-11-20, when
+MCP Skills became `005-mcp-skills`).
 
 | Passed in | A2A door | MCP door |
 |---|---|---|
