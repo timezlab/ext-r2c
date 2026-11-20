@@ -179,6 +179,7 @@ class R2CTask:
         current = context.current_task
         self.pending: Question | Approval | None = None
         self._usage: Usage | None = None
+        self._usage_new = False  # held since the last status that carried it
         self._reply_started = False
         if current is not None:
             if current.status.state == TaskState.TASK_STATE_INPUT_REQUIRED:
@@ -230,7 +231,10 @@ class R2CTask:
         the text only, and a ``reasoning`` activity is dropped."""
         if not self.active and activity.type == "reasoning":
             return
-        await self._updater.update_status(TaskState.TASK_STATE_WORKING, self._message(fallback_text(activity), activity))
+        usage = self._usage if self._usage_new else None  # beside the activity once (O10)
+        self._usage_new = False
+        await self._updater.update_status(TaskState.TASK_STATE_WORKING,
+                                          self._message(fallback_text(activity), activity, usage))
 
     async def reply(self, text: str, *, last: bool = False) -> None:
         """The next piece of the reply: a chunk of the ``reply`` artifact, or, without activation,
@@ -252,14 +256,17 @@ class R2CTask:
             elif isinstance(content, BytesContent):
                 encoded = base64.b64encode(content.data).decode("ascii")
                 await self._check(check_size(raw_base64=encoded, limits=self.limits))
+        # A live page still open gets more updates (R2C-ARTIFACT-6); anything else is whole.
         update = artifact_update(self.task_id, self.context_id, event.id, event.parts,
                                  meta=event.meta if self.active else None, name=event.name,
-                                 description=event.description, last_chunk=True)
+                                 description=event.description, last_chunk=event.meta.state != "open")
         await self.queue.enqueue_event(update)
 
     async def usage(self, usage: Usage) -> None:
-        """Hold the usage for the next input-required or terminal status (R2C-USAGE-2, O10)."""
+        """Hold the usage: it goes beside the next activity once, and in every input-required
+        and terminal status after it (R2C-A2A-4, R2C-USAGE-2, O10)."""
         self._usage = usage
+        self._usage_new = True
 
     async def _check(self, problem: Problem | None) -> None:
         if problem is not None:
@@ -275,6 +282,7 @@ class R2CTask:
         if not self.active and self.memory is not None:
             self.memory.put(self.task_id, request)
         self.pending = request
+        self._usage_new = False
         await self._updater.requires_input(self._message(text, request, self._usage))
 
     async def take_answer(self) -> Answer | None:

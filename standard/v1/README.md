@@ -350,7 +350,8 @@ Other fields: `state` (`running`, `done`, `failed`), `label`, `name`, `args`, `d
   Updates of one activity keep its `id`. The state of a `tool` or `step` goes `running`, then
   `done` or `failed`, and nothing follows a terminal state. `duration_ms` and `detail` (a short
   summary, never the whole output) come with the terminal state. A `reasoning` activity has no
-  `state`: it is the sum of its deltas, each update repeating its `label`.
+  `state`: it is the sum of its deltas, each update repeating its `label`. An update MAY change
+  the `label`; a client shows the latest.
 - **R2C-ACTIVITY-3** · MUST · remote · wire
   An activity nested under another one sets `parent_id` to the outer activity's `id`, for
   example the tool calls of a sub-agent's step.
@@ -384,7 +385,9 @@ Schema: [`usage.json`](schema/usage.json). Fields: `input_tokens`, `output_token
 The binding targets A2A 1.0. Objects below are written in A2A's JSON form (`taskId`,
 `TASK_STATE_INPUT_REQUIRED`, parts with `text` / `data` / `url` / `raw`). The examples show them
 complete. A remote's messages have `role: ROLE_AGENT` and a client's `ROLE_USER`. The order of
-the parts in a message carries no meaning; the examples put the text Part first.
+the parts in a message carries no meaning; the examples put the text Part first. An A2A SDK
+may leave out `required: false` when it writes an agent card, since it is the default; an
+absent `required` means the same (`R2C-ACT-1`).
 
 - **R2C-A2A-1** · MUST · remote · wire
   A `question` or `approval` travels in the message of a status update with state
@@ -398,7 +401,8 @@ the parts in a message carries no meaning; the examples put the text Part first.
 - **R2C-A2A-4** · MUST · remote · wire
   A `usage` travels as a data Part in a status update's message, at the latest in the terminal
   one (`TASK_STATE_COMPLETED`, `TASK_STATE_FAILED`, `TASK_STATE_CANCELED`). It MAY also travel in
-  a `TASK_STATE_INPUT_REQUIRED` one.
+  a `TASK_STATE_INPUT_REQUIRED` one, or in any other status message. A status message carries at
+  most one usage Part, and it may sit beside a request or an activity.
 - **R2C-A2A-5** · MUST · remote · wire
   An artifact travels as an artifact update (`artifactUpdate`) whose artifact carries the R2C
   metadata.

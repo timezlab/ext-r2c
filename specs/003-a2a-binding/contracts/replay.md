@@ -75,3 +75,30 @@ rejects a file that is not exempt.
   follow-up message opens the second task.
 - **The new examples from FR-030** (a rejected second task; a usage beside an activity whose label
   changes) are played like any other file.
+
+## Notes: how the replay was built (2026-11-20, phase 8)
+
+- The kit lives in `python/tests/a2a_replay_kit.py`, not in `a2a_harness.py`: it is long, and only
+  `test_a2a_replay.py` and the summary line use it.
+- **Activation** is on for a file that carries the R2C URI anywhere, in a body or in an
+  `A2A-Extensions` header (`follow-up-context.json` shows it only in headers).
+- **Turns.** A client step starts a turn; a remote step right after an input-required step
+  starts a sample-answer turn. Each turn's wire must equal the file's remote steps of that turn;
+  for the last turn the file's steps are a prefix, since a file may stop before the run ends.
+- **Converter.** A rejected status is always the door's (R2C-ID-2), never a source's, so it is
+  skipped wherever it appears. Usage Parts become `UsageEvent` before the status they sit in.
+- **Clock.** A file without timestamps runs at a fixed time (`2026-01-01T00:00:00Z`), on both
+  the door and `R2CClient`.
+- **Normalising** also drops what a2a-sdk adds and the files leave out: `history`, and the
+  `taskId`/`contextId`/`messageId` of a status message. `errors[].message` is compared for
+  presence only, like text.
+- **Client mode with a bad answer** (`reask-*`, `refuse-wrong-id`, `refuse-expired`): the test
+  checks that `R2CClient.answer` raises `AnswerRejected`, then sends the file's message raw and
+  reads the reply with the client's own reader, so the remote side of the file is still read.
+- **Items** are compared with the file's R2C objects as a multiset per turn; a `ReplyItem`
+  stands for the reply artifact's metadata. `skipped` must grow by the number of unknown objects.
+- **`question-forwarded.json`:** the inventory remote is served at the path of the `origin.url`.
+  In client mode the file is split into its two tasks, each read by its own client.
+- The replay found two door bugs: a live artifact was sent with `last_chunk` true, and a usage
+  was not sent beside the activity that came after it, only at the end. Both are fixed in
+  `R2CTask`.

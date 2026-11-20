@@ -1,0 +1,103 @@
+{
+  "title": "A usage beside an activity whose label changes",
+  "description": "A step starts as \"Reading the inventory\" and ends as \"Read the inventory\": an update may change the label, and the client shows the latest. The working status of the done step also carries the usage so far. The terminal status carries the usage again, as it must.",
+  "binding": "a2a",
+  "rules": ["R2C-A2A-4", "R2C-ACTIVITY-2", "R2C-USAGE-2"],
+  "steps": [
+    {
+      "from": "client",
+      "type": "SendMessageRequest",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "message": {
+          "messageId": "msg-c1", "role": "ROLE_USER",
+          "parts": [{ "text": "How many items are below the reorder threshold?" }]
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "headers": { "A2A-Extensions": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1" },
+      "body": {
+        "task": { "id": "task-1", "contextId": "ctx-1", "status": { "state": "TASK_STATE_SUBMITTED" } }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r1",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Reading the inventory" },
+                {
+                  "data": { "kind": "activity", "id": "step-1", "type": "step", "label": "Reading the inventory", "state": "running" },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_WORKING",
+            "message": {
+              "messageId": "msg-r2",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Read the inventory" },
+                {
+                  "data": { "kind": "activity", "id": "step-1", "type": "step", "label": "Read the inventory", "state": "done", "duration_ms": 1400 },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                },
+                {
+                  "data": { "kind": "usage", "input_tokens": 1200, "output_tokens": 80 },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "remote",
+      "type": "StreamResponse",
+      "body": {
+        "statusUpdate": {
+          "taskId": "task-1",
+          "contextId": "ctx-1",
+          "status": {
+            "state": "TASK_STATE_COMPLETED",
+            "message": {
+              "messageId": "msg-r3",
+              "role": "ROLE_AGENT",
+              "parts": [
+                { "text": "Done." },
+                {
+                  "data": { "kind": "usage", "input_tokens": 1200, "output_tokens": 80 },
+                  "metadata": { "https://github.com/timezlab/ext-r2c/tree/main/standard/v1": {} }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

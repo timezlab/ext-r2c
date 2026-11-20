@@ -77,8 +77,9 @@ class R2CTask:
         # returns False
     async def activity(self, activity: Activity) -> None
     async def reply(self, text: str, *, last: bool = False) -> None
-    async def artifact(self, event: ArtifactEvent) -> None
-    async def usage(self, usage: Usage) -> None   # held for the next input-required / terminal
+    async def artifact(self, event: ArtifactEvent) -> None   # a live artifact: last_chunk false
+    async def usage(self, usage: Usage) -> None
+        # held for the next activity, input-required or terminal status (R2C-A2A-4)
     async def ask(self, request: Question | Approval) -> None
     async def take_answer(self) -> Answer | None  # R7–R9; None = re-asked or refused already
     async def complete(self) -> None
@@ -108,10 +109,13 @@ An executor written by hand:
 class R2CClient:
     @classmethod
     async def connect(cls, url: str, *, httpx_client: httpx.AsyncClient | None = None,
-                      limits: Limits = Limits()) -> R2CClient     # reads the agent card
+                      limits: Limits = Limits(),
+                      clock: Callable[[], datetime] | None = None) -> R2CClient  # reads the card
     @classmethod
     def from_card(cls, card: AgentCard, *, httpx_client: httpx.AsyncClient,
-                  limits: Limits = Limits()) -> R2CClient
+                  limits: Limits = Limits(),
+                  clock: Callable[[], datetime] | None = None) -> R2CClient
+        # clock: the time `answer` checks `expires_at` against (default: now, UTC)
     active: bool                  # the last response echoed the R2C URI
     task_id: str | None
     context_id: str | None
@@ -144,5 +148,9 @@ does not echo it still works: the client then reads text and standard artifacts 
 - An `activity` whose `type` is not `tool`, `step` or `reasoning` is skipped and counted, like
   an unknown kind (R2C-CORE-6).
 - `fetch` never follows a redirect, so a same-origin `url` cannot lead to another origin.
+- `ArtifactItem.presentation` is the metadata's presentation. Without R2C metadata the client
+  guesses it (R2C-ARTIFACT-7): an html `url` → `link`; raw bytes, or a `url` with a filename →
+  `file`; text or data → `inline`; anything else → `link`. `ArtifactItem.data` holds the data
+  Parts as plain dicts.
 - `Link(url, media_type, name)` and `TooLarge(size)` are frozen dataclasses; `size` is `None`
   when the remote did not declare a length.

@@ -9,10 +9,10 @@ files from its connection's own origin only.
 from __future__ import annotations
 
 import contextlib
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TypeAlias
+from typing import Any, TypeAlias
 from uuid import uuid4
 
 import httpx
@@ -34,6 +34,7 @@ from a2a.types import (
     TaskState,
     TaskStatus,
 )
+from google.protobuf import json_format
 
 from .. import URI
 from ..core import (
@@ -51,7 +52,7 @@ from ..core import (
     Usage,
     check_answer,
 )
-from ._codec import answer_text, pending_request, r2c_part, read_artifact, read_part
+from ._codec import _ints, answer_text, pending_request, r2c_part, read_artifact, read_part
 
 __all__ = [
     "ActivityItem",
@@ -123,7 +124,9 @@ class ReplyItem:
 
 @dataclass(frozen=True, slots=True)
 class ArtifactItem:
-    """Any other artifact update. ``meta`` is ``None`` without R2C."""
+    """Any other artifact update. ``meta`` is ``None`` without R2C; ``presentation`` is then the
+    client's guess (R2C-ARTIFACT-7): ``file``, ``inline``, or ``link`` for a page that is only
+    opened in a new tab. ``data`` holds the JSON of its ``data`` Parts."""
 
     artifact_id: str
     meta: ArtifactMeta | None
@@ -131,6 +134,8 @@ class ArtifactItem:
     name: str | None = None
     append: bool = False
     last: bool = False
+    presentation: str = "file"
+    data: tuple[Any, ...] = ()
 
 
 Item: TypeAlias = TaskItem | StatusItem | ActivityItem | RequestItem | UsageItem | ReplyItem | ArtifactItem
@@ -187,7 +192,8 @@ class R2CClient:
     """One connection to an A2A remote, with R2C asked for on every call."""
 
     def __init__(self, client: Client, http: httpx.AsyncClient, url: str, *, limits: Limits = Limits(),
-                 owns_http: bool = False) -> None:
+                 clock: Callable[[], datetime] | None = None, owns_http: bool = False) -> None:
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.client = client
         self.http = http
         self.url = url
@@ -206,20 +212,23 @@ class R2CClient:
 
     @classmethod
     async def connect(cls, url: str, *, httpx_client: httpx.AsyncClient | None = None,
-                      limits: Limits = Limits()) -> R2CClient:
-        """Read the agent card at ``url`` and connect to its JSON-RPC interface."""
+                      limits: Limits = Limits(), clock: Callable[[], datetime] | None = None) -> R2CClient:
+        """Read the agent card at ``url`` and connect to its JSON-RPC interface. ``clock`` is
+        the time an answer is checked against ``expires_at`` at (now, by default)."""
         http = httpx_client if httpx_client is not None else httpx.AsyncClient()
         card = await A2ACardResolver(http, url).get_agent_card()
-        return cls._build(card, http, limits, owns_http=httpx_client is None)
+        return cls._build(card, http, limits, clock, owns_http=httpx_client is None)
 
     @classmethod
-    def from_card(cls, card: AgentCard, *, httpx_client: httpx.AsyncClient, limits: Limits = Limits()) -> R2CClient:
-        return cls._build(card, httpx_client, limits, owns_http=False)
+    def from_card(cls, card: AgentCard, *, httpx_client: httpx.AsyncClient, limits: Limits = Limits(),
+                  clock: Callable[[], datetime] | None = None) -> R2CClient:
+        return cls._build(card, httpx_client, limits, clock, owns_http=False)
 
     @classmethod
-    def _build(cls, card: AgentCard, http: httpx.AsyncClient, limits: Limits, *, owns_http: bool) -> R2CClient:
+    def _build(cls, card: AgentCard, http: httpx.AsyncClient, limits: Limits,
+               clock: Callable[[], datetime] | None, *, owns_http: bool) -> R2CClient:
         client = ClientFactory(ClientConfig(httpx_client=http, streaming=True)).create(card)
-        return cls(client, http, _rpc_url(card), limits=limits, owns_http=owns_http)
+        return cls(client, http, _rpc_url(card), limits=limits, clock=clock, owns_http=owns_http)
 
     async def _record_echo(self, response: httpx.Response) -> None:
         """``active``: whether the last JSON-RPC response echoed the R2C URI (R2C-ACT-2)."""
@@ -249,7 +258,7 @@ class R2CClient:
         request = self.pending
         if request is None or self.task_id is None:
             raise AnswerRejected([Problem("wrong_id", None, "No request is waiting for an answer.")])
-        problems = check_answer(answer, request, now=datetime.now(timezone.utc), limits=self.limits)
+        problems = check_answer(answer, request, now=self.clock(), limits=self.limits)
         if problems:
             raise AnswerRejected(problems)
         message = Message(
@@ -388,5 +397,19 @@ class R2CClient:
         if meta is not None and meta.response:
             return ReplyItem("".join(c.text for c in contents if isinstance(c, TextContent)), last=update.last_chunk)
         artifact = update.artifact
+        data = tuple(_ints(json_format.MessageToDict(p.data)) for p in artifact.parts if p.HasField("data"))
         return ArtifactItem(artifact.artifact_id, meta, contents, artifact.name or None,
-                            update.append, update.last_chunk)
+                            update.append, update.last_chunk,
+                            meta.presentation if meta is not None else _guess(artifact.parts), data)
+
+
+def _guess(parts: Iterable[Part]) -> str:
+    """The presentation of an artifact without R2C metadata (R2C-ARTIFACT-7). ``live`` is never
+    guessed."""
+    for part in parts:
+        which = part.WhichOneof("content")
+        if which == "url" and part.media_type == "text/html":
+            return "link"
+        if which == "raw" or (which == "url" and part.filename):
+            return "file"
+    return "inline" if any(p.WhichOneof("content") in ("text", "data") for p in parts) else "link"

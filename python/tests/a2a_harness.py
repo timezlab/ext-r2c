@@ -92,8 +92,9 @@ class Served:
 
 
 @contextlib.asynccontextmanager
-async def serve(executor: AgentExecutor, card: AgentCard, *, store: TaskStore | None = None) -> AsyncIterator[Served]:
-    app = a2a_app(executor, card, task_store=store,
+async def serve(executor: AgentExecutor, card: AgentCard, *, store: TaskStore | None = None,
+                rpc_url: str = "/") -> AsyncIterator[Served]:
+    app = a2a_app(executor, card, task_store=store, rpc_url=rpc_url,
                   middleware=[Middleware(AuthenticationMiddleware, backend=BearerAuth())])
     try:
         yield Served(app, card)

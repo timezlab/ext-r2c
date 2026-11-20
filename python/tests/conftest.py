@@ -50,6 +50,30 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
         f"R2C examples: {len(valid)} valid, {len(invalid)} invalid, {ignored} unknown kinds ignored; "
         f"{round_tripped} objects round-tripped"
     )
+    replay = _replay_counts()
+    if replay is not None:
+        client, door, exempt = replay
+        terminalreporter.write_line(
+            f"A2A replay: {client} files in client mode, {door} in door mode (x2 pause styles), {exempt} exempt"
+        )
+
+
+def _replay_counts() -> tuple[int, int, int] | None:
+    """Files in client mode, in door mode, and exempt from door mode (contracts/replay.md)."""
+    try:
+        import a2a_replay_kit as kit  # needs the [a2a] extra
+    except ImportError:
+        return None
+    names = kit.names()
+    door = 0
+    for name in names:
+        try:
+            kit.script_from_example(kit.load(name))
+            door += 1
+        except kit.NotScriptable:
+            continue
+    flows = [n for n in names if n != "agent-card.json"]
+    return len(flows), door, len(names) - door
 
 
 def _round_trips(example: Any, known: set[str]) -> int:

@@ -479,7 +479,7 @@ O10 and the card note.
 
 **Independent test**: `test_a2a_replay.py`, one test per file and mode.
 
-- [ ] T056 [US7] Add to `standard/v1/examples/a2a/` the file `usage-with-activity.json`:
+- [X] T056 [US7] Add to `standard/v1/examples/a2a/` the file `usage-with-activity.json`:
   - a `step` activity whose `label` changes between running and done;
   - a usage Part in the done activity's working status;
   - rules `R2C-A2A-4`, `R2C-ACTIVITY-2`, `R2C-USAGE-2`.
@@ -487,7 +487,7 @@ O10 and the card note.
   Add the O10 text to R2C-ACTIVITY-2 and R2C-A2A-4, and the `required: false` note to §11 of
   `standard/v1/README.md`. Add the "written into" note on O10 in
   `specs/001-standard-v1/research.md`.
-- [ ] T057 [P] [US7] Extend `python/tests/a2a_harness.py`:
+- [X] T057 [P] [US7] Extend `python/tests/a2a_harness.py`:
   - **`WireExecutor(steps)`:** emits a file's remote steps as they are, one `execute` call per
     client step.
   - **`script_from_example(example)`:** the converter of contracts/replay.md. It returns a
@@ -495,7 +495,7 @@ O10 and the card note.
   - **`ScriptedSource(script, pause)`:** a checkpoint or live source.
   - **`normalise(event_json, idmap)`.**
   - **`sample_answer(request)`:** a valid answer, for files with no client step after a request.
-- [ ] T058 [US7] Create `python/tests/test_a2a_replay.py`:
+- [X] T058 [US7] Create `python/tests/test_a2a_replay.py`:
   - **`client:<file>`:** for every A2A file.
   - **`door:<file>:<pause>`:** for every file not in `DOOR_EXEMPT`, for both pause styles.
   - **`test_exemptions_are_exact`:** the converter raises `NotScriptable` exactly for the
@@ -505,14 +505,36 @@ O10 and the card note.
     cut, `follow-up-context.json`.
 
   Add the replay line to `pytest_terminal_summary` in `python/tests/conftest.py` (quickstart §2).
-- [ ] T059 Run it. Record every failing file with its first difference; each is a door or client
+- [X] T059 Run it. Record every failing file with its first difference; each is a door or client
   bug, or a converter bug. Do not add exemptions for them.
-- [ ] T060 [US7] Fix the failures at their cause: the door, the client, or the converter.
+- [X] T060 [US7] Fix the failures at their cause: the door, the client, or the converter.
   Change an example only if it breaks the standard. Any change goes into the notes at the end of
   this file.
-- [ ] T061 Run the whole suite. Check that every `wire` rule still has an example
+- [X] T061 Run the whole suite. Check that every `wire` rule still has an example
   (`test_rules.py`).
-- [ ] T062 Verify, then commit `feat(003): every A2A example replayed in process`.
+- [X] T062 Verify, then commit `feat(003): every A2A example replayed in process`.
+
+  *Note (2026-11-20):*
+  - T057: the replay kit (converter, scripted source, turn executor, normalising, sample answers)
+    is in its own file, `python/tests/a2a_replay_kit.py`. `a2a_harness.py` gained only
+    `WireExecutor`, `example_events`, `status`, and a `rpc_url` on `serve`. How the kit decides
+    each case is written in the notes of contracts/replay.md.
+  - T059/T060, door bugs. Writing the converter showed two door bugs, and the replay proves them:
+    against the door before the fix, `artifact-live.json` and `usage-with-activity.json` fail in
+    both pause styles, and nothing else does.
+    - A live artifact was sent with `last_chunk` true (R2C-ARTIFACT-6).
+    - A usage was held past the next activity (R2C-A2A-4).
+  - T059/T060, client gaps:
+    - `R2CClient` gained `clock`, so expiry is checked against a fixed time.
+    - `ArtifactItem` gained `presentation` (guessed without metadata, R2C-ARTIFACT-7) and `data`.
+  - T059/T060, the first run: 7 of 92 tests failed, all on the test side:
+    - `second-task-rejected.json` (2 tests, and the exemption test): the converter took a
+      rejected status for a source's;
+    - `follow-up-context.json` (2): activation was read from bodies only;
+    - `question-forwarded.json` (2): the inventory remote was not served at its card's path.
+    No example was changed.
+  - T061: 656 tests pass. The summary reads `A2A replay: 31 files in client mode, 29 in door mode
+    (x2 pause styles), 3 exempt`.
 
 ---
 
