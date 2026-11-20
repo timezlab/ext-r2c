@@ -1,0 +1,7 @@
+{
+  "title": "A file marked as the task's reply",
+  "rules": ["R2C-ARTIFACT-2"],
+  "kind": "artifact",
+  "object": { "kind": "artifact", "presentation": "file", "response": true },
+  "fails_at": "/presentation"
+}

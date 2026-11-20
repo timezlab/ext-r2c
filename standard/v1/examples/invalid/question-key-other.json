@@ -1,0 +1,13 @@
+{
+  "title": "A field key ending in the reserved suffix _other",
+  "rules": ["R2C-QUESTION-2"],
+  "kind": "question",
+  "object": {
+    "kind": "question",
+    "id": "q-1",
+    "title": "Pick the target environment",
+    "answer_by": { "role": "person" },
+    "fields": [{ "key": "env_other", "header": "Environment", "text": "Where should the build go?", "type": "text" }]
+  },
+  "fails_at": "/fields/0/key"
+}

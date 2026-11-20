@@ -105,64 +105,69 @@ the expected reason** while `standard/v1/` is still empty.
 
 ### Schemas (from [data-model.md](data-model.md))
 
-- [ ] T012 [P] [US1] Write `standard/v1/schema/question.json`:
+- [X] T012 [P] [US1] Write `standard/v1/schema/question.json`:
   - `kind` const; `answer_by.role` ∈ {person, caller}; field `key` pattern `^[a-z][a-z0-9_]*$` and not ending in `_other`;
   - `options` required for `one`/`many` and forbidden for the others; defaults for `other` and `required`;
   - `expires_at` `format: date-time`.
-- [ ] T013 [P] [US1] Write `standard/v1/schema/approval.json`:
+- [X] T013 [P] [US1] Write `standard/v1/schema/approval.json`:
   - `answer_by.role` ∈ {person, approver};
   - `subject` is `tool_call` (`name`, `args`) or `operation` (`name`), with other types allowed and open;
   - `decisions` is a non-empty, unique subset of allow/edit/deny;
   - `edit` requires `subject.type = tool_call` with `args_schema`.
-- [ ] T014 [P] [US1] Write `standard/v1/schema/answer.json`:
+- [X] T014 [P] [US1] Write `standard/v1/schema/answer.json`:
   - `outcome` ∈ {answered, declined}; `value` required when `answered` and absent when `declined`;
   - `answered_by.role` ∈ {person, approver, policy, caller};
   - `$defs/approval_value`, with `args` required when `decision = edit`.
-- [ ] T015 [P] [US1] Write `standard/v1/schema/artifact-meta.json`:
+- [X] T015 [P] [US1] Write `standard/v1/schema/artifact-meta.json`:
   - `presentation` ∈ {file, inline, live};
   - `state` only with `live`;
   - `response: true` only with `inline`.
-- [ ] T016 [P] [US1] Write `standard/v1/schema/activity.json`:
+- [X] T016 [P] [US1] Write `standard/v1/schema/activity.json`:
   - `type` is an open string;
   - `state` is required for known types `tool`/`step`; `name` is required for `tool`;
   - `delta` only for `reasoning`; `duration_ms` is an integer ≥ 0.
-- [ ] T017 [P] [US1] Write `standard/v1/schema/usage.json`:
+- [X] T017 [P] [US1] Write `standard/v1/schema/usage.json`:
   - every field is optional, with `anyOf` requiring at least one of `input_tokens` / `output_tokens` / `duration_ms` / `cost`;
   - `cost.currency` matches `^[A-Z]{3}$`; integers ≥ 0.
 
 ### Invalid examples (one schema rule each; format in [contracts/example-file.md](contracts/example-file.md))
 
-- [ ] T018 [P] [US1] Write `standard/v1/examples/invalid/question-*.json`: missing `title`; `answer_by.role = approver`; a `one` field without `options`; `options` on a `text` field; a field key ending in `_other`; `expires_at = "tomorrow"`.
-- [ ] T019 [P] [US1] Write `standard/v1/examples/invalid/approval-*.json`: `answer_by.role = caller`; `edit` without `args_schema`; `edit` on an `operation` subject; empty `decisions`; an unknown decision value.
-- [ ] T020 [P] [US1] Write `standard/v1/examples/invalid/{answer,artifact,activity,usage}-*.json`:
+- [X] T018 [P] [US1] Write `standard/v1/examples/invalid/question-*.json`: missing `title`; `answer_by.role = approver`; a `one` field without `options`; `options` on a `text` field; a field key ending in `_other`; `expires_at = "tomorrow"`.
+- [X] T019 [P] [US1] Write `standard/v1/examples/invalid/approval-*.json`: `answer_by.role = caller`; `edit` without `args_schema`; `edit` on an `operation` subject; empty `decisions`; an unknown decision value.
+- [X] T020 [P] [US1] Write `standard/v1/examples/invalid/{answer,artifact,activity,usage}-*.json`:
   - `answered` without `value`; `declined` with `value`; an approval value `edit` without `args`;
   - `state` on a `file` artifact; `response` on a `file` artifact;
   - a `tool` activity without `state`; `delta` on a `tool` activity;
   - `usage` with only `model`; `currency = "usd"`.
 
+  *Note 2026-11-20:* the approval value `edit` without `args` was dropped. `answer.json` alone
+  cannot tell an approval's value from a question's, so no schema rejects it. It is checked by
+  pairing each answer with its request in the valid examples instead, under `R2C-ANSWER-2`, which
+  is a `wire` rule without `schema`.
+
 ### Normative text (`standard/v1/README.md`, one file, so sequential)
 
-- [ ] T021 [US1] Replace the placeholder in `standard/v1/README.md` with these sections:
+- [X] T021 [US1] Replace the placeholder in `standard/v1/README.md` with these sections:
   - status (draft), conformance language, roles, and identifiers (FR-001);
   - the rule tag format with a pointer to how rules are numbered (FR-002);
   - declaration and activation on both bindings (FR-003, area `ACT`);
   - the placement rule and the text fallback (FR-004, `CORE`);
   - ignore unknown (FR-005, `CORE`).
-- [ ] T022 [US1] Add the kind sections to `standard/v1/README.md`, with tagged rules for each (FR-006):
+- [X] T022 [US1] Add the kind sections to `standard/v1/README.md`, with tagged rules for each (FR-006):
   - `question` / `approval` common fields and rules;
   - `question`, `approval` and `answer`;
   - the form → schema mapping table from data-model.md (FR-009).
-- [ ] T023 [US1] Add the `artifact`, `activity` and `usage` sections to `standard/v1/README.md` (FR-006): streamed reply, `response`, guessing without metadata, `url` lifetime, the three activity types, reasoning and args opt-in, and the usage rules.
-- [ ] T024 [US1] Add the binding sections to `standard/v1/README.md`:
+- [X] T023 [US1] Add the `artifact`, `activity` and `usage` sections to `standard/v1/README.md` (FR-006): streamed reply, `response`, guessing without metadata, `url` lifetime, the three activity types, reasoning and args opt-in, and the usage rules.
+- [X] T024 [US1] Add the binding sections to `standard/v1/README.md`:
   - A2A (FR-007, area `A2A`);
   - MCP (FR-008, area `MCP`), including D1 (the R2C object in the `InputRequiredResult`'s `_meta[key].input_requests`) and D2 (the derived answer, no `policy` on MCP).
-- [ ] T025 [US1] Add these sections to `standard/v1/README.md`:
+- [X] T025 [US1] Add these sections to `standard/v1/README.md`:
   - identifiers and resume (FR-011, `ID`);
   - trust and safety (FR-010, `SAFETY`);
   - versioning (FR-012, `VERSION`);
   - a "Not schema-checked" list of every rule without `schema` (FR-017);
   - a short "(non-normative)" caller guidance section (FR-013).
-- [ ] T026 [US1] Run the suite. `test_schemas.py`, the invalid-example tests and the rule parsing pass. `test_rules.py` must now fail **only** on "wire rule without example", listing the to-do list for US2. Record that list in the phase report, then verify and commit `docs(standard): v1 normative text, six schemas, invalid examples`.
+- [X] T026 [US1] Run the suite. `test_schemas.py`, the invalid-example tests and the rule parsing pass. `test_rules.py` must now fail **only** on "wire rule without example", listing the to-do list for US2. Record that list in the phase report, then verify and commit `docs(standard): v1 normative text, six schemas, invalid examples`.
 
 **Checkpoint**: US1 is usable on its own: the standard can be read and objects validated.
 

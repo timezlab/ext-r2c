@@ -1,0 +1,14 @@
+{
+  "title": "An approval addressed to the caller agent",
+  "rules": ["R2C-APPROVAL-2"],
+  "kind": "approval",
+  "object": {
+    "kind": "approval",
+    "id": "ap-1",
+    "title": "Publish the release notes to the public site",
+    "answer_by": { "role": "caller" },
+    "subject": { "type": "tool_call", "name": "publish_page", "args": { "page_id": "release-notes-4-2" } },
+    "decisions": ["allow", "deny"]
+  },
+  "fails_at": "/answer_by/role"
+}

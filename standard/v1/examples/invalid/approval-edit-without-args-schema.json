@@ -1,0 +1,14 @@
+{
+  "title": "Edit offered without an args_schema",
+  "rules": ["R2C-APPROVAL-3"],
+  "kind": "approval",
+  "object": {
+    "kind": "approval",
+    "id": "ap-1",
+    "title": "Publish the release notes to the public site",
+    "answer_by": { "role": "person" },
+    "subject": { "type": "tool_call", "name": "publish_page", "args": { "page_id": "release-notes-4-2" } },
+    "decisions": ["allow", "edit", "deny"]
+  },
+  "fails_at": "/subject"
+}

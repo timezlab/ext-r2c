@@ -1,0 +1,12 @@
+{
+  "title": "An answered answer without a value",
+  "rules": ["R2C-ANSWER-1"],
+  "kind": "answer",
+  "object": {
+    "kind": "answer",
+    "id": "q-1",
+    "outcome": "answered",
+    "answered_by": { "role": "person" }
+  },
+  "fails_at": ""
+}

@@ -1,0 +1,16 @@
+{
+  "title": "Options on a free-text field",
+  "rules": ["R2C-QUESTION-3"],
+  "kind": "question",
+  "object": {
+    "kind": "question",
+    "id": "q-1",
+    "title": "Name the release",
+    "answer_by": { "role": "person" },
+    "fields": [{
+      "key": "name", "header": "Name", "text": "What should the release be called?", "type": "text",
+      "options": [{ "label": "4.2" }]
+    }]
+  },
+  "fails_at": "/fields/0"
+}

@@ -306,7 +306,7 @@ def check_mcp(step: Mapping[str, Any]) -> None:
 
 # --- Example file formats ---------------------------------------------------------------------
 
-_RULE_ID = {"type": "string", "pattern": r"^R2C-[A-Z]+-[0-9]+$"}
+_RULE_ID = {"type": "string", "pattern": r"^R2C-[A-Z][A-Z0-9]*-[0-9]+$"}
 
 EXAMPLE_FORMAT = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -384,7 +384,7 @@ def form_schema(question: Mapping[str, Any]) -> dict[str, Any]:
 # --- Rules (contracts/rule-format.md) ---------------------------------------------------------
 
 RULE_LINE = re.compile(
-    r"^- \*\*(R2C-[A-Z]+-[0-9]+)\*\* · (MUST|MUST NOT|SHOULD|SHOULD NOT|MAY) · "
+    r"^- \*\*(R2C-[A-Z][A-Z0-9]*-[0-9]+)\*\* · (MUST|MUST NOT|SHOULD|SHOULD NOT|MAY) · "
     r"(remote|client|both) · (wire|prose)( · schema)?$"
 )
 

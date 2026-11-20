@@ -1,0 +1,13 @@
+{
+  "title": "A declined answer that still carries a value",
+  "rules": ["R2C-ANSWER-1"],
+  "kind": "answer",
+  "object": {
+    "kind": "answer",
+    "id": "q-1",
+    "outcome": "declined",
+    "answered_by": { "role": "person" },
+    "value": { "env": "staging" }
+  },
+  "fails_at": ""
+}

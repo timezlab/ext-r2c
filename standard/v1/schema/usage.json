@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1/schema/usage.json",
+  "title": "R2C usage",
+  "description": "What the task has spent so far, as the remote reports it. Cumulative: a later usage replaces an earlier one. A missing field means unknown, never zero. Display data, never a bill. Unknown fields are allowed and ignored.",
+  "type": "object",
+  "required": ["kind"],
+  "properties": {
+    "kind": { "const": "usage" },
+    "input_tokens": { "type": "integer", "minimum": 0 },
+    "output_tokens": { "type": "integer", "minimum": 0 },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "cost": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "type": "number", "minimum": 0 },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 code."
+        }
+      }
+    },
+    "model": { "type": "string", "minLength": 1 }
+  },
+  "anyOf": [
+    { "required": ["input_tokens"] },
+    { "required": ["output_tokens"] },
+    { "required": ["duration_ms"] },
+    { "required": ["cost"] }
+  ]
+}

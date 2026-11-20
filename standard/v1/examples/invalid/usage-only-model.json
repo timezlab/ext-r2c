@@ -1,0 +1,7 @@
+{
+  "title": "A usage with no measured field",
+  "rules": ["R2C-USAGE-1"],
+  "kind": "usage",
+  "object": { "kind": "usage", "model": "example-model-1" },
+  "fails_at": ""
+}

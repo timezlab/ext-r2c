@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1/schema/answer.json",
+  "title": "R2C answer",
+  "description": "The client's reply to a question or an approval. `value` is checked against the request: a question's generated form schema, or `#/$defs/approval_value`. Unknown fields are allowed and ignored.",
+  "type": "object",
+  "required": ["kind", "id", "outcome", "answered_by"],
+  "properties": {
+    "kind": { "const": "answer" },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The `id` of the request being answered."
+    },
+    "outcome": { "enum": ["answered", "declined"] },
+    "answered_by": {
+      "type": "object",
+      "description": "The client's claim of who answered. An approval's answer is never `caller`.",
+      "required": ["role"],
+      "properties": {
+        "role": { "enum": ["person", "approver", "policy", "caller"] },
+        "label": { "type": "string" }
+      }
+    },
+    "value": {
+      "type": "object",
+      "description": "Present when `answered`, absent when `declined`."
+    },
+    "note": { "type": "string" }
+  },
+  "if": {
+    "required": ["outcome"],
+    "properties": { "outcome": { "const": "answered" } }
+  },
+  "then": { "required": ["value"] },
+  "else": { "not": { "required": ["value"] } },
+  "$defs": {
+    "approval_value": {
+      "type": "object",
+      "description": "The value of an answer to an approval.",
+      "required": ["decision"],
+      "properties": {
+        "decision": { "enum": ["allow", "edit", "deny"] },
+        "args": {
+          "type": "object",
+          "description": "The edited arguments. Required with `edit`."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why. Mostly with `deny`. It reaches the remote's agent."
+        }
+      },
+      "if": {
+        "required": ["decision"],
+        "properties": { "decision": { "const": "edit" } }
+      },
+      "then": { "required": ["args"] }
+    }
+  }
+}

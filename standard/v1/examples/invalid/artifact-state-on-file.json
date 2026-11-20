@@ -1,0 +1,7 @@
+{
+  "title": "A live state on a file artifact",
+  "rules": ["R2C-ARTIFACT-1"],
+  "kind": "artifact",
+  "object": { "kind": "artifact", "presentation": "file", "state": "open" },
+  "fails_at": "/presentation"
+}

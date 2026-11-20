@@ -10,12 +10,12 @@ Every normative rule is one Markdown list item that starts with a tag line:
 Grammar (one regular expression in the check):
 
 ```
-^- \*\*(R2C-[A-Z]+-[0-9]+)\*\* · (MUST|MUST NOT|SHOULD|SHOULD NOT|MAY) · (remote|client|both) · (wire|prose)( · schema)?$
+^- \*\*(R2C-[A-Z][A-Z0-9]*-[0-9]+)\*\* · (MUST|MUST NOT|SHOULD|SHOULD NOT|MAY) · (remote|client|both) · (wire|prose)( · schema)?$
 ```
 
 | Part | Meaning |
 |---|---|
-| `R2C-<AREA>-<n>` | stable identifier; never renumbered or reused once published. Areas: `CORE`, `ACT` (activation and declaration), `QUESTION`, `APPROVAL`, `ANSWER`, `ARTIFACT`, `ACTIVITY`, `USAGE`, `A2A`, `MCP`, `ID`, `SAFETY`, `VERSION` |
+| `R2C-<AREA>-<n>` | stable identifier; never renumbered or reused once published. Areas: `CORE`, `ACT` (activation and declaration), `ASK` (rules shared by `question` and `approval`), `QUESTION`, `APPROVAL`, `ANSWER`, `ARTIFACT`, `ACTIVITY`, `USAGE`, `A2A`, `MCP`, `ID`, `SAFETY`, `VERSION` |
 | level | RFC 2119 / RFC 8174 keyword, upper case |
 | party | who the rule binds: `remote`, `client`, or `both` |
 | `wire` / `prose` | `wire`: a valid example shows it; `prose`: it cannot be shown in a message (for example a UI behaviour or a time limit) |

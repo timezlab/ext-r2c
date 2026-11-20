@@ -1,0 +1,12 @@
+{
+  "title": "An object without a kind",
+  "rules": ["R2C-CORE-7"],
+  "kind": "question",
+  "object": {
+    "id": "q-1",
+    "title": "Pick the target environment",
+    "answer_by": { "role": "person" },
+    "fields": [{ "key": "env", "header": "Environment", "text": "Where should the build go?", "type": "text" }]
+  },
+  "fails_at": ""
+}

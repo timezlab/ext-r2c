@@ -1,0 +1,7 @@
+{
+  "title": "A tool activity without a state",
+  "rules": ["R2C-ACTIVITY-1"],
+  "kind": "activity",
+  "object": { "kind": "activity", "id": "call-1", "type": "tool", "name": "read_inventory", "label": "Reading the inventory" },
+  "fails_at": ""
+}

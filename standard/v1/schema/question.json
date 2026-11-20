@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1/schema/question.json",
+  "title": "R2C question",
+  "description": "A remote asks its caller for information it lacks. The answer is checked against the schema generated from `fields`. Unknown fields are allowed and ignored.",
+  "type": "object",
+  "required": ["kind", "id", "title", "answer_by", "fields"],
+  "properties": {
+    "kind": { "const": "question" },
+    "id": {
+      "$ref": "#/$defs/id",
+      "description": "Never reused within a task. An answer refers to it."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One line: what is asked."
+    },
+    "description": {
+      "type": "string",
+      "description": "Context, reason, consequences. Markdown allowed."
+    },
+    "answer_by": {
+      "type": "object",
+      "required": ["role"],
+      "properties": {
+        "role": {
+          "enum": ["person", "caller"],
+          "description": "`person`: a human must answer. `caller`: the caller (its agent, a job's configuration) may answer."
+        }
+      }
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339. Past it, the question counts as declined."
+    },
+    "origin": { "$ref": "#/$defs/origin" },
+    "errors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/error_item" },
+      "description": "Only on a re-ask after an answer that failed the form."
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/field" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "origin": {
+      "type": "object",
+      "description": "Set only when the request is forwarded: who asked first. The `id` stays unchanged.",
+      "required": ["name", "url"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "minLength": 1 }
+      }
+    },
+    "error_item": {
+      "type": "object",
+      "required": ["message"],
+      "properties": {
+        "key": { "type": "string", "description": "The field the error is about, if any." },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "option": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shown to the reader and used as the answer value."
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": ["key", "header", "text", "type"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "not": { "pattern": "_other$" },
+          "description": "Key of this field's value in the answer. Must not end in `_other` (reserved by the MCP binding)."
+        },
+        "header": { "type": "string", "minLength": 1, "description": "Short label." },
+        "text": { "type": "string", "minLength": 1, "description": "The question itself." },
+        "type": { "enum": ["one", "many", "text", "number", "bool"] },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/option" }
+        },
+        "other": {
+          "type": "boolean",
+          "default": true,
+          "description": "`one` / `many`: free text is allowed besides the options."
+        },
+        "required": { "type": "boolean", "default": true }
+      },
+      "if": {
+        "required": ["type"],
+        "properties": { "type": { "enum": ["one", "many"] } }
+      },
+      "then": { "required": ["options"] },
+      "else": { "not": { "required": ["options"] } }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "title": "Edit offered on an operation",
+  "rules": ["R2C-APPROVAL-3"],
+  "kind": "approval",
+  "object": {
+    "kind": "approval",
+    "id": "ap-1",
+    "title": "Restart the staging cluster",
+    "answer_by": { "role": "person" },
+    "subject": { "type": "operation", "name": "restart", "target": "staging" },
+    "decisions": ["allow", "edit", "deny"]
+  },
+  "fails_at": "/subject/type"
+}

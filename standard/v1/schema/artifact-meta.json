@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1/schema/artifact-meta.json",
+  "title": "R2C artifact metadata",
+  "description": "What R2C adds to a standard artifact: how to present it. Sits under an A2A Artifact's `metadata[uri]`, or under `_meta[key]` of an MCP content block. Unknown fields are allowed and ignored.",
+  "type": "object",
+  "required": ["kind", "presentation"],
+  "properties": {
+    "kind": { "const": "artifact" },
+    "presentation": {
+      "enum": ["file", "inline", "live"],
+      "description": "`file`: to download or save. `inline`: to show in place. `live`: a page of the remote to embed while it runs."
+    },
+    "state": {
+      "enum": ["open", "closed"],
+      "description": "`live` only."
+    },
+    "response": {
+      "const": true,
+      "description": "This is the task's reply: the model's text. `inline` only, and at most one per task."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["state"] },
+      "then": { "properties": { "presentation": { "const": "live" } } }
+    },
+    {
+      "if": { "required": ["response"] },
+      "then": { "properties": { "presentation": { "const": "inline" } } }
+    }
+  ]
+}

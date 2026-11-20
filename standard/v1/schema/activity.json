@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1/schema/activity.json",
+  "title": "R2C activity",
+  "description": "What the remote is doing: a tool call, a step, or reasoning. Display data for the caller. An unknown `type` is allowed and ignored by receivers, as are unknown fields.",
+  "type": "object",
+  "required": ["kind", "id", "type", "label"],
+  "properties": {
+    "kind": { "const": "activity" },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable across updates of one activity (for a tool, its call id)."
+    },
+    "type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "`tool`: one tool call. `step`: a phase of work that is not a single tool call. `reasoning`: the model's reasoning, only when the remote's owner allows it."
+    },
+    "state": { "enum": ["running", "done", "failed"] },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One line for the reader. Also the text fallback."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "`tool`: the tool's name."
+    },
+    "args": {
+      "type": "object",
+      "description": "`tool`: only when the remote's owner exposes that tool's arguments."
+    },
+    "detail": {
+      "type": "string",
+      "description": "A short summary of the output or the failure, never the whole output."
+    },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "parent_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The `id` of the activity this one nests under."
+    },
+    "delta": {
+      "type": "string",
+      "description": "`reasoning` only: text appended to the activity with this `id`."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "tool" } } },
+      "then": { "required": ["state", "name"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "step" } } },
+      "then": { "required": ["state"] }
+    },
+    {
+      "if": { "required": ["delta"] },
+      "then": { "properties": { "type": { "const": "reasoning" } } }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "title": "A currency that is not an ISO 4217 code",
+  "rules": ["R2C-USAGE-1"],
+  "kind": "usage",
+  "object": { "kind": "usage", "input_tokens": 1200, "cost": { "amount": 0.02, "currency": "usd" } },
+  "fails_at": "/cost/currency"
+}

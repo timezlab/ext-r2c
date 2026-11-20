@@ -1,0 +1,13 @@
+{
+  "title": "A single-choice field without options",
+  "rules": ["R2C-QUESTION-3"],
+  "kind": "question",
+  "object": {
+    "kind": "question",
+    "id": "q-1",
+    "title": "Pick the target environment",
+    "answer_by": { "role": "person" },
+    "fields": [{ "key": "env", "header": "Environment", "text": "Where should the build go?", "type": "one" }]
+  },
+  "fails_at": "/fields/0"
+}

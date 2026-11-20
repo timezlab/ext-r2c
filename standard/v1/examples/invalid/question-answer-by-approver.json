@@ -1,0 +1,13 @@
+{
+  "title": "A question addressed to an approver",
+  "rules": ["R2C-QUESTION-1"],
+  "kind": "question",
+  "object": {
+    "kind": "question",
+    "id": "q-1",
+    "title": "Pick the target environment",
+    "answer_by": { "role": "approver" },
+    "fields": [{ "key": "env", "header": "Environment", "text": "Where should the build go?", "type": "text" }]
+  },
+  "fails_at": "/answer_by/role"
+}

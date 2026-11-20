@@ -1,0 +1,12 @@
+{
+  "title": "A question without a title",
+  "rules": ["R2C-ASK-1"],
+  "kind": "question",
+  "object": {
+    "kind": "question",
+    "id": "q-1",
+    "answer_by": { "role": "person" },
+    "fields": [{ "key": "env", "header": "Environment", "text": "Where should the build go?", "type": "text" }]
+  },
+  "fails_at": ""
+}

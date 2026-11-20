@@ -237,6 +237,11 @@ def test_parse_rules_reads_tag_lines() -> None:
     assert rules["R2C-CORE-1"].party == "both" and not rules["R2C-CORE-1"].schema
 
 
+def test_parse_rules_accepts_an_area_with_a_digit() -> None:
+    rules = parse_rules("- **R2C-A2A-1** · MUST · remote · wire\n")
+    assert "R2C-A2A-1" in rules
+
+
 @pytest.mark.parametrize(
     "text",
     [

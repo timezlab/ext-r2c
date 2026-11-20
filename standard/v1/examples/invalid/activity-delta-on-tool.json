@@ -1,0 +1,10 @@
+{
+  "title": "A reasoning delta on a tool activity",
+  "rules": ["R2C-ACTIVITY-4"],
+  "kind": "activity",
+  "object": {
+    "kind": "activity", "id": "call-1", "type": "tool", "state": "running",
+    "name": "read_inventory", "label": "Reading the inventory", "delta": "I should read October first."
+  },
+  "fails_at": "/type"
+}

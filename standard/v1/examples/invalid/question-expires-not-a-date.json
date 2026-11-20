@@ -1,0 +1,14 @@
+{
+  "title": "An expiry that is not an RFC 3339 date-time",
+  "rules": ["R2C-ASK-4"],
+  "kind": "question",
+  "object": {
+    "kind": "question",
+    "id": "q-1",
+    "title": "Pick the target environment",
+    "answer_by": { "role": "person" },
+    "expires_at": "tomorrow",
+    "fields": [{ "key": "env", "header": "Environment", "text": "Where should the build go?", "type": "text" }]
+  },
+  "fails_at": "/expires_at"
+}

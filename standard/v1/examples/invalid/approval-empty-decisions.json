@@ -1,0 +1,14 @@
+{
+  "title": "An approval that offers no decision",
+  "rules": ["R2C-APPROVAL-1"],
+  "kind": "approval",
+  "object": {
+    "kind": "approval",
+    "id": "ap-1",
+    "title": "Restart the staging cluster",
+    "answer_by": { "role": "person" },
+    "subject": { "type": "operation", "name": "restart", "target": "staging" },
+    "decisions": []
+  },
+  "fails_at": "/decisions"
+}

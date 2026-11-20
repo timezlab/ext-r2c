@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/timezlab/ext-r2c/tree/main/standard/v1/schema/approval.json",
+  "title": "R2C approval",
+  "description": "A remote asks before doing something with effects outside itself. Answered by a person, an approver or a policy, never by a model. Unknown fields are allowed and ignored.",
+  "type": "object",
+  "required": ["kind", "id", "title", "answer_by", "subject", "decisions"],
+  "properties": {
+    "kind": { "const": "approval" },
+    "id": {
+      "$ref": "#/$defs/id",
+      "description": "Never reused within a task. An answer refers to it."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One line: what is about to happen."
+    },
+    "description": {
+      "type": "string",
+      "description": "Context, reason, consequences. Markdown allowed."
+    },
+    "answer_by": {
+      "type": "object",
+      "required": ["role"],
+      "properties": {
+        "role": {
+          "enum": ["person", "approver"],
+          "description": "Never `caller`: no model answers an approval."
+        },
+        "approver_role": {
+          "type": "string",
+          "description": "Who may approve, in the remote's own words (with `approver`)."
+        }
+      }
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339. Past it, the approval counts as deny."
+    },
+    "origin": { "$ref": "#/$defs/origin" },
+    "errors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/error_item" },
+      "description": "Only on a re-ask after an answer that failed."
+    },
+    "subject": { "$ref": "#/$defs/subject" },
+    "decisions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["allow", "edit", "deny"] }
+    }
+  },
+  "if": {
+    "required": ["decisions"],
+    "properties": { "decisions": { "contains": { "const": "edit" } } }
+  },
+  "then": {
+    "properties": {
+      "subject": {
+        "required": ["args_schema"],
+        "properties": { "type": { "const": "tool_call" } }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "origin": {
+      "type": "object",
+      "description": "Set only when the request is forwarded: who asked first. The `id` stays unchanged.",
+      "required": ["name", "url"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "minLength": 1 }
+      }
+    },
+    "error_item": {
+      "type": "object",
+      "required": ["message"],
+      "properties": {
+        "key": { "type": "string" },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "description": "Machine data only, for a policy to match. Text for the reader lives in `title` and `description`.",
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "`tool_call` or `operation`. Another value is allowed but is never auto-allowed by a policy."
+        },
+        "name": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "tool_call" } } },
+          "then": {
+            "required": ["args"],
+            "properties": {
+              "args": { "type": "object" },
+              "args_schema": {
+                "type": "object",
+                "description": "JSON Schema of `args`. Required to offer `edit`. Holds no `$ref` that leaves the document."
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "operation" } } },
+          "then": { "properties": { "target": { "type": "string" } } }
+        }
+      ]
+    }
+  }
+}
