@@ -38,3 +38,8 @@ jobs:
           uv venv --python ${{ matrix.python }} ../.a2a-venv
           uv pip install --python ../.a2a-venv "$(ls dist/*.whl)[a2a]"
           ../.a2a-venv/bin/python -I tests/a2a_only.py
+      - name: The MCP door works with only its extra (wheel + [mcp], no dev group)
+        run: |
+          uv venv --python ${{ matrix.python }} ../.mcp-venv
+          uv pip install --python ../.mcp-venv "$(ls dist/*.whl)[mcp]"
+          ../.mcp-venv/bin/python -I tests/mcp_only.py

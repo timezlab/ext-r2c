@@ -55,7 +55,7 @@ phase per go**: finish the phase, verify, commit, report, stop.
 
 **Independent test**: `test_packaging.py`; `mcp_only.py` in `../.mcp-venv`; `test_mcp_spike.py`.
 
-- [ ] T001 [P] Extend `python/tests/test_packaging.py`:
+- [X] T001 [P] Extend `python/tests/test_packaging.py`:
   - **`test_extras`**: the `mcp` extra requires `mcp` with the range `>=2.3,<3`.
   - **`test_mcp_imports_only_allowed_modules`**: an AST scan over the installed `ext_r2c/mcp/`.
     - Allowed: the standard library; `ext_r2c` (core only, never `ext_r2c.a2a`,
@@ -64,18 +64,18 @@ phase per go**: finish the phase, verify, commit, report, stop.
     - A failure lists `file:line module`.
   - **`test_mcp_import_loads_no_other_door`**: a subprocess that imports `ext_r2c.mcp` loads no
     `a2a`, `langchain` or `langgraph` module.
-- [ ] T002 [P] Create `python/tests/mcp_only.py`, a script that pytest does not collect. It:
+- [X] T002 [P] Create `python/tests/mcp_only.py`, a script that pytest does not collect. It:
   - imports `ext_r2c.mcp`;
   - asserts that no `a2a`, `langchain` or `langgraph` module is loaded;
   - prints `mcp only: ok`.
 
   Leave a `# phase 3:` comment where the server and discover checks go (T040).
-- [ ] T003 Build, install, and run the new tests. Confirm the expected failures: the extra has no
+- [X] T003 Build, install, and run the new tests. Confirm the expected failures: the extra has no
   upper bound, and `ext_r2c.mcp` is missing.
-- [ ] T004 Change `python/pyproject.toml`: `mcp = ["mcp>=2.3,<3"]`.
-- [ ] T005 Create `python/src/ext_r2c/mcp/__init__.py`, with a module docstring and an empty
+- [X] T004 Change `python/pyproject.toml`: `mcp = ["mcp>=2.3,<3"]`.
+- [X] T005 Create `python/src/ext_r2c/mcp/__init__.py`, with a module docstring and an empty
   `__all__`.
-- [ ] T006 [P] Create `python/tests/mcp_transport.py` (research R15) with
+- [X] T006 [P] Create `python/tests/mcp_transport.py` (research R15) with
   `StreamingASGITransport(app, *, record=None)`, an `httpx2` async transport that:
   - runs the ASGI app in a task group the transport owns;
   - yields body chunks as they are sent;
@@ -84,7 +84,7 @@ phase per go**: finish the phase, verify, commit, report, stop.
     `("client" | "remote", dict)`, parsing SSE `data:` frames.
 
   Its module docstring says why `httpx2.ASGITransport` cannot be used.
-- [ ] T007 [P] Create `python/tests/mcp_harness.py` with:
+- [X] T007 [P] Create `python/tests/mcp_harness.py` with:
   - **`StubVerifier`**: a `TokenVerifier` that maps `Bearer <name>` to an `AccessToken` with
     `subject=<name>`, `client_id="test"` and `iss="https://idp.example.com"`. If the spike
     (T010) shows the SDK's bearer path cannot be used in process, it is replaced by an ASGI
@@ -99,11 +99,11 @@ phase per go**: finish the phase, verify, commit, report, stop.
     - an `elicitation_callback` that raises, when `form`.
     It is used raw, through `client.session`.
   - **`TIMEOUT`** of 10 s, with `run(coro)`, as in `a2a_harness`.
-- [ ] T008 Add `test_transport_streams_progress_before_result` to
+- [X] T008 Add `test_transport_streams_progress_before_result` to
   `python/tests/test_mcp_transport.py`. A lowlevel tool sends one progress notification, then
   waits (up to 2 s) until the client signals that it has seen it, then returns. With
   `httpx2.ASGITransport` in its place, the test fails.
-- [ ] T009 Write `python/tests/test_mcp_spike.py`. Each test pins one SDK fact the design leans
+- [X] T009 Write `python/tests/test_mcp_spike.py`. Each test pins one SDK fact the design leans
   on; a failing one stops the phase and updates the plan first.
   1. `test_interceptor_short_circuits_before_argument_validation`: a bound stub tool with no
      parameters is called with arguments; the interceptor answers, and the stub never runs (R1).
@@ -123,11 +123,11 @@ phase per go**: finish the phase, verify, commit, report, stop.
   8. `test_client_capabilities_per_request`: the server sees `extensions[key]` and `elicitation`
      in each request's capabilities, and not `extensions[key]` from a client that did not
      advertise it (R5).
-- [ ] T010 Run T008 and T009 on the wheel. Fix the harness, not the facts. If a fact does not
+- [X] T010 Run T008 and T009 on the wheel. Fix the harness, not the facts. If a fact does not
   hold, stop and update `research.md` and `plan.md` before going on.
-- [ ] T011 Add the MCP-only step to `.github/workflows/python.yml`, after the A2A-only step:
+- [X] T011 Add the MCP-only step to `.github/workflows/python.yml`, after the A2A-only step:
   `uv venv ../.mcp-venv`, `uv pip install "<wheel>[mcp]"`, `python -I tests/mcp_only.py`.
-- [ ] T012 Verify, then commit `feat(004): mcp extra, test transport, SDK spike`.
+- [X] T012 Verify, then commit `feat(004): mcp extra, test transport, SDK spike`.
 
 ---
 

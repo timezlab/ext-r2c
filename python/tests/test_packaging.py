@@ -1,5 +1,5 @@
-"""The installed wheel: its extras, and the import rules of `ext_r2c.core` and `ext_r2c.a2a`
-(constitution VIII)."""
+"""The installed wheel: its extras, and the import rules of `ext_r2c.core`, `ext_r2c.a2a` and
+`ext_r2c.mcp` (constitution VIII)."""
 
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ ALLOWED_TOP_LEVEL = {"pydantic", "pydantic_core", "jsonschema", "ext_r2c"}
 FORBIDDEN = ("a2a", "mcp", "langchain", "langgraph")
 # What `a2a-sdk[http-server]` brings, besides the core's own (research R15).
 A2A_ALLOWED_TOP_LEVEL = ALLOWED_TOP_LEVEL | {"a2a", "google", "httpx", "starlette", "sse_starlette"}
+# What `mcp` brings that the MCP door may use (spec 004, research R17).
+MCP_ALLOWED_TOP_LEVEL = ALLOWED_TOP_LEVEL | {"mcp", "mcp_types", "anyio", "httpx2", "starlette"}
 
 
 def _imports(package: str) -> list[tuple[str, int, str]]:
@@ -56,6 +58,12 @@ def test_extras() -> None:
     head = a2a[0]
     assert head.startswith("a2a-sdk[http-server]"), head
     assert ">=1.3" in head and "<2" in head, head
+    mcp = [
+        r.split(";", 1)[0].replace(" ", "") for r in meta.get_all("Requires-Dist") or []
+        if re.search(r"""extra\s*==\s*["']mcp["']""", r)
+    ]
+    assert len(mcp) == 1, mcp
+    assert mcp[0].startswith("mcp") and ">=2.3" in mcp[0] and "<3" in mcp[0], mcp[0]
 
 
 def _bad_imports(package: str, allowed: set[str]) -> list[str]:
@@ -83,6 +91,20 @@ def test_a2a_import_loads_no_other_door() -> None:
     code = (
         "import sys, ext_r2c.a2a; "
         "print(sorted({m.split('.')[0] for m in sys.modules} & {'mcp', 'langchain', 'langgraph'}))"
+    )
+    out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "[]"
+
+
+def test_mcp_imports_only_allowed_modules() -> None:
+    bad = _bad_imports("mcp", MCP_ALLOWED_TOP_LEVEL)
+    assert not bad, "mcp imports outside core and what the mcp extra brings:\n" + "\n".join(bad)
+
+
+def test_mcp_import_loads_no_other_door() -> None:
+    code = (
+        "import sys, ext_r2c.mcp; "
+        "print(sorted({m.split('.')[0] for m in sys.modules} & {'a2a', 'langchain', 'langgraph'}))"
     )
     out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "[]"
