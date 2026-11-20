@@ -77,7 +77,7 @@ at its `fails_at`, and unknown kinds are skipped.
 
 **Independent test**: `test_models.py` on the wheel; the summary line shows the round-trip count.
 
-- [ ] T008 [P] [US1] Create `python/tests/test_models.py` ([data-model.md](data-model.md) "Wire models", research R1–R3):
+- [X] T008 [P] [US1] Create `python/tests/test_models.py` ([data-model.md](data-model.md) "Wire models", research R1–R3):
   - `test_every_example_object_round_trips` (parametrised over `example_files("a2a") + example_files("mcp")`): for each object from `r2c_check.find_r2c_objects` whose kind is one of the six, `to_json(parse(obj)) == obj`;
   - `test_unknown_kind_is_skipped`: the `provenance` object of `a2a/unknown-kind-ignored.json` gives `Unknown(kind="provenance")`, with no exception;
   - `test_invalid_example_is_rejected_at_its_place` (parametrised over `example_files("invalid")`): `parse` raises `InvalidObject`, and the file's `fails_at` is among the error pointers;
@@ -91,25 +91,25 @@ at its `fails_at`, and unknown kinds are skipped.
   - `test_expires_at_kept_as_written`: `Z` stays `Z`, and `expires()` gives an aware `datetime`;
   - `test_own_date_time_check`: the core's format checker rejects `"nope"` and `"2026-11-20"` and accepts `"2026-11-20T10:15:00Z"`, and its `date-time` check is the core's own function, not jsonschema's;
   - `test_schema_kinds_and_copies`: `schema_kinds()` lists the six kinds; mutating `schema("question")` does not change the next call.
-- [ ] T009 [P] [US1] In `python/tests/conftest.py`, extend `pytest_terminal_summary`: append `; N objects round-tripped`, counting every known-kind object that the valid examples hold (same skips as today).
-- [ ] T010 [US1] Run the tests and confirm they fail on `ImportError` of the core names, not on test bugs.
-- [ ] T011 [US1] Create `python/src/ext_r2c/core/_schemas.py`:
+- [X] T009 [P] [US1] In `python/tests/conftest.py`, extend `pytest_terminal_summary`: append `; N objects round-tripped`, counting every known-kind object that the valid examples hold (same skips as today).
+- [X] T010 [US1] Run the tests and confirm they fail on `ImportError` of the core names, not on test bugs.
+- [X] T011 [US1] Create `python/src/ext_r2c/core/_schemas.py`:
   - `schema(kind)` and `schema_kinds()`, loaded once from `importlib.resources.files("ext_r2c") / "schema" / "v1"` and handed out as deep copies;
   - `format_checker()`: a `jsonschema.FormatChecker` whose `date-time` check is an RFC 3339 regex plus `datetime.fromisoformat` (R3);
   - `validator(schema)` (Draft 2020-12 with that checker);
   - `subschema_validator(root, name)` (R5);
   - `external_refs(schema) -> list[str]` (R4);
   - `pointer(path)`.
-- [ ] T012 [US1] Create `python/src/ext_r2c/core/models.py` per the data-model tables:
+- [X] T012 [US1] Create `python/src/ext_r2c/core/models.py` per the data-model tables:
   - base class `_Open` (`extra="allow"`), `Literal` enums, `int | float` numbers, string `expires_at` plus `expires()`;
   - `kind` always marked as set;
   - `parse`, `to_json`, `Model.parse`, `Unknown`, `InvalidObject(errors)`;
   - the QUESTION-4 checks.
-- [ ] T013 [US1] Export the model names from `python/src/ext_r2c/core/__init__.py`, as listed in [contracts/core-api.md](contracts/core-api.md) "Schemas" and "Models".
-- [ ] T014 [US1] Extend `python/tests/core_only.py`:
+- [X] T013 [US1] Export the model names from `python/src/ext_r2c/core/__init__.py`, as listed in [contracts/core-api.md](contracts/core-api.md) "Schemas" and "Models".
+- [X] T014 [US1] Extend `python/tests/core_only.py`:
   - parse one object of each kind from `standard/v1/examples`, located with `R2C_STANDARD_DIR` or relative to the script;
   - assert that `invalid/question-expires-not-a-date.json` raises `InvalidObject` at `/expires_at`, without `rfc3339_validator`.
-- [ ] T015 [US1] Verify and commit `feat(002): R2C models that round-trip every example`.
+- [X] T015 [US1] Verify and commit `feat(002): R2C models that round-trip every example`.
 
 **Checkpoint**: SC-001 and SC-002 are met; the summary line prints the count.
 

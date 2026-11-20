@@ -5,7 +5,15 @@ from typing import Any
 
 import pytest
 
-from r2c_check import EnvelopeError, example_files, load_json, load_schemas, standard_path, unknown_kinds
+from r2c_check import (
+    EnvelopeError,
+    example_files,
+    find_r2c_objects,
+    load_json,
+    load_schemas,
+    standard_path,
+    unknown_kinds,
+)
 
 
 @pytest.fixture(scope="session")
@@ -30,11 +38,27 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
     invalid = example_files("invalid")
     known = set(load_schemas(path))
     ignored = 0
+    round_tripped = 0
     for p in valid:
         try:
-            ignored += len(unknown_kinds(load_json(p), known))
-        except (EnvelopeError, ValueError, KeyError):
-            continue  # a broken example is already reported by its own test
+            example = load_json(p)
+            ignored += len(unknown_kinds(example, known))
+            round_tripped += _round_trips(example, known)
+        except (EnvelopeError, ValueError, KeyError, ImportError):
+            continue  # a broken example (or core) is already reported by its own test
     terminalreporter.write_line(
-        f"R2C examples: {len(valid)} valid, {len(invalid)} invalid, {ignored} unknown kinds ignored"
+        f"R2C examples: {len(valid)} valid, {len(invalid)} invalid, {ignored} unknown kinds ignored; "
+        f"{round_tripped} objects round-tripped"
     )
+
+
+def _round_trips(example: Any, known: set[str]) -> int:
+    """How many known-kind objects of one example come back unchanged through the core models."""
+    from ext_r2c.core import parse, to_json
+
+    count = 0
+    for n, step in enumerate(example["steps"]):
+        for _, obj in find_r2c_objects(example["binding"], step["body"], f"/steps/{n}/body"):
+            if obj["kind"] in known and to_json(parse(obj)) == obj:
+                count += 1
+    return count

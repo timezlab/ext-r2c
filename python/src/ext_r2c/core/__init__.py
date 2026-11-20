@@ -4,4 +4,53 @@ Every door (A2A, MCP) and every bridge builds on this package, which depends onl
 ``pydantic`` and ``jsonschema`` and imports no door and no bridge. See ``ARCHITECTURE.md``.
 """
 
-__all__: list[str] = []
+from ._schemas import schema, schema_kinds
+from .models import (
+    Activity,
+    Answer,
+    AnswerBy,
+    AnsweredBy,
+    Approval,
+    ApproverBy,
+    ArtifactMeta,
+    Cost,
+    ErrorItem,
+    Field,
+    InvalidObject,
+    Option,
+    Origin,
+    Question,
+    R2CObject,
+    Request,
+    Subject,
+    Unknown,
+    Usage,
+    parse,
+    to_json,
+)
+
+__all__ = [
+    "Activity",
+    "Answer",
+    "AnswerBy",
+    "AnsweredBy",
+    "Approval",
+    "ApproverBy",
+    "ArtifactMeta",
+    "Cost",
+    "ErrorItem",
+    "Field",
+    "InvalidObject",
+    "Option",
+    "Origin",
+    "Question",
+    "R2CObject",
+    "Request",
+    "Subject",
+    "Unknown",
+    "Usage",
+    "parse",
+    "schema",
+    "schema_kinds",
+    "to_json",
+]
