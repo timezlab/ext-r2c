@@ -48,8 +48,14 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/ext_r2c"]
 
+# The v1 schemas come from standard/ at build time (hatch_build.py); no copy lives in src/.
+[tool.hatch.build.targets.wheel.hooks.custom]
+
 [tool.hatch.build.targets.sdist]
-include = ["src/ext_r2c", "tests", "README.md", "LICENSE"]
+include = ["src/ext_r2c", "tests", "README.md", "LICENSE", "hatch_build.py"]
+
+[tool.hatch.build.targets.sdist.force-include]
+"../standard/v1/schema" = "standard/v1/schema"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

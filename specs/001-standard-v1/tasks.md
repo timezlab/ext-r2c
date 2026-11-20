@@ -238,18 +238,18 @@ at build time ([contracts/packaged-schemas.md](contracts/packaged-schemas.md)).
 files under `ext_r2c/schema/v1/`. Editing a schema and rebuilding keeps the test green (US3
 scenarios 1–3).
 
-- [ ] T041 [US3] Create `python/tests/test_packaged_schemas.py`, and run it to see it fail (the files are missing from the wheel):
+- [X] T041 [US3] Create `python/tests/test_packaged_schemas.py`, and run it to see it fail (the files are missing from the wheel):
   - `importlib.resources.files("ext_r2c") / "schema" / "v1"` holds exactly the six names of `standard_dir / "schema"`;
   - each file has the same bytes.
-- [ ] T042 [US3] Create `python/hatch_build.py` (research R5):
+- [X] T042 [US3] Create `python/hatch_build.py` (research R5):
   - class `SchemaHook(BuildHookInterface)`, whose `initialize` force-includes the first existing directory of `<root>/../standard/v1/schema` and `<root>/standard/v1/schema` as `ext_r2c/schema/v1`;
   - it raises `FileNotFoundError` when neither exists.
-- [ ] T043 [US3] Wire the hook in `python/pyproject.toml`:
+- [X] T043 [US3] Wire the hook in `python/pyproject.toml`:
   - add `[tool.hatch.build.targets.wheel.hooks.custom]`;
   - add `[tool.hatch.build.targets.sdist.force-include] "../standard/v1/schema" = "standard/v1/schema"`;
   - add `"hatch_build.py"` to the sdist `include` list;
   - check that `uv build` succeeds (sdist first, then the wheel from the sdist) and that the sdist contains no stray directory (`.wheel-venv`, `dist`).
-- [ ] T044 [US3] Run quickstart scenarios 6–7, then verify on Python 3.11, 3.12 and 3.13 (three fresh venvs) and commit `build: ship the v1 schemas inside the wheel`.
+- [X] T044 [US3] Run quickstart scenarios 6–7, then verify on Python 3.11, 3.12 and 3.13 (three fresh venvs) and commit `build: ship the v1 schemas inside the wheel`.
 
 **Checkpoint**: US3 is complete; the Python package carries the standard's shapes.
 
