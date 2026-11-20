@@ -242,24 +242,24 @@ new examples.
 
 **Independent test**: `test_agent_source.py`.
 
-- [ ] T029 [P] [US4] Create `python/tests/fake_sources.py`: `CheckpointFake(store: dict)` and `LiveFake()`, running the script of [contracts/agent-source-suite.md](contracts/agent-source-suite.md) "The fakes". Both take an optional `fail_after_ask=True` (for S8) and `double_ask=True` (for S9).
-- [ ] T030 [P] [US4] Create `python/tests/agent_source_suite.py`:
+- [X] T029 [P] [US4] Create `python/tests/fake_sources.py`: `CheckpointFake(store: dict)` and `LiveFake()`, running the script of [contracts/agent-source-suite.md](contracts/agent-source-suite.md) "The fakes". Both take an optional `fail_after_ask=True` (for S8) and `double_ask=True` (for S9).
+- [X] T030 [P] [US4] Create `python/tests/agent_source_suite.py`:
   - scenarios S1–S10 as functions `scenario_<name>(make_source)`;
   - each drives `Driver` with `asyncio.run` and returns nothing on success;
   - S7 reads `source.pause` (the only style-dependent expectation);
   - every scenario also checks S10 (one terminal event, nothing after it).
-- [ ] T031 [US4] Create `python/tests/test_agent_source.py`:
+- [X] T031 [US4] Create `python/tests/test_agent_source.py`:
   - parametrise every suite scenario over `[CheckpointFake, LiveFake]`;
   - `test_thread_id`: the same inputs give the same id; a different door, owner or context gives a different id; it starts with the door; `"a:b"`/`"c"` and `"a"`/`"b:c"` differ;
   - `test_driver_refuses_a_source_without_a_style` (`TypeError`);
   - `test_events_are_frozen`.
-- [ ] T032 [US4] Run the tests and confirm they fail on `ImportError` of `ext_r2c.core.events` / `source`.
-- [ ] T033 [US4] Create `python/src/ext_r2c/core/events.py`:
+- [X] T032 [US4] Run the tests and confirm they fail on `ImportError` of `ext_r2c.core.events` / `source`.
+- [X] T033 [US4] Create `python/src/ext_r2c/core/events.py`:
   - `ReplyChunk`, `ActivityEvent`, `Ask`, `AnswerEvent`, `ArtifactEvent`, `UsageEvent`, `Done`, `Error`;
   - `TextContent`, `BytesContent`, `UrlContent`;
   - the `RunEvent` and `Content` unions;
   - all as frozen dataclasses with slots.
-- [ ] T034 [US4] Create `python/src/ext_r2c/core/source.py` ([data-model.md](data-model.md) "Driver", research R10, R11):
+- [X] T034 [US4] Create `python/src/ext_r2c/core/source.py` ([data-model.md](data-model.md) "Driver", research R10, R11):
   - `CardInfo`, `CardSkill`, `RunInput`, `RunContext`, `AgentSource` (a `Protocol`), `Driver`, `Run`, `thread_id`;
   - one task per run feeding one `asyncio.Queue`;
   - `ctx.ask` resolves through a future;
@@ -268,7 +268,7 @@ new examples.
   - `Driver.resume` gives `Error(lost)` for a live source it does not hold.
 
   Export the names.
-- [ ] T035 [US4] Verify and commit `feat(002): run events, AgentSource and one driver for both pause styles`.
+- [X] T035 [US4] Verify and commit `feat(002): run events, AgentSource and one driver for both pause styles`.
 
 **Checkpoint**: SC-005 is met.
 

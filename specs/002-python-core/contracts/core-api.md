@@ -117,7 +117,11 @@ def thread_id(door: Literal["a2a", "mcp"], owner: str, context_id: str) -> str
 ```
 
 - `Driver.resume` is for a run this driver does not hold, as after a restart. While the driver
-  still holds the run, `Run.deliver` is the way to answer it.
+  still holds the run, `Run.deliver` is the way to answer it, and `Driver.resume` raises
+  `ValueError`.
+- A thread has at most one run in a driver: `Driver.start` on a thread whose run has not ended
+  raises `ValueError`.
+- The run starts when the door first reads it, so `start` needs no running loop.
 - A source that is not one of the two styles is refused by `Driver(...)` with `TypeError`.
 
 ## Tools

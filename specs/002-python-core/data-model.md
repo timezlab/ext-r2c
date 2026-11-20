@@ -127,8 +127,10 @@ State of one run:
           source raises → Error(failed)    live run not held → Error(lost)
 ```
 
-- A live run that is cancelled while paused gets a `declined` answer from `ctx.ask`. The driver
-  then ends the run with `Error(cancelled)`, whatever the source does next.
+- A live run that is cancelled while paused gets a `declined` answer from `ctx.ask`
+  (`answered_by.role = policy`, `note` "The run was cancelled."). The driver then ends the run
+  with `Error(cancelled)`, whatever the source does next, and gives the source a few seconds to
+  finish before cancelling its task.
 - A checkpoint run that is cancelled while paused is never resumed.
 
 ### Thread id (FR-025, R11)

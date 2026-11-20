@@ -6,6 +6,21 @@ Every door (A2A, MCP) and every bridge builds on this package, which depends onl
 
 from ._schemas import schema, schema_kinds
 from .check import Limits, Problem, check_answer, check_size, decision
+from .events import (
+    ActivityEvent,
+    AnswerEvent,
+    ArtifactEvent,
+    Ask,
+    BytesContent,
+    Content,
+    Done,
+    Error,
+    ReplyChunk,
+    RunEvent,
+    TextContent,
+    UrlContent,
+    UsageEvent,
+)
 from .fallback import fallback_text
 from .forms import McpForm, NotAskableOverMcp, answer_from_mcp, answer_schema, edit_offered, mcp_form
 from .models import (
@@ -31,16 +46,29 @@ from .models import (
     parse,
     to_json,
 )
+from .source import AgentSource, CardInfo, CardSkill, Driver, Run, RunContext, RunInput, thread_id
 
 __all__ = [
     "Activity",
+    "ActivityEvent",
+    "AgentSource",
     "Answer",
     "AnswerBy",
+    "AnswerEvent",
     "AnsweredBy",
     "Approval",
     "ApproverBy",
+    "ArtifactEvent",
     "ArtifactMeta",
+    "Ask",
+    "BytesContent",
+    "CardInfo",
+    "CardSkill",
+    "Content",
     "Cost",
+    "Done",
+    "Driver",
+    "Error",
     "ErrorItem",
     "Field",
     "InvalidObject",
@@ -52,10 +80,18 @@ __all__ = [
     "Problem",
     "Question",
     "R2CObject",
+    "ReplyChunk",
     "Request",
+    "Run",
+    "RunContext",
+    "RunEvent",
+    "RunInput",
     "Subject",
+    "TextContent",
     "Unknown",
+    "UrlContent",
     "Usage",
+    "UsageEvent",
     "answer_from_mcp",
     "answer_schema",
     "check_answer",
@@ -67,5 +103,6 @@ __all__ = [
     "parse",
     "schema",
     "schema_kinds",
+    "thread_id",
     "to_json",
 ]
