@@ -553,6 +553,10 @@ def test_cancel() -> None:
 
             reading = asyncio.create_task(read())
             await asyncio.wait_for(source.hanging.wait(), TIMEOUT)
+            for _ in range(250):  # the activity can still be on its way when the source hangs
+                if seen:
+                    break
+                await asyncio.sleep(0.02)
             await client.cancel()
             await asyncio.wait_for(reading, TIMEOUT)
             for _ in range(50):

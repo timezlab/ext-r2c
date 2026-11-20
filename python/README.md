@@ -141,6 +141,114 @@ Limits to know:
 - `expires_at` is applied when the next message for the task arrives. Nothing
   ends a paused task on its own.
 
+## The MCP door
+
+`ext_r2c.mcp` (the `[mcp]` extra) puts R2C on the MCP Python SDK, for the
+2026-07-28 protocol. `R2CExtension` is an MCP SDK `Extension` keyed
+`io.github.timezlab/r2c`; `mcp_server` builds an `MCPServer` with it. A
+question or an approval is asked through a multi-round-trip tool call: the tool
+returns `input_required` with an elicitation form, and the client calls it
+again with its response and the `requestState` it was given.
+
+```python
+from ext_r2c.core import tool_from_function
+from ext_r2c.mcp import Approve, R2CExtension, SourceTool, mcp_server
+
+
+def place_order(item: str, quantity: int) -> str:
+    """Places an order."""
+    return f"Ordered {quantity} of {item}."
+
+
+server = mcp_server("stock", R2CExtension(
+    tools=[SourceTool(ReportWriter(), name="report"),   # an AgentSource as one tool
+           tool_from_function(place_order)],            # a plain tool
+    approve={"place_order": Approve(answer_by="person")},
+))
+app = server.streamable_http_app()   # serve with any ASGI server
+```
+
+- `SourceTool` serves an `AgentSource` (the `ReportWriter` above) as one
+  tool. Its default input is `{message, context_id}`; give `input_schema` and
+  `to_input` for another. Its questions and approvals become elicitations, and
+  the reply, artifacts and usage come back in the tool result. Activities go
+  out as `notifications/progress` when the client sent a `progressToken`.
+- `approve=` asks an approval before a direct tool call. The tool runs only on
+  `allow`, or on `edit` with the edited arguments; on `deny`, `decline` or
+  expiry it does not run, and the result says why, with `isError: true`.
+  `edit` is offered only when the tool's arguments are flat (R2C-MCP-3).
+- A `ToolSpec` may return a `str`, a `ToolOutput` (text, structured data,
+  artifacts, usage), or any JSON value.
+- Answers are checked before the source sees them: a response that does not
+  fit is asked again with the problems; a response to another request, or
+  after the request expired, is refused.
+- One call per owner and context at a time: a second call in a context with an
+  unfinished one is refused. Put authentication on the server (the SDK's
+  `auth=` and `token_verifier=`, passed through `mcp_server`): its principal
+  is the owner.
+
+**Restart and single use.** The SDK seals `requestState` (tamper, expiry,
+principal, audience, the tool and its arguments); the door never seals
+anything itself. Without `security=`, the SDK uses keys made at start, so a
+restart invalidates every paused call. Give fixed keys to keep a paused
+checkpoint source across a restart:
+
+```python
+from mcp.server.request_state import RequestStateSecurity
+
+server = mcp_server("stock", extension, security=RequestStateSecurity(keys=[KEY]))
+```
+
+Each round can be answered once: the door claims it in a `RoundLedger`. The
+default `MemoryLedger` lives in one process, so with several processes or
+across a restart, pass a shared `ledger=` to `R2CExtension`, or a state could
+be answered twice. A live source waits inside the run, in memory: its paused
+call works only in the same process, and after a restart the retry says the
+run was lost. A paused run ends on its own once its state expires.
+
+**The caller** reads a tool call as typed items with `R2CClient`, and answers
+with an `Answer` that is checked before it is sent.
+
+```python
+from ext_r2c.core import Answer, AnsweredBy
+from ext_r2c.mcp import R2CClient, ReplyItem
+
+client = await R2CClient.connect("http://localhost:8000/mcp")
+async for item in client.call("report", {"message": "Write the stock report."}):
+    print(item)                     # ActivityItem, UsageItem, RequestItem
+(request,) = client.pending.values()
+answer = Answer(id=request.request.id, outcome="answered",
+                answered_by=AnsweredBy(role="person"), value={"month": "2026-10"})
+async for item in client.answer(answer):         # AnswerRejected if it does not fit
+    if isinstance(item, ReplyItem):
+        print(item.text)                         # The report for 2026-10.
+await client.aclose()
+```
+
+`respond` answers a plain elicitation (one with no R2C object), `cancel` stops
+the running round and forgets a paused one (the server keeps a paused call
+until its state expires; `respond(key, "cancel")` ends it there), and `fetch`
+reads an artifact:
+from the block itself, through `resources/read`, or over http from the
+server's own origin only (another origin, or a `live` artifact, comes back as
+a `Link`).
+
+Limits to know:
+
+- Serve `R2CExtension` with `mcp_server` only: it gives the extension the
+  state's TTL, which each ledger claim is kept for. An `MCPServer` built by
+  hand with it is refused.
+- Without authentication every caller is the same anonymous owner, and only
+  the context ids keep them apart.
+- Nothing caps how many calls are paused at once; each ends when its state
+  expires. Limit the rate in front of the server.
+- MCP does not stream the reply: the text arrives once, in the tool result.
+- A tool call that runs longer than the client's request timeout fails on the
+  client's side (MCP Tasks is not supported).
+- The MCP SDK's client declares URL elicitation along with form elicitation.
+  `R2CClient` never asks for a URL itself; a URL request from a server comes
+  out as a plain `RequestItem` with its `url`.
+
 ## Install
 
 | Install | Pulls in | For |

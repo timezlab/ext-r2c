@@ -31,8 +31,19 @@ python/src/ext_r2c/
     app.py           a2a_app: the Starlette app; R2CRequestHandler (user-role messages only,
                      no stored R2C content without activation)
     client.py        R2CClient and its typed items, for the caller
-  mcp/               MCP door: run events ⇄ MCP wire (an MCP SDK Extension), MCP Skills,
-                     caller-side client (input_required ⇄ inputResponses + requestState)  [mcp]
+  mcp/               MCP door: run events ⇄ MCP wire (an MCP SDK Extension), caller-side
+                     client (input_required ⇄ inputResponses + requestState)  extra: [mcp]
+    _codec.py        R2C ⇄ MCP: input-required results, the elicitation message, progress,
+                     content blocks; mcp_response (an answer → an elicitation response)
+    _state.py        the stopping point in requestState (sealed by the SDK); the retry
+                     outcome; RoundLedger, MemoryLedger: each round is used once
+    activation.py    is_active, form_supported, owner_of
+    tools.py         ToolSpecs served as tools; Approve: an approval before a direct call
+    source_tool.py   SourceTool: one AgentSource as one tool, across rounds, one call per
+                     owner and context
+    extension.py     R2CExtension: the MCP SDK Extension (tools, approve=, the interceptor)
+    server.py        mcp_server: an MCPServer with the extension wired in
+    client.py        R2CClient and its typed items, for the caller
   bridges/langgraph/ LangGraphAgent (graph → run events: HITL interrupts, reply tokens, tool
                      activity, reasoning opt-in, usage); LangChain tools → ToolSpec  [langgraph]
   bridges/<other>/   later: one bridge and one extra per agent framework
@@ -44,10 +55,12 @@ Three extension points live in `core`: `AgentSource` (an agent framework; suppor
 checkpoint pause and a live pause), `ToolSpec` (a tool), and the run events both doors read.
 A new framework adds a bridge; `Remote` and the doors do not change.
 
-`__init__.py`, `core/` and `a2a/` exist today; the rest is the planned shape from the design
-brief and the ADR [one remote, two doors](docs/design-docs/one-remote-two-doors.md). The public
-names of `core` are in [specs/002-python-core/contracts/core-api.md](specs/002-python-core/contracts/core-api.md),
-and those of `a2a` in [specs/003-a2a-binding/contracts/a2a-api.md](specs/003-a2a-binding/contracts/a2a-api.md).
+`__init__.py`, `core/`, `a2a/` and `mcp/` exist today; the rest is the planned shape from the
+design brief and the ADR [one remote, two doors](docs/design-docs/one-remote-two-doors.md). MCP
+Skills (SEP-2640) is its own spec, `005-mcp-skills`. The public names of `core` are in
+[specs/002-python-core/contracts/core-api.md](specs/002-python-core/contracts/core-api.md), those
+of `a2a` in [specs/003-a2a-binding/contracts/a2a-api.md](specs/003-a2a-binding/contracts/a2a-api.md),
+and those of `mcp` in [specs/004-mcp-binding/contracts/mcp-api.md](specs/004-mcp-binding/contracts/mcp-api.md).
 
 ## Import direction
 
@@ -83,7 +96,11 @@ No copy is committed under `python/src/`.
   process. Models are faked; protocols are not. For A2A the test bed is
   `tests/a2a_transport.py` (an httpx transport that streams SSE from the ASGI app) and
   `tests/a2a_harness.py` (serve an executor, a client per user, drive a task). A CI step
-  installs the wheel with `[a2a]` alone and runs `tests/a2a_only.py`.
+  installs the wheel with `[a2a]` alone and runs `tests/a2a_only.py`. For MCP the test bed is
+  `tests/mcp_transport.py` (a streaming, recording httpx2 transport over the ASGI app) and
+  `tests/mcp_harness.py` (serve an `MCPServer`, a client per principal, drive a tool call
+  round by round); a CI step installs the wheel with `[mcp]` alone and runs
+  `tests/mcp_only.py`.
 - `Remote` is tested with one agent source served through both doors in one process, and with
   each door alone.
 - Every bridge passes one shared conformance suite; `AgentSource` is also tested with a fake
@@ -93,4 +110,6 @@ No copy is committed under `python/src/`.
   against its schema, each envelope against the real a2a-sdk or MCP types, each invalid object
   must fail where it says, and every `wire` rule of the standard must be shown by an example.
   Every A2A example is also replayed as a real round trip, against the client and against the
-  door (`tests/a2a_replay_kit.py`, `test_a2a_replay.py`); the MCP binding will do the same.
+  door (`tests/a2a_replay_kit.py`, `test_a2a_replay.py`), and so is every MCP example
+  (`tests/mcp_replay_kit.py`, `test_mcp_replay.py`; `discover.json` is compared with
+  `server/discover`).

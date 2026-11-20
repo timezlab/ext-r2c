@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from typing import Any, Literal
 
 import mcp_types as types
+from jsonschema import Draft202012Validator
 
 from ..core import (
     Approval,
@@ -36,6 +37,7 @@ from .source_tool import tool_error
 
 __all__ = ["Approve", "ToolOutput", "approval_for", "approve_first_round", "approve_retry", "serve_tool"]
 
+_SHOWN = 512  # characters of the description that shows the arguments
 NO_FORMS = "Not run: approval could not be asked (the client does not support forms)."
 EXPIRED = "Not run: the approval expired."
 
@@ -99,15 +101,24 @@ def _stamp(at: datetime) -> str:
     return at.isoformat().replace("+00:00", "Z")
 
 
+def _shown(arguments: Mapping[str, Any]) -> str:
+    """The arguments a person approves, as one line: the elicitation message shows them even when
+    the form cannot (no ``edit``, or a client that does not read R2C)."""
+    line = "Arguments: " + json.dumps(dict(arguments), ensure_ascii=False, default=str)
+    return line if len(line) <= _SHOWN else line[: _SHOWN - 1] + "…"
+
+
 def approval_for(name: str, arguments: Mapping[str, Any], schema: dict[str, Any] | None, settings: Approve, *,
                  editable: bool, now: datetime) -> Approval:
-    """The approval of one call: ``subject`` is the tool, its arguments and its listed schema.
-    ``edit`` is offered only when ``editable`` and the schema makes a flat form."""
+    """The approval of one call: ``subject`` is the tool, its arguments and its listed schema, and
+    ``description`` shows the arguments. ``edit`` is offered only when ``editable`` and the
+    schema makes a flat form."""
     subject: dict[str, Any] = {"type": "tool_call", "name": name, "args": dict(arguments)}
     if schema is not None:
         subject["args_schema"] = schema
     data: dict[str, Any] = {
         "kind": "approval", "id": f"ap-{uuid.uuid4().hex[:8]}", "title": settings.title or f"Run {name}",
+        "description": _shown(arguments),
         "answer_by": {"role": settings.answer_by}, "subject": subject,
         "decisions": ["allow", "edit", "deny"] if editable else ["allow", "deny"],
     }
@@ -123,12 +134,17 @@ def approval_for(name: str, arguments: Mapping[str, Any], schema: dict[str, Any]
 
 
 def _ask(r: Round, approval: Approval, *, call: str, refusal: str | None = None) -> types.InputRequiredResult:
-    point = StoppingPoint(call=call, round=uuid.uuid4().hex, kind="approve", request=to_json(approval))
+    point = StoppingPoint(call=call, round=uuid.uuid4().hex, kind="approve", request=to_json(approval),
+                          owner=r.owner)
     return input_required(approval, dump(point), active=r.active, usage=None, refusal=refusal)
 
 
 def approve_first_round(r: Round, name: str, arguments: Mapping[str, Any], settings: Approve, *,
                         schema: dict[str, Any] | None, editable: bool) -> types.CallToolResult | types.InputRequiredResult:
+    if schema is not None:  # a person never approves a call that cannot run
+        problems = sorted(Draft202012Validator(schema).iter_errors(dict(arguments)), key=lambda e: list(e.path))
+        if problems:
+            return tool_error("invalid arguments: " + "; ".join(p.message for p in problems), active=r.active)
     if not r.form:
         return tool_error(NO_FORMS, active=r.active)
     approval = approval_for(name, arguments, schema, settings, editable=editable, now=r.clock())

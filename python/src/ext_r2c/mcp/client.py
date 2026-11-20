@@ -252,8 +252,10 @@ class R2CClient:
         return self
 
     async def aclose(self) -> None:
-        if self._running is not None:
-            self._running.cancel()
+        running, self._running = self._running, None
+        if running is not None:
+            running.cancel()
+            await asyncio.wait({running})
         await self._stack.aclose()
         self._mcp = None
         if self._owns_http:
@@ -317,8 +319,9 @@ class R2CClient:
             yield out
 
     async def cancel(self) -> None:
-        """Cancel the running round, and forget a paused call."""
-        running = self._running
+        """Cancel the running round, and forget a paused call. The server keeps a paused call
+        (and its context) until its state expires; ``respond(key, "cancel")`` ends it there."""
+        running, self._running = self._running, None
         if running is not None:
             running.cancel()
             await asyncio.wait({running})
@@ -368,7 +371,8 @@ class R2CClient:
                 self._routes.pop(token, None)
             if not task.done():
                 task.cancel()
-            self._running = None
+            if self._running is task:  # a round closed late must not free a newer one
+                self._running = None
         for item in self._result(call, result):
             yield item
 
@@ -445,7 +449,10 @@ class R2CClient:
         if kind == "text":
             return _sized(str(block.get("text") or ""), limit)
         if kind in ("image", "audio"):
-            return _sized(_decoded(block.get("data")) or b"", limit)
+            data = _decoded(block.get("data"))
+            if data is None:
+                raise ValueError(f"the {kind} block's data is not base64")
+            return _sized(data, limit)
         if kind == "resource":
             return _contents(block.get("resource") or {}, limit)
         if kind != "resource_link" or not item.uri:
@@ -461,6 +468,8 @@ class R2CClient:
         async with self.http.stream("GET", item.uri, follow_redirects=False,
                                     headers={"Accept-Encoding": "identity"}) as response:
             response.raise_for_status()
+            if response.headers.get("content-encoding", "identity").strip().lower() not in ("", "identity"):
+                raise ValueError("the server compressed the body although identity encoding was asked for")
             declared = response.headers.get("content-length")
             size = int(declared) if declared and declared.isdigit() else None
             if size is not None and size > limit:

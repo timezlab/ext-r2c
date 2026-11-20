@@ -391,10 +391,10 @@ same `requestState`.
 | `question` | elicitation form: `message` = title + description, `requestedSchema` generated from the form (flattened: `one` → `oneOf` of titled consts, `one` + other → the same plus a `<key>_other` string, `many` → array of titled consts); the R2C object in the `InputRequiredResult`'s `_meta[key].input_requests[<request key>]` (an elicitation's params have no `_meta` in MCP 2026-07-28) |
 | `approval` | elicitation with `decision` (`oneOf` the offered decisions) and optional `reason`; `edit` survives only when `args_schema` is flat, each argument pre-filled as a `default`; the R2C object placed like a question's |
 | `answer` | derived by the remote, never sent: `accept` → `answered` with `content` as the value; `decline` / `cancel` → `declined`; `answered_by` is always `person` (MCP requires the user to review responses), so a `policy` answer does not exist on MCP |
-| `artifact` | `file`: `resource_link` or embedded `resource`; `inline`: text content; `live`: `resource_link` + `_meta[key]`; all with the tool result |
-| `activity` | `notifications/progress` (`message` = label, object in `_meta[key]`), when the client sent a `progressToken` |
-| `usage` | `_meta[key]` on the tool result |
-| stopping point | packed into `requestState`, sealed and time-limited by the MCP SDK's `RequestStateBoundary` (AES-GCM, TTL, principal, audience) |
+| `artifact` | `file`: `resource_link` or embedded `resource`; `inline`: text content, an `image` or `audio` block, other bytes as an embedded `resource`; `live`: `resource_link` + `_meta[key]`; all with the tool result |
+| `activity` | `notifications/progress` (`message` = label, object in `_meta[key]`, `progress` counting up from 1, no `total`), when the client sent a `progressToken` |
+| `usage` | `_meta[key]` on the tool result; while waiting for an answer, beside `input_requests` in the input-required result |
+| stopping point | packed into `requestState`, sealed and time-limited by the MCP SDK's `RequestStateBoundary` (AES-GCM, TTL, principal, audience, bound to the tool and its arguments); each round is answered once |
 
 An approval of a tool call, from
 [`examples/mcp/elicitation-approval.json`](../standard/v1/examples/mcp/elicitation-approval.json)
@@ -409,7 +409,7 @@ An approval of a tool call, from
     "inputRequests": {
       "ap-1": { "method": "elicitation/create", "params": {
         "mode": "form",
-        "message": "Place a reorder of 500 units of A-113 from supplier S-7?",
+        "message": "Place a reorder of 500 units of A-113",
         "requestedSchema": { "type": "object", "properties": {
           "decision": { "type": "string", "title": "Decision", "oneOf": [
             { "const": "allow", "title": "Allow" }, { "const": "edit", "title": "Edit" },
@@ -446,7 +446,27 @@ request `_meta` every 2026-07-28 request carries:
 The remote derives the answer `{decision: edit, args: {item: A-113, quantity: 300, supplier:
 S-7}}`, answered by a person. Every message in `standard/v1/examples/mcp/` is complete and
 checked against the MCP SDK's 2026-07-28 types, `server/discover` included (`resultType`,
-`cacheScope`, `ttlMs`).
+`cacheScope`, `ttlMs`), and is replayed as a real round trip against the SDK's client and door.
+
+Four rules make the rounds predictable:
+
+- **One request per round.** A remote sends one `inputRequests` entry per round; two questions
+  take two rounds of the same call, each with the usage so far beside it. A client still accepts
+  several and answers them in one retry.
+- **The message rule.** The elicitation `message` is the request's `title` (prefixed
+  `<origin.name> asks: ` when forwarded), then its `description`, then one line per error on a
+  re-ask. A client that knows nothing of R2C shows exactly what the request says.
+- **Re-ask and refuse.** A response that does not fit is asked again, same request, with
+  `errors`. A retry with no response for the pending key, or one after the request expired, gets
+  the refusal sentence as the first line of the next message or result.
+- **Single use.** The SDK's seal checks who, where, which tool and until when, but not how many
+  times. The door claims each round in a ledger, so a `requestState` answered once cannot be
+  answered again; with several processes the ledger must be shared.
+
+A direct tool call can be put behind an approval too (`approve=` on the server). The approval's
+description shows the call's arguments, so even a client without R2C shows what is approved;
+the tool runs only after `allow`, or `edit` with the edited arguments, and never after `deny`, a declined form
+or expiry; the result then says `Not run: …` with `isError: true`.
 
 What MCP cannot carry: token streaming of the reply (a tool result arrives once), a `live`
 artifact before the call ends, and a run longer than the deployment's request timeout (until MCP
@@ -479,7 +499,8 @@ thread_id = f(door, owner, context_id)
 - **One unfinished task per context**: a second one would overwrite the first one's checkpoints;
   the adapter refuses it.
 - **No private state in the adapter**: the pending request is read back from the task store (A2A)
-  or `requestState` (MCP). Surviving a restart needs a durable task store and a durable
+  or `requestState` (MCP). Two things live beside them on MCP: the ledger of answered rounds,
+  and a live source's paused run, which waits in memory and is lost on a restart. Surviving a restart needs a durable task store and a durable
   checkpointer; the adapter warns on an in-memory checkpointer.
 - **Follow-up**: a new message with the same `contextId` and no `taskId` opens a new task on the
   same thread, so the remote remembers the earlier conversation (core A2A).
@@ -497,7 +518,7 @@ thread_id = f(door, owner, context_id)
 | Content inside a message ≤ 5 MiB; files fetched by `url` ≤ 50 MiB (SHOULD for the remote, MUST for the client's own limits) | bounded memory and bandwidth |
 | `activity` and `usage` are display data: escaped, never instructions, never billed from | they come from another party |
 | Reasoning and tool args leave a remote only when its owner turns them on | they may hold the remote's internal data |
-| `requestState` is sealed, expires and is bound to principal and audience | a client cannot forge or replay a stopping point |
+| `requestState` is sealed, expires and is bound to principal and audience; each round is answered once | a client cannot forge or replay a stopping point |
 | The SDK never reads or issues credentials | identity belongs to A2A, MCP and the deployment |
 
 ## 10. The SDK: one adapter, `Remote`
@@ -618,8 +639,9 @@ never translates: both doors read the same neutral run.
 ### 10.4 The caller side
 
 The same package carries caller-side clients: for A2A, reading R2C parts from the stream,
-building `answer` parts and reattaching after a cut; for MCP, decoding input requests, building
-responses and echoing `requestState`. How a caller presents requests and routes
+building `answer` parts and reattaching after a cut; for MCP (`ext_r2c.mcp.R2CClient`),
+decoding input requests, checking an answer and building the elicitation response from it,
+echoing `requestState`, and reading progress activities, usage and artifacts. How a caller presents requests and routes
 `answer_by: caller` to its own agent is its own design (the brief's §8 records the shapes R2C
 was designed against).
 

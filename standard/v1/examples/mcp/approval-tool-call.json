@@ -1,6 +1,6 @@
 {
   "title": "A direct call to a tool that needs approval, denied with a reason",
-  "description": "The tool `publish_page` needs approval before it runs. The first round asks for it: the approval's subject is the call itself, with its arguments and the tool's input schema, and `edit` is kept because that schema is flat. The person denies it with a reason, so the tool does not run and the result is an error that says so. Derived answer: {kind: answer, id: ap-1, outcome: answered, answered_by: {role: person}, value: {decision: deny, reason: The page is not reviewed yet.}}.",
+  "description": "The tool `publish_page` needs approval before it runs. The first round asks for it: the approval's subject is the call itself, with its arguments and the tool's input schema; its description shows the arguments, so the message does too, and `edit` is kept because that schema is flat. The person denies it with a reason, so the tool does not run and the result is an error that says so. Derived answer: {kind: answer, id: ap-1, outcome: answered, answered_by: {role: person}, value: {decision: deny, reason: The page is not reviewed yet.}}.",
   "binding": "mcp",
   "rules": ["R2C-MCP-1", "R2C-MCP-3", "R2C-MCP-4", "R2C-APPROVAL-3"],
   "steps": [
@@ -32,7 +32,7 @@
               "method": "elicitation/create",
               "params": {
                 "mode": "form",
-                "message": "Run publish_page",
+                "message": "Run publish_page\nArguments: {\"page\": \"team/reports\"}",
                 "requestedSchema": {
                   "type": "object",
                   "properties": {
@@ -53,7 +53,8 @@
             "io.github.timezlab/r2c": {
               "input_requests": {
                 "ap-1": {
-                  "kind": "approval", "id": "ap-1", "title": "Run publish_page", "answer_by": { "role": "person" },
+                  "kind": "approval", "id": "ap-1", "title": "Run publish_page",
+                  "description": "Arguments: {\"page\": \"team/reports\"}", "answer_by": { "role": "person" },
                   "subject": {
                     "type": "tool_call",
                     "name": "publish_page",

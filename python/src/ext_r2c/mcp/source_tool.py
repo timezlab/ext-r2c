@@ -187,7 +187,11 @@ class SourceTool:
     async def retry(self, r: Round, point: StoppingPoint,
                     responses: Mapping[str, types.ElicitResult]) -> types.CallToolResult | types.InputRequiredResult:
         """A retry through the outcome table (data-model.md): the round is claimed once, then
-        re-asked, refused, or handed over."""
+        re-asked, refused, or handed over. A checkpoint run that is no longer held (a restart)
+        resumes only on a free context; until then the round is not claimed."""
+        if point.call not in self._runs and point.pause == "checkpoint" \
+                and not await self._free(r.owner, point.context or ""):
+            return tool_error(BUSY, active=r.active)
         found = await outcome(point, responses, ledger=r.ledger, ttl=r.ttl, now=r.clock(), limits=r.limits)
         if found.kind == "claimed":
             return tool_error(CLAIMED, active=r.active)
@@ -219,7 +223,13 @@ class SourceTool:
             held.request = None
             held.refusal = _join(held.refusal, refusal)
             self._hold(held)
-            await held.run.deliver(answer)
+            try:
+                await held.run.deliver(answer)
+            except BaseException:
+                self._drop(held)
+                with anyio.CancelScope(shield=True):
+                    await held.run.cancel()
+                raise
             return await self._pump(r, held)
         held = Held(self.driver.resume(point.thread or "", request, answer), point.call, r.owner,
                     point.thread or "", point.context or "",
@@ -251,10 +261,10 @@ class SourceTool:
                     return self._end(r, held)
                 elif isinstance(event, Error):
                     return self._end(r, held, error=event.reason)
-        except anyio.get_cancelled_exc_class():
+        except BaseException:  # cancelled, or failed (a closed stream, a codec error): end the run
+            self._drop(held)
             with anyio.CancelScope(shield=True):
                 await held.run.cancel()
-            self._drop(held)
             raise
 
     async def _ask(self, r: Round, held: Held, request: Question | Approval) -> types.InputRequiredResult | types.CallToolResult | None:
@@ -274,7 +284,7 @@ class SourceTool:
             self._drop(held)
             return tool_error(problem.message, usage=held.usage, active=r.active)
         point = StoppingPoint(
-            call=held.call, round=uuid.uuid4().hex, kind="source", request=to_json(request),
+            call=held.call, round=uuid.uuid4().hex, kind="source", request=to_json(request), owner=held.owner,
             thread=held.thread, context=held.context, pause=self.source.pause,
             usage=to_json(held.usage) if held.usage is not None else None,
             output={"reply": reply, "blocks": _BLOCKS.dump_python(held.blocks, mode="json", by_alias=True,

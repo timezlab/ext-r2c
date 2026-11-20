@@ -25,7 +25,6 @@ from .tools import Approve, approve_first_round, approve_retry, serve_tool
 
 __all__ = ["R2CExtension"]
 
-DEFAULT_TTL = 600.0  # seconds: the SDK's default request-state TTL
 _LOST_STATE = "The paused call could not be read; call the tool again."
 
 
@@ -41,9 +40,9 @@ def _stub(name: str) -> Callable[[], str]:
 
 
 class R2CExtension(Extension):
-    """Serves ``tools`` (``ToolSpec``s and ``SourceTool``s) with R2C. Build the server with
-    ``mcp_server``; a server built by hand passes ``extensions=[ext]`` and
-    ``middleware=ext.middleware()``."""
+    """Serves ``tools`` (``ToolSpec``s and ``SourceTool``s) with R2C. Serve it with
+    ``mcp_server`` only: it alone knows the state's TTL, which the round ledger keeps each claim
+    for, and an ``MCPServer`` built by hand with this extension is refused."""
 
     identifier = MCP_KEY
 
@@ -72,7 +71,7 @@ class R2CExtension(Extension):
         self.limits = limits
         self.ledger: RoundLedger = ledger if ledger is not None else MemoryLedger()
         self._owner = owner
-        self.ttl = DEFAULT_TTL  # mcp_server sets the server's own
+        self.ttl: float | None = None  # the state's TTL in seconds, set by mcp_server
 
     # --- what the server consumes -------------------------------------------------------------
 
@@ -80,6 +79,8 @@ class R2CExtension(Extension):
         return {"revision": 1}
 
     def tools(self) -> list[ToolBinding]:
+        if self.ttl is None:  # MCPServer calls this while it is built: fail before serving
+            raise RuntimeError("serve R2CExtension with mcp_server(...), which gives it the state's TTL")
         bindings = []
         for name, tool in self._tools.items():
             kwargs: dict[str, Any] = {"name": name, "description": tool.description, "structured_output": False}
@@ -108,6 +109,7 @@ class R2CExtension(Extension):
     def _round(self, ctx: ServerRequestContext[Any, Any]) -> Round:
         owner = (self._owner(ctx) if self._owner is not None else None) or owner_of(ctx)
         token = (ctx.meta or {}).get("progress_token")
+        assert self.ttl is not None  # tools() refused a server without it
         return Round(ctx=ctx, active=is_active(ctx), form=form_supported(ctx), owner=owner, token=token,
                      clock=self.clock, limits=self.limits, ledger=self.ledger, ttl=self.ttl)
 
@@ -125,8 +127,8 @@ class R2CExtension(Extension):
                 point = load(params.request_state)
             except LostState:
                 return tool_error(_LOST_STATE, active=r.active)
-            if point.kind != ("approve" if settings is not None else "source"):
-                return tool_error(_LOST_STATE, active=r.active)
+            if point.kind != ("approve" if settings is not None else "source") or point.owner != r.owner:
+                return tool_error(_LOST_STATE, active=r.active)  # another owner's state: nothing claimed
         responses = params.input_responses or {}
 
         if settings is not None:

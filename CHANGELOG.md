@@ -46,6 +46,29 @@ All notable changes to this project are recorded here. The format follows
 - Every A2A example is replayed as a real in-process round trip, against the
   client and against the door.
 - Examples: `a2a/second-task-rejected.json` and `a2a/usage-with-activity.json`.
+- `ext_r2c.mcp`, the MCP door on the MCP Python SDK for protocol 2026-07-28
+  (the `[mcp]` extra): `R2CExtension`, an MCP SDK `Extension`, and
+  `mcp_server`; `SourceTool` serves an `AgentSource` as one tool across
+  multi-round-trip calls, and `ToolSpec`s are served as plain tools
+  (`ToolOutput` for structured content, artifacts and usage); `approve=` asks
+  an approval before a direct tool call, with the arguments in its description
+  and `edit` on flat arguments;
+  questions and approvals as elicitation forms, answers checked, re-asked with
+  `errors` or refused; activities as `notifications/progress`; usage and
+  artifacts on the tool result; the stopping point in `requestState`, sealed by
+  the SDK, each round used once through a `RoundLedger`; one call per owner and
+  context; a paused checkpoint source resumed after a restart with fixed keys.
+- `R2CClient`, the caller's MCP client: typed items for every R2C object,
+  answers checked before they are sent (`mcp_response` builds the elicitation
+  response), several pending requests gathered into one retry, `respond` for a
+  plain elicitation, `cancel`, and a `fetch` that reads only the server's own
+  origin, with a size limit.
+- Every MCP example is replayed as a real in-process round trip, against the
+  client and against the door; `discover.json` is compared with the door's
+  `server/discover`.
+- Examples: `mcp/elicitation-two-rounds.json`, `mcp/elicitation-reask.json`,
+  `mcp/elicitation-no-response.json`, `mcp/tool-result-inline-image.json` and
+  `mcp/approval-tool-call.json`.
 
 ### Changed
 
@@ -69,3 +92,20 @@ All notable changes to this project are recorded here. The format follows
   message, beside a request or an activity.
 - §11 (A2A binding): an SDK may leave out `required: false` in an agent card;
   absent means the same.
+- `R2C-MCP-1`: a remote sends one `inputRequests` entry per round, and a client
+  accepts several. The elicitation `message` is the title (with
+  `<origin.name> asks: ` when forwarded), the description, and one line per
+  error on a re-ask.
+- `R2C-ASK-5`: over MCP the refusal is the first line of the next result (the
+  elicitation `message` when the request is asked again, otherwise the text),
+  and a retry with no response for the pending key is asked again with it.
+- `R2C-MCP-6`: `progress` counts up from 1 for each request, with no `total`.
+- `R2C-MCP-7`: an inline image or audio is an `image` or `audio` block; other
+  inline bytes are an embedded `resource`.
+- `R2C-MCP-8`: usage may also sit in an input-required result, beside
+  `input_requests`.
+- Corrected MCP examples: the messages of `elicitation-approval.json` and
+  `elicitation-approval-edit-dropped.json` now follow the message rule; the
+  form in `not-activated.json` has its `description`; the reply block of
+  `progress-activity.json` has `response: true`; `tool-result.json` names its
+  embedded resource `urn:r2c:artifact:<id>`.

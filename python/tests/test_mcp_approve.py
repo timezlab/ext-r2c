@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 import mcp_types as types
+import pytest
 from ext_r2c import MCP_KEY
 from ext_r2c.core import (
     ArtifactEvent,
@@ -298,3 +299,69 @@ def test_return_values() -> None:
         assert broken.is_error and texts(broken) == ["the tool broke"]
 
     run(main())
+
+
+# --- Outside review (T092) -----------------------------------------------------------------------
+
+
+def test_the_message_shows_the_arguments() -> None:
+    """A person approves what they can see: the arguments are in the approval's description, so
+    in the elicitation message too, even when the form cannot offer `edit` (outside review)."""
+
+    def pay(to: str, amount: int, memo: dict[str, str] | None = None) -> str:  # nested: no edit
+        """Pay someone."""
+        return "Paid."
+
+    async def main() -> None:
+        spec = tool_from_function(pay)
+        async with serve(_server(spec, approve={"pay": True})) as served, mcp_client(served, active=False) as client:
+            first = await call(client, "pay", {"to": "S-9", "amount": 9999})
+        params = next(iter(dump(first)["inputRequests"].values()))["params"]
+        assert params["message"] == 'Run pay\nArguments: {"to": "S-9", "amount": 9999}'
+        assert list(params["requestedSchema"]["properties"]) == ["decision", "reason"]
+
+    run(main())
+
+
+def test_long_arguments_are_cut_in_the_description() -> None:
+    tool = Counted()
+
+    async def main() -> None:
+        async with serve(_server(tool.spec, approve={"place_order": True})) as served, mcp_client(served) as client:
+            first = await call(client, "place_order", {**ARGS, "item": "A" * 2000})
+        _, approval, _ = _asked(first)
+        assert approval.description is not None and approval.description.startswith('Arguments: {"item": "AAA')
+        assert len(approval.description) <= 512 and approval.description.endswith("…")
+        assert approval.subject.args["item"] == "A" * 2000  # the subject keeps them whole
+
+    run(main())
+
+
+def test_an_extension_served_without_mcp_server_is_refused() -> None:
+    """Only `mcp_server` knows the state's TTL, which the round ledger must keep a claim for; a
+    server built by hand would let a claim lapse before its state does (outside review)."""
+    from mcp.server.mcpserver import MCPServer
+    from mcp.server.request_state import RequestStateSecurity
+
+    ext = R2CExtension(tools=[Counted().spec], approve={"place_order": True})
+    with pytest.raises(RuntimeError, match="mcp_server"):
+        MCPServer("test", extensions=[ext], middleware=ext.middleware(),
+                  request_state_security=RequestStateSecurity(keys=[b"k" * 32], ttl=3600.0))
+
+
+def test_one_extension_serves_one_server() -> None:
+    ext = R2CExtension(tools=[Counted().spec])
+    mcp_server("one", ext)
+    with pytest.raises(ValueError, match="already"):
+        mcp_server("two", ext)
+
+
+def test_the_ledger_keeps_a_claim_as_long_as_the_state_lives() -> None:
+    from mcp.server.request_state import RequestStateSecurity
+
+    ext = R2CExtension(tools=[Counted().spec])
+    mcp_server("long", ext, security=RequestStateSecurity(keys=[b"k" * 32], ttl=3600.0))
+    assert ext.ttl == 3600.0
+    ephemeral = R2CExtension(tools=[Counted().spec])
+    mcp_server("short", ephemeral)
+    assert ephemeral.ttl == RequestStateSecurity.ephemeral().ttl

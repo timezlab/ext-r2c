@@ -514,34 +514,34 @@ standard records O4–O7.
 core-only, A2A-only and MCP-only environments. An outside review of the diff is done, and its
 confirmed findings are fixed.
 
-- [ ] T086 [P] Update `ARCHITECTURE.md`:
+- [X] T086 [P] Update `ARCHITECTURE.md`:
   - the `mcp/` modules;
   - the testing shape (`mcp_transport.py`, `mcp_harness.py`, the MCP replay, `mcp_only.py`);
   - the "exist today" line.
-- [ ] T087 [P] Update `python/README.md` with an MCP section:
+- [X] T087 [P] Update `python/README.md` with an MCP section:
   - `mcp_server` and `R2CExtension` with `tools=`, `SourceTool` and `approve=`;
   - fixed keys for restart, and the single-use ledger across processes;
   - live sources and the same process;
   - `R2CClient`;
   - the limits (no streaming, long runs, URL elicitation declared).
-- [ ] T088 [P] Update `CHANGELOG.md`: an Added entry for `ext_r2c.mcp`, and a Changed entry for
+- [X] T088 [P] Update `CHANGELOG.md`: an Added entry for `ext_r2c.mcp`, and a Changed entry for
   the O4–O7 rules and the corrected examples.
-- [ ] T089 [P] Update `docs/whitepaper.md` where names or behaviour changed: the MCP section,
+- [X] T089 [P] Update `docs/whitepaper.md` where names or behaviour changed: the MCP section,
   usage while waiting, the message rule, single use.
-- [ ] T090 [P] Write `specs/004-mcp-binding/contracts/mcp-api.md` notes (dated) for anything
+- [X] T090 [P] Write `specs/004-mcp-binding/contracts/mcp-api.md` notes (dated) for anything
   that differs from the plan.
-- [ ] T091 Run the full verify on Python 3.11, 3.12 and 3.13 (`../.ci-venv`, `../.v3.12-venv`,
+- [X] T091 Run the full verify on Python 3.11, 3.12 and 3.13 (`../.ci-venv`, `../.v3.12-venv`,
   `../.v3.13-venv`), plus core-only, A2A-only and MCP-only. Record the test count.
-- [ ] T092 Ask for an outside review of the whole 004 diff, using the code-reviewer and
+- [X] T092 Ask for an outside review of the whole 004 diff, using the code-reviewer and
   security-reviewer agents with fresh context:
   - focus: `requestState` handling and single use, approvals, owners, the origin rule in
     `fetch`;
   - for each finding, reproduce it, write a failing test, fix it, or record why it is left, in
     `research.md` ("Outside review").
-- [ ] T093 Update `WORKSTATE.md` (004 closed, the test count, next `005-mcp-skills`) and the
+- [X] T093 Update `WORKSTATE.md` (004 closed, the test count, next `005-mcp-skills`) and the
   memory note on the repository's state.
-- [ ] T094 Tick every task here, and add "Notes: where reality differed".
-- [ ] T095 Verify, then commit `chore(004): close the MCP binding`.
+- [X] T094 Tick every task here, and add "Notes: where reality differed".
+- [X] T095 Verify, then commit `chore(004): close the MCP binding`.
 
 ---
 
@@ -619,3 +619,19 @@ Production tasks in a phase touch the same modules and stay serial.
   - A mutation run found that the first client-mode check named `requestState` per side, so a
     wrong echo passed. States are now named across the whole exchange, and an echo must equal
     what was received.
+- **Phase 9, the outside review** (research.md "Outside review") found real defects the tests
+  had missed, each now pinned by a test that failed first:
+  - only `mcp_server` set the ledger's TTL, so a server built by hand with a longer TTL let an
+    approved tool run twice; the extension is now served by `mcp_server` only;
+  - an approval's message held no arguments; its description now shows them, and
+    `approval-tool-call.json` is corrected;
+  - a round that failed (not cancelled) kept its context busy; a resume after a restart on a
+    busy context burned its round; a state from another owner (with `owner=` and no SDK auth)
+    could be answered; an expired request with no response was asked again; an approval was
+    asked for arguments that break the schema;
+  - in the client: `cancel()` then `break` left it busy; `aclose()` did not wait; invalid
+    base64 read as empty; a compressed body was inflated before the size check;
+  - `test_cancel` raced (cancelled before the activity arrived).
+  - Left on purpose: `cancel()` of a paused call does not end it on the server (the contract
+    now says so), no warning for fixed keys with `MemoryLedger`, no cap on held runs.
+- **T091:** 898 tests on 3.11, 3.12 and 3.13; core-only, A2A-only and MCP-only pass.

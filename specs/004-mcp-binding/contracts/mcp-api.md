@@ -130,3 +130,30 @@ def mcp_response(request: Question | Approval, answer: Answer) -> ElicitResult
 - When several requests are pending, `answer` and `respond` gather the responses. The next round
   is sent once every pending key has one; until then they yield nothing.
 - `Link(uri, media_type, name)` and `TooLarge(size)` are frozen dataclasses.
+
+## As built (2026-11-20, phase 9)
+
+Where the code differs from the contract above:
+
+- `Link` has `uri` (the MCP word), where the A2A client's `Link` has `url`.
+- `respond` refuses `accept` for a request that carries an R2C object: such a request is
+  answered through `answer`, so its check runs. `decline` and `cancel` are accepted.
+- `cancel()` also forgets a paused call, so a new `call` can start. The server keeps that call,
+  and its context, until its state expires: a new call on the same context is refused as busy.
+  `respond(key, "cancel")` ends it on the server (outside review, code 4).
+- `R2CExtension` is served by `mcp_server` only: it takes the policy's TTL from there (the
+  round ledger keeps each claim that long), an `MCPServer` built by hand with it fails at
+  construction, and one extension serves one server (outside review, security 1).
+- An approval's `description` is `Arguments: <JSON>` (cut at 512 characters), so the
+  elicitation message shows what is approved; a door tool's arguments are checked against its
+  schema before the approval is asked.
+- The stopping point carries `owner`; a retry from another owner is refused before its round
+  is claimed.
+- `VERSION = "2026-07-28"` lives in `client.py`; `connect` raises `ConnectionError` for any other
+  negotiated version. It is not re-exported from `ext_r2c.mcp`.
+- `fetch` returns `str` for text content and `bytes` for binary content; an embedded resource is
+  read from its own block, and a `resource_link` with a non-http uri through `resources/read`.
+- `RequestItem` also has `url`, set for a URL elicitation (the SDK's client declares URL mode
+  along with form mode).
+- The elicitation callback `R2CClient` registers returns an error and never runs in practice: it
+  only declares the capability, since every round is driven by `call`, `answer` and `respond`.

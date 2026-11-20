@@ -73,6 +73,12 @@ seal.
 | `accepted` | otherwise | `deliver`, `Driver.resume`, or run the tool |
 | `lost` | a live run not held | tool error `The paused run was lost (the server restarted); call the tool again.` |
 
+> **Note (2026-11-20, outside review):** `expired` is now checked before `missing`, so an
+> expired request is never asked again (it could not be answered). Before the table, a state
+> from another owner is refused without claiming its round, and a checkpoint run that is no
+> longer held resumes only on a free context (otherwise a `BUSY` tool error, round unclaimed).
+> The stopping point carries `owner`.
+
 ### Tool call lifecycle (a source tool)
 
 ```

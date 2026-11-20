@@ -48,9 +48,29 @@ Last updated 2026-11-20. Read this first in a new session.
     against the door (`tests/a2a_replay_kit.py`);
   - the standard records O8, O9 and O10 (R2C-ANSWER-6, R2C-ID-2, R2C-ACTIVITY-2, R2C-A2A-4,
     the §11 card note), with two new examples (41 valid in all: 32 A2A, 9 MCP).
-- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (669 tests, run against the
-  installed wheel; the core alone runs `tests/core_only.py` and the wheel with `[a2a]` alone
-  runs `tests/a2a_only.py`, both with no dev group). CI in `.github/workflows/python.yml` does
+- **Spec `004-mcp-binding`, closed** (2026-11-20, `specs/004-mcp-binding/`): `ext_r2c.mcp`
+  behind the `[mcp]` extra, on the MCP Python SDK for protocol 2026-07-28. Public names in
+  `contracts/mcp-api.md`:
+  - `R2CExtension` (an MCP SDK `Extension`) and `mcp_server`; `SourceTool` serves an
+    `AgentSource` as one tool across multi-round-trip calls; `ToolSpec`s served as tools;
+  - questions and approvals as elicitation forms, one per round, the message rule; answers
+    checked, re-asked with `errors`, or refused (wrong key, no response, expired);
+  - `approve=`: an approval before a direct tool call, `edit` on flat arguments; the tool runs
+    once, and never after a deny, a decline or expiry;
+  - activities as `notifications/progress`; usage and artifacts on the result, usage beside
+    `input_requests` while waiting;
+  - `requestState` sealed by the SDK, each round used once (`RoundLedger`); one call per
+    owner and context; a checkpoint source resumed after a restart with fixed keys;
+  - `R2CClient` for the caller: typed items, answers checked and turned into elicitation
+    responses, several requests gathered, `respond`, `cancel`, same-origin `fetch`;
+  - every MCP example replayed as a real in-process round trip, against the client and
+    against the door (`tests/mcp_replay_kit.py`);
+  - the standard records O3 (MCP side), O4, O5, O6 and O7 (R2C-ASK-5, R2C-MCP-1, -6, -7, -8),
+    with five new examples and five corrected (46 valid in all: 32 A2A, 14 MCP).
+- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (898 tests, run against
+  the installed wheel; the core alone runs `tests/core_only.py`, the wheel with `[a2a]` alone
+  runs `tests/a2a_only.py` and the wheel with `[mcp]` alone runs `tests/mcp_only.py`, all with
+  no dev group). CI in `.github/workflows/python.yml` does
   the same.
 - **Harness:** Spec Kit 0.13.4 initialised (`specs/` at the root), constitution 1.0.0, rules,
   skills, reviewer agents.
@@ -59,7 +79,8 @@ Last updated 2026-11-20. Read this first in a new session.
 
 - The PyPI name `ext-r2c` is **not reserved** (maintainer, 2026-11-20). If it is taken by the
   time we publish, rename the distribution; the import name and identifiers stay.
-- The Python SDK has no MCP door yet: nothing speaks MCP until spec 004.
+- MCP Tasks (long tool calls) are not supported: an agent tool that runs longer than the
+  client's request timeout fails on the client's side.
 
 ## Next
 
@@ -73,11 +94,14 @@ Last updated 2026-11-20. Read this first in a new session.
 - **Spec 003 is closed** (2026-11-20). It settled O8, O9 and O10. Where it differed from its
   plan is at the end of `specs/003-a2a-binding/tasks.md`; its outside review is in
   `specs/003-a2a-binding/research.md` ("Outside review").
-- **Now: `004-mcp-binding`.** `spec.md` approved 2026-11-20 (Q1 A: Skills split out to 005;
-  Q2 A: usage beside `input_requests` while waiting). Next: `plan.md` and `tasks.md`, then
-  implement one phase per go.
+- **Spec 004 is closed** (2026-11-20). It settled O3 (MCP side), O4, O5, O6 and O7 (Q1 A:
+  Skills split out to 005; Q2 A: usage beside `input_requests` while waiting). Where it
+  differed from its plan is at the end of `specs/004-mcp-binding/tasks.md`; its outside review
+  is in `specs/004-mcp-binding/research.md` ("Outside review").
+- **Next: `005-mcp-skills`.** Not started: `spec.md` first, approved by the maintainer before
+  any plan.
 
-## Spec sequence (001–003 built; 004 in progress; 005 onward proposed, awaiting approval)
+## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -100,7 +124,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    caller-side client; real round trips in process; streamed `response` artifact, `activity`,
    `usage`, re-ask with `errors`, expiry, wrong `id`, artifact presentation, one unfinished
    task per context, `thread_id = f(door, owner, contextId)`; a hand-written `AgentExecutor`.
-4. **`004-mcp-binding`** (spec approved 2026-11-20) — `ext_r2c.mcp`: an MCP SDK `Extension`;
+4. **`004-mcp-binding`** (closed 2026-11-20) — `ext_r2c.mcp`: an MCP SDK `Extension`;
    elicitation from forms and approvals (tool approval through MRTR), answer mapping,
    `activity` through `notifications/progress`, `usage` and artifacts on tool results,
    `RequestStateBoundary`, the caller-side client. Success criterion 6. Settles O4–O7.

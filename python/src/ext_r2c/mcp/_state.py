@@ -47,13 +47,15 @@ class LostState(ValueError):
 @dataclass(frozen=True)
 class StoppingPoint:
     """Where a tool call paused. ``call`` stays the same in every round; ``round`` is new in each
-    and is claimed once. ``request`` is the pending request's R2C JSON, as asked. The source fields
-    are empty for an approval of a direct tool call."""
+    and is claimed once. ``request`` is the pending request's R2C JSON, as asked. ``owner`` is the
+    owner that asked it: the boundary binds the SDK's principal only, and an ``owner=`` resolver
+    may set another. The source fields are empty for an approval of a direct tool call."""
 
     call: str
     round: str
     kind: Literal["source", "approve"]
     request: dict[str, Any]
+    owner: str | None = None
     thread: str | None = None
     context: str | None = None
     pause: Literal["checkpoint", "live"] | None = None
@@ -161,14 +163,14 @@ async def outcome(point: StoppingPoint, responses: Mapping[str, types.ElicitResu
     request = pending_of(point)
     if not await ledger.claim(point.round, until=time.time() + ttl):
         return Outcome("claimed", request)
-    response = responses.get(request.id)
-    if response is None:
-        return Outcome("missing", request, refusal=f'No response was received for "{request.title}".')
-    expires = request.expires()
+    expires = request.expires()  # before "missing": an expired request is never asked again
     if expires is not None and now >= expires:
         late = Answer(id=request.id, outcome="declined", answered_by=AnsweredBy(role="policy"),
                       note="The request expired.")
         return Outcome("expired", request, late, TOO_LATE)
+    response = responses.get(request.id)
+    if response is None:
+        return Outcome("missing", request, refusal=f'No response was received for "{request.title}".')
     content = response.content or {}
     too_large = check_size(text=json.dumps(content, ensure_ascii=False, default=str), limits=limits)
     if too_large is not None:

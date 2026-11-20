@@ -29,6 +29,8 @@ committed). Paths are inside the installed `mcp` package.
   - `mcp_server(name, extension, ...)` builds the `MCPServer` with the extension, that
     middleware and the request-state policy, like `a2a_app` on the A2A side. An owner who builds
     the server by hand passes `extensions=[ext]` and `middleware=ext.middleware()`.
+    *(2026-11-20, outside review: withdrawn. Only `mcp_server` gives the extension the state's
+    TTL, and a server built by hand is refused; see "Outside review".)*
 - **To verify first** (phase 1 spike): `tools/list` rewritten by the middleware, and a call to a
   bound tool short-circuited by the interceptor before the SDK validates its arguments. Fallback
   if the middleware cannot rewrite the list: give each binding a generated function whose
@@ -341,3 +343,61 @@ committed). Paths are inside the installed `mcp` package.
   - `ext_r2c.mcp` may import `mcp`, `mcp_types`, `anyio`, `httpx2`, `starlette` and the standard
     library.
   - A CI step installs the wheel with `[mcp]` alone and runs `tests/mcp_only.py`.
+
+## Outside review (2026-11-20)
+
+The whole 004 diff (`3ae9eff..HEAD`) was reviewed by the `code-reviewer` and `security-reviewer`
+agents with fresh context. Each finding fixed below has a test that failed first
+(`tests/test_mcp_review.py`, and the last five tests of `tests/test_mcp_approve.py`).
+
+**Fixed**
+
+- *Security 1 (medium): a ledger claim could lapse before its state.* Only `mcp_server` set the
+  extension's TTL; a server built by hand with a longer TTL kept the 600 s default, so a round
+  forgotten by the ledger was accepted again by the boundary and an approved tool ran twice.
+  Now the extension has no TTL until `mcp_server` gives it the policy's own (the ephemeral
+  policy's when none is given), `tools()` refuses to be served without one (an `MCPServer`
+  built by hand fails at construction), and one extension serves one server. The hand-built
+  path of R1 is withdrawn.
+- *Security 2: blind approval.* The elicitation message held only `Run <tool>`, so a client
+  without R2C (or a form without `edit`) showed no arguments. The approval's `description` is
+  now `Arguments: <JSON>` (cut at 512 characters), which the message rule puts in the message.
+  `approval-tool-call.json` is corrected to it.
+- *Security 6: a compressed body.* The client asks for `identity`; a body sent with another
+  `Content-Encoding` is refused before it is inflated.
+- *Code 1: a round that failed kept its context.* Only cancellation ended the run; any other
+  exception (a closed stream, a failed `deliver`) left the context `BUSY` until a restart. The
+  run is now dropped and cancelled on every exit.
+- *Code 2: a resume after a restart on a busy context.* The retry reached `Driver.resume`
+  while a new call held the thread: an internal error, with the round burned. A checkpoint
+  retry whose run is not held now checks the context first and answers `BUSY` without claiming.
+- *Code 3: `cancel()` then `break`.* `_running` kept the cancelled task, so the next `call`
+  raised. `cancel()` and `aclose()` clear it; a round closed late clears only its own task.
+- *Code 5: another owner.* The boundary binds the SDK's principal only; with an `owner=`
+  resolver and no SDK auth, another owner holding the state could answer. The stopping point
+  now carries `owner`, and a state from another owner is refused before its round is claimed.
+- *Code 6: a race in `test_cancel`.* It cancelled before the activity reached the client; it
+  now waits for it.
+- *Code 7: an expired request with no response was asked again,* though no answer could pass.
+  Expiry is now checked before "missing" (data-model.md note).
+- *Code 8: an approval asked for arguments that break the schema.* A door tool's arguments are
+  checked first; a bad call is a tool error and nothing is asked.
+- *Code 9:* `aclose()` waits for the running round; invalid base64 in an image or audio block
+  raises `ValueError` instead of reading as empty.
+
+**Left, with the reason**
+
+- *Code 4: `cancel()` of a paused call leaves the server's call open* until its state expires,
+  so a new call on that context is `BUSY`. Ending it would mean sending a last round, and a
+  source may go on after a declined request, so the client cannot promise an end. The contract
+  now says so: `cancel()` forgets the call locally; `respond(key, "cancel")` ends it on the
+  server; a new call can use another context.
+- *Security 3: `MemoryLedger` with fixed keys.* Across a restart, or with several processes,
+  an in-memory ledger forgets its claims. Documented in `python/README.md`: pass a shared
+  `ledger=`. A warning was not added: the tests and a single-process restart of a checkpoint
+  source use exactly this pair on purpose.
+- *Security 4: no cap on held runs.* Paused runs end once their state expires (TTL + 1 s), and
+  the ledger is swept on each claim. A per-owner cap is a deployment choice (rate limiting in
+  front of the server); recorded for `007-remote`.
+- *Security 5: anonymous owners.* Without authentication every caller is one owner, and only
+  context ids keep them apart (spec edge case "Owner unknown"). Documented in `python/README.md`.
