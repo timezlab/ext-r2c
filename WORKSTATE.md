@@ -1,6 +1,6 @@
 # Work state
 
-Last updated 2026-11-20. Read this first in a new session.
+Last updated 2026-11-21. Read this first in a new session.
 
 ## Done
 
@@ -98,9 +98,12 @@ Last updated 2026-11-20. Read this first in a new session.
   Skills split out to 005; Q2 A: usage beside `input_requests` while waiting). Where it
   differed from its plan is at the end of `specs/004-mcp-binding/tasks.md`; its outside review
   is in `specs/004-mcp-binding/research.md` ("Outside review").
-- **Next: `005-mcp-skills`.** `spec.md` is drafted (2026-11-21) in `specs/005-mcp-skills/`,
-  with its checklist; it waits for the maintainer's approval, and D1–D6 in it ("Decisions taken
-  in this draft", the YAML reader first) are his to overrule. No plan before that.
+- **Next: `005-mcp-skills`.** The maintainer approved `spec.md` on 2026-11-21, D1–D6 as written.
+  `plan.md`, its research, data model, contracts, quickstart and `tasks.md` (80 tasks in 9
+  phases) are drafted in `specs/005-mcp-skills/` and **wait for the maintainer's approval**: no
+  code before that. Two points are his to decide: PyYAML `>=6.0.3,<7` (T001 re-vets it; 6.0.4 is
+  one day old, `<6.0.4` is a one-token alternative), and the order of work in "Decisions made
+  while writing these tasks" at the end of `tasks.md`.
 
 ## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)
 
