@@ -98,8 +98,9 @@ Last updated 2026-11-20. Read this first in a new session.
   Skills split out to 005; Q2 A: usage beside `input_requests` while waiting). Where it
   differed from its plan is at the end of `specs/004-mcp-binding/tasks.md`; its outside review
   is in `specs/004-mcp-binding/research.md` ("Outside review").
-- **Next: `005-mcp-skills`.** Not started: `spec.md` first, approved by the maintainer before
-  any plan.
+- **Next: `005-mcp-skills`.** `spec.md` is drafted (2026-11-21) in `specs/005-mcp-skills/`,
+  with its checklist; it waits for the maintainer's approval, and D1–D6 in it ("Decisions taken
+  in this draft", the YAML reader first) are his to overrule. No plan before that.
 
 ## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)
 
