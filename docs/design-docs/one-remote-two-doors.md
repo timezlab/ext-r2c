@@ -128,6 +128,14 @@ something the agent does not do.
 > The reasons are in [specs/005-mcp-skills/research.md](../../specs/005-mcp-skills/research.md) and
 > the ADR [skills-frontmatter-and-nesting](skills-frontmatter-and-nesting.md).
 
+> **Note, 2026-11-22 (spec `006-langgraph-bridge`, built locally).** The agent source is built as
+> `LangGraphAgent` in `ext_r2c.bridges.langgraph`; `Remote(agent=...)` is still spec 007. The agent
+> takes `card=CardInfo(...)` (its skills are the card's `skills`), not `card_skills=`; the options are
+> keyword-only: `card`, `reasoning` and `expose_tools`. `bridges/langgraph/` imports `ext_r2c.core` and
+> its extra's packages only, and no other module of `ext_r2c` imports it, which is what lets `Remote`
+> take any `AgentSource` without a bridge. How a pause becomes an ask and an answer goes back to the
+> graph: the ADR [langgraph-pause-to-ask](langgraph-pause-to-ask.md).
+
 ### 4. Three extension points, so new frameworks need no change to `Remote`
 
 | Extension point | Interface in `core` | v1 ships | Later |

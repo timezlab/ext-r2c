@@ -47,6 +47,32 @@ wins once it is written.
 >   separate from the agent framework's own approval configuration.
 > - §3b: `thread_id = f(door, owner, context_id)`; a thread is never shared across doors.
 > - Success criteria 1–5 read "served by `Remote`" where they say "served by `serve()`".
+>
+> **Amendment 3, 2026-11-22: what the LangGraph bridge built (spec `006-langgraph-bridge`).** The
+> bridge is `ext_r2c.bridges.langgraph`. Where §6 differs, this reads over it (the body stays):
+> - There is no `serve()`: `LangGraphAgent(graph)` is an `AgentSource` that a door serves, and
+>   `Remote` takes it as `agent=`. A `MemorySaver`-style checkpointer is warned about by
+>   `LangGraphAgent` when it is wrapped (once), not by `serve()`.
+> - "Progress": each tool call is an `activity` (`running`, `done`, `failed`), shown only while its
+>   body runs; there is no `working` status text for a graph update.
+> - "Both modes: collect all N decisions, then resume once" holds for `batched` only. In `per_call`
+>   each answer resumes its own interrupt, by id, one at a time.
+> - "Only decisions in `allowed_decisions` are used; a `ValueError` never kills the run": a decision
+>   the call does not allow, or an `edit` its schema does not take, raises `ValueError` before the graph
+>   is touched. The run of that answer ends `failed` and the pause stays pending, so a correct answer
+>   continues it. (The middleware itself, resumed with such a batch, leaves the thread unable to
+>   continue: spec finding 2.)
+> - "Other conventions pass a detector function to `serve()`": there is no detector. `input_required` is
+>   read from the final structured reply's `status`, written by LangChain's `response_format` (D10); an
+>   owner's predicate may come later. A `completed` reply under `ToolStrategy` has no reply text.
+> - "Result: the last AI message becomes an `inline` artifact": the reply is the text of every AI
+>   message, streamed as chunks of one artifact, a blank line between two messages (D4).
+> - A hand-written approval addressed to the caller is asked to a person, as a question: an approval is
+>   never addressed to the caller (principle V).
+> - A pause the checkpointer no longer holds ends the run `lost` (`PauseLost`, an additive core
+>   exception); a new message on a thread with a middleware approval pending first withdraws the
+>   approval by a state update (D9). Reasons: the ADR
+>   [langgraph-pause-to-ask](../design-docs/langgraph-pause-to-ask.md).
 
 ## Goal
 

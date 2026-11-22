@@ -112,7 +112,7 @@ Last updated 2026-11-22. Read this first in a new session.
   differed from its plan is at the end of `specs/004-mcp-binding/tasks.md`; its outside review
   is in `specs/004-mcp-binding/research.md` ("Outside review").
 - **Spec 005 is closed** (2026-11-22). The maintainer approved `spec.md` on 2026-11-21 (D1–D6 as
-  written) and told us to implement on 2026-11-22 ("implement hết spec": all nine phases in one
+  written) and told us to implement on 2026-11-22 (the whole spec: all nine phases in one
   run); `plan.md`, research, data model, contracts, quickstart and `tasks.md` (80 tasks in 9
   phases, all done) are in `specs/005-mcp-skills/`. Where each phase differed from its plan is at
   the end of `tasks.md` ("Notes: where reality differed"); the outside review is R17 in
@@ -163,8 +163,8 @@ Last updated 2026-11-22. Read this first in a new session.
     under FR-001; the constitution goes PATCH 1.1.1 → 1.1.2 for the extra's bounds (task T009); a
     declined `input_required` question ends `done`; a `per_call` payload with no schema ends `failed`.
     **`tasks.md` is written** (2026-11-22): 104 tasks in 10 phases (US1 24, US2 11, US3 5, US4 14,
-    US5 12, US6 6; 32 in the setup, foundation and closing phases). **The maintainer said "implement hết
-    các phase" (2026-11-22): all ten phases run in one go, each committed on its own, none pushed.
+    US5 12, US6 6; 32 in the setup, foundation and closing phases). **The maintainer asked for every
+    phase in one go (2026-11-22): all ten phases run, each committed on its own, none pushed.
     Phase 1 (T001–T012) is done** (2026-11-22): the vet moved the `langgraph` floor to 1.2.14, the extra
     is `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2`, `langgraph>=1.2.14,<2` (constitution 1.1.2), the
     bridge skeleton imports with the extra and names it without it, and 31 library-fact tests pass on
@@ -226,13 +226,30 @@ Last updated 2026-11-22. Read this first in a new session.
     refused as if it took `args`, `config` and `kwargs` from the graph (found by a probe after the mutation check;
     the injected set is now read from two models), and the pydantic schema also carries the tool's description
     (`schema_of` now drops it for both kinds). 50 new tests, 2471 in all; 28 of 28 mutants died.
+    **Phase 10 (T093–T104, docs and the final gate) is done, and spec 006 is closed locally** (2026-11-22):
+    the ADR `langgraph-pause-to-ask.md` (its SC-012 table is kept true by a test), the README section, the CI
+    step, the dated notes; a security reviewer and a code reviewer with no memory of the work read the
+    bridge, and what they found is fixed test first (`research.md` R19): a tool call a failed or cancelled
+    tool left open no longer bricks the thread, the tool conversion refuses undeclared keys and is called
+    through `arun`, a decided batch position cannot be decided again, a declined hand-written approval is a
+    deny, a sync node's tool activity reaches the caller live; 29 of 30 mutants of those fixes died (the
+    survivor is equivalent). **2518 tests pass on Python 3.11, 3.12 and 3.13**; the single-extra checks, the
+    replays and `standard/` are unchanged. The run on 3.11 found a defect since phase 3 (a graph whose
+    state pydantic cannot describe could not be wrapped; fixed test first). **Flagged for the maintainer**:
+    FR-007 and D9 grew (the settle covers every open call, not only a middleware approval); a second core
+    change beside `PauseLost` (a race in `core/source.py`, phase 3); a tool with an explicit schema refuses
+    undeclared keys; a batched answer for an already decided position ends `lost`. **SC-012 is the one thing
+    not shown**: it asks that the maintainer, reading the spec, the plan and the ADR, can say for each pause
+    what the caller sees and what the graph gets back.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
-    (spec 006), `3b26285` (its plan) and the tasks commit after it.
+    (spec 006), `3b26285` (its plan), the tasks commit after it and every commit of spec 006's ten phases.
+  - **Next, when the maintainer says go:** spec 007 (`007-remote`, `Remote`), the first adapter that takes
+    `agent=LangGraphAgent(graph)`.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 under way, phase 9 of 10 done; 007 onward proposed)
+## Spec sequence (001–006 built, 006 not pushed; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -263,7 +280,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–9 done) —
+6. **`006-langgraph-bridge`** (closed locally 2026-11-22, all ten phases committed, not pushed) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply

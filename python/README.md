@@ -6,8 +6,9 @@ artifacts.
 
 > Pre-alpha. The standard v1 is written (draft). This package ships its
 > identifiers, its JSON Schemas, the protocol-free core (`ext_r2c.core`), the
-> A2A door (`ext_r2c.a2a`), the MCP door (`ext_r2c.mcp`) and MCP Skills, which
-> is a separate MCP extension served by the same package.
+> A2A door (`ext_r2c.a2a`), the MCP door (`ext_r2c.mcp`), MCP Skills, which
+> is a separate MCP extension served by the same package, and the LangGraph
+> bridge (`ext_r2c.bridges.langgraph`).
 
 ```python
 import ext_r2c
@@ -349,6 +350,114 @@ Limits to know:
 - Installing `ext-r2c[mcp]` now also installs PyYAML, which reads the
   frontmatter.
 
+## The LangGraph bridge
+
+`ext_r2c.bridges.langgraph` (the `[langgraph]` extra) serves a compiled LangGraph
+graph, such as a LangChain agent, as an `AgentSource` of the checkpoint style.
+The graph's own code does not change: it is wrapped in one line and both doors
+serve it.
+
+```python
+from ext_r2c.a2a import SourceExecutor, a2a_app, agent_card
+from ext_r2c.bridges.langgraph import LangGraphAgent
+from ext_r2c.mcp import R2CExtension, SourceTool, mcp_server
+
+agent = LangGraphAgent(graph)       # graph: create_agent(..., checkpointer=saver)
+
+app = a2a_app(SourceExecutor(agent), agent_card(agent.card, "http://localhost:8000/"))
+server = mcp_server("agent", R2CExtension(tools=[SourceTool(agent, name="agent")]))
+```
+
+Wrapping checks three things at once and starts nothing: the graph is compiled
+(`TypeError`; an uncompiled `StateGraph` is told to call `.compile(checkpointer=...)`),
+it has a checkpointer (`ValueError`), and its input takes `messages` (`ValueError`).
+The options are keyword-only: `card=`, `reasoning=False` and `expose_tools=()`.
+
+What a caller sees of a pause, and what the graph gets back:
+
+| The graph pauses with | The caller sees | The graph gets |
+|---|---|---|
+| `HumanInTheLoopMiddleware`, `per_call` or `batched`, one gated call | an `approval` for that call, one at a time in the model's order, answered by a person or an approver | `approve`, `edit` or `reject` for it (`reject` carries the reason) |
+| the same, where the call allows only a reply | a `question` with one text field | `respond` |
+| `interrupt(value)` with a valid R2C `question` or `approval` | that object, as it is | the answer's `value` mapping |
+| `interrupt(value)` with anything else | a `question` for a person (a string is its title) | the answered text |
+| a turn that ends with a structured reply `status = "input_required"` | a `question` for the caller | no resume: the answer is the next human message of the thread |
+
+An approval is never addressed to the caller and never answered by code in the
+bridge. An answer the graph would refuse (a decision the call does not allow, an
+`edit` its schema does not take) is refused first, with the problems, and the
+pause stays pending. An answer for a pause the checkpointer no longer holds ends
+the run `lost` and the graph is not started. A declined approval counts as a `deny`:
+the graph gets `reject` from the middleware, and `{"decision": "deny"}` (with
+`reason` when the caller left a note) from an `approval` it wrote itself. A new
+message on a thread with a tool call that nothing answered (an approval waiting, a
+tool that raised, a run cancelled in the middle of a tool) first answers that call
+with an error the model can read ("withdrawn", or "did not finish"), so the model
+never sees a call with no answer, and then reads the message.
+
+Tool activity, `usage` and files are read from the graph's stream. A reply is
+streamed as chunks of one artifact; `reasoning` and the arguments and results of
+tools are left out unless you ask:
+
+```python
+agent = LangGraphAgent(graph, reasoning=True, expose_tools=["search_catalogue"])
+```
+
+**LangChain tools** become `ToolSpec`s with no re-declaration, and a call with
+arguments that break the schema, or with a key the schema does not declare (unless it
+says `additionalProperties` or `patternProperties`), never runs the tool. A tool that takes an injected
+argument (`InjectedState`, `ToolRuntime` and the like) only makes sense inside its
+graph, so converting it is refused with a `TypeError` that names it:
+
+```python
+from ext_r2c.bridges.langgraph import tools_from_langchain
+
+server = mcp_server("stock", R2CExtension(tools=tools_from_langchain([place_order])))
+```
+
+Limits to know:
+
+- A pause survives a restart only with a **durable checkpointer with async
+  support**, for example `AsyncSqliteSaver` of `langgraph-checkpoint-sqlite`. The
+  extra brings none. With the in-memory one the wrap warns once, and an answer
+  after a restart ends `lost`. A synchronous-only saver fails at the first run.
+- The same pause has the same request ids after a restart.
+- In `batched` mode the answers already given for a batch are kept **in memory
+  only** (at most 1024 batches). After a restart the batch is asked again from its
+  first call. Use `per_call` where a restart in the middle matters.
+- The newest piece of the reply is held until the next one arrives, so that the last
+  one can say it is the last: expect one chunk of delay.
+- `reasoning` and `expose_tools` are off because the model's thinking is not its
+  answer, and a tool's arguments and result can hold what the caller should not see.
+- A provider's exception text reaches the caller as it is (the run ends `failed`
+  with the message). Catch and reword it in your graph if it names a key or a host.
+- A pydantic structured reply is stored in the checkpoint, and LangGraph warns
+  that an unregistered type will be blocked in a future version: list it in
+  `allowed_msgpack_modules` of the checkpointer's serializer.
+- The queue between the graph and the door is unbounded: a slow caller makes the
+  tokens wait in memory.
+- A structured reply that ends `completed` under `ToolStrategy` has **no reply
+  text**: LangChain streams none for it. (`ProviderStrategy` streams the JSON.)
+- Keep the ids of the requests a graph writes itself distinct: two asked at once
+  cannot be told apart (the first one in order takes the answer), and two asked one
+  after another under the same id let a repeated answer to the first pass as the
+  answer to the second. Ids the bridge makes (middleware approvals, the fallback
+  question, `input_required`) are distinct already.
+- The answer to an `input_required` question starts a new turn of the same task. On
+  the A2A door that turn's text is appended to the `reply` artifact the first turn
+  had closed with `last_chunk`, so a client that stops reading a task at the first
+  `last_chunk` does not see it (the door's behaviour, not changed by the bridge).
+- In `batched` mode a call is decided once: a second answer for a call that already
+  has a decision ends the run `lost`, and the first decision stands.
+- One run per thread at a time. The doors keep it inside a process, but the bridge
+  has no lock of its own: two processes that share a checkpointer must not resume
+  one thread at once, or a tool can run twice.
+- The graph's thread is the thread id the door gives, which keys an owner and a
+  context (a graph served to two callers keeps their conversations apart).
+- A URL part of the caller's message reaches the model as it was sent (the bridge
+  reads, converts and drops nothing). If your model integration downloads URLs in
+  your process, restrict the schemes and hosts there.
+
 ## Install
 
 | Install | Pulls in | For |
@@ -356,6 +465,6 @@ Limits to know:
 | `ext-r2c` | pydantic, jsonschema | the core: models, forms, checks, run events |
 | `ext-r2c[a2a]` | a2a-sdk | the A2A door, A2A callers |
 | `ext-r2c[mcp]` | mcp, PyYAML | the MCP door, MCP callers, MCP Skills |
-| `ext-r2c[langgraph]` | langchain, langgraph | agents written with LangChain / LangGraph |
+| `ext-r2c[langgraph]` | langchain, langchain-core, langgraph (no checkpointer) | agents written with LangChain / LangGraph |
 
 See the [repository](https://github.com/timezlab/ext-r2c) for the standard.

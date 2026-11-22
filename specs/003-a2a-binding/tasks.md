@@ -604,7 +604,7 @@ Phases 3–7 ──▶ Phase 8 (US7) ──▶ Phase 9
 - Phases 4 and 5 make it safe to put in front of real callers.
 - Phase 6 gives callers their side.
 - Phase 8 is the proof against the standard.
-- Each phase ends with a commit and a report. The maintainer says "tiếp" for the next one.
+- Each phase ends with a commit and a report. The maintainer says "go on" for the next one.
 
 ## Notes: where reality differed (2026-11-20)
 

@@ -111,6 +111,12 @@ pydantic `args_schema` of the tool itself (the model-visible schema leaves out `
 turns its `ValidationError` into the same `InvalidArguments`; a tool with no `args_schema` and no schema to read
 (a legacy single-string `Tool`) is refused at conversion with a `TypeError`. Research R16 has the reasons.
 
+*Phase 10 (2026-11-22), from the outside review (R19, S1 and S2):* `call` awaits `tool.arun(dict(args))`, not
+`tool.ainvoke(...)` as the table says, because `ainvoke` reads a dict with `type == "tool_call"` as a tool-call
+envelope; a key the input schema does not declare is refused as `InvalidArguments` (unless the schema says
+`additionalProperties` or `patternProperties`), and an argument LangChain injects is read from the tool's
+signature, so it is seen also when the tool has an explicit `args_schema`.
+
 ## Imports and packaging
 
 - `ext_r2c.bridges.langgraph` imports `ext_r2c.core`, `langgraph`, `langchain_core`, `jsonschema` and

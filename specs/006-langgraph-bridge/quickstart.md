@@ -54,13 +54,25 @@ Expected: every test passes. In particular:
 
 ## 4. The mutation check on the settle and on the suite
 
+There is no test for this step: a mutation run is a scratch script that is not committed. It changes one
+thing in the installed bridge (or in a copy of the suite), runs the tests of that area, and puts the file
+back; a mutant that is not caught is a hole in a test, or an equivalent change that is named. The result
+("N of N mutants died") of each phase is recorded in `research.md` (R17, and R19 for the review fixes); the
+suite's mutation list is in [contracts/suite-changes.md](contracts/suite-changes.md).
+
+To see SC-009 by hand: in the installed copy of `ext_r2c/bridges/langgraph/_settle.py` make `settle` return
+`False` on its first line, and run
+
 ```sh
-../.ci-venv/bin/pytest -q -p no:cacheprovider tests/test_langgraph_settle.py -k mutation
+../.ci-venv/bin/pytest -q -p no:cacheprovider tests/test_langgraph_settle.py
 ```
 
-Expected: the test removes the settle step in a copy of the module under test and shows the strict
-model's test fails without it. The suite's mutation list ([contracts/suite-changes.md](contracts/suite-changes.md))
-is a scratch run whose result ("N of N mutants died") is recorded in `research.md`.
+Expected (checked 2026-11-22 on 3.13): 20 of the 31 tests fail, those that send a new message to a thread with
+a call nothing answered (the strict model refuses a history with such a call). Put the file back from a copy
+you made before, **not** by reinstalling: `uv` hard-links the files it installs from its cache, so an edit of
+the installed file edits the cached wheel as well, and a reinstall then brings the edited file back. (Install
+the venv with `UV_LINK_MODE=copy` and a reinstall does restore it.) Check with
+`diff -r src/ext_r2c ../.ci-venv/lib/python3.*/site-packages/ext_r2c`.
 
 ## 5. The whole suite
 
@@ -87,8 +99,8 @@ last check blocks the `langgraph` import and expects the `ImportError` to name `
 
 ## 7. The wrap, by hand
 
-A reader can see the one-line promise (FR-001) in a Python session on the langgraph-only venv, with
-the scripted model of `tests/langgraph_models.py`:
+A reader can see the one-line promise (FR-001) in a Python session on any venv that has the extra (run it
+from `tests/`, for the scripted model of `tests/langgraph_models.py`, which needs only `langchain_core`):
 
 ```python
 from ext_r2c.bridges.langgraph import LangGraphAgent

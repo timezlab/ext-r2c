@@ -129,6 +129,22 @@ def thread_id(door: Literal["a2a", "mcp"], owner: str, context_id: str) -> str
 the reply's final chunk, since only it knows the reply has ended; the A2A door writes it as the
 `response` artifact's `last_chunk` (spec 003, research R5).
 
+*Note (2026-11-22, spec 006):* the core gained `PauseLost(Exception)`, exported from `ext_r2c.core`
+(module `source.py`). A checkpoint source raises it in `resume` when it holds no stopping point for
+the answer; `Driver` catches it before the general `Exception` and ends the run
+`Error("lost", str(exc))` (the reason is "The paused run was lost; ask again." when `str(exc)` is
+empty), so a checkpoint source can end `lost` as a live one does. A source that never raises it
+behaves as before. The same spec fixed a race in `Run._pump`: it read the run's own pending ask to
+decide the run was done, so an answer delivered while the source was still ending its stream could be
+lost; the pump now keeps its own `asked` flag, which changes no name and no order above.
+
+*Note (2026-11-22, spec 006, D3):* the shared suite `python/tests/agent_source_suite.py` checks the
+order of events structurally: consecutive reply chunks count as one reply, and `activity` events may
+sit anywhere among them, while the order of `ask`, `answer`, `usage` and the terminal event stays
+exact. The two fakes still pass it as it is; a streaming source (the LangGraph bridge) can pass it
+too. The suite asks a source for `answers`, `fail_after_ask` and `double_ask` through a test-only
+wrapper the real source is put in, not through the source itself.
+
 ## Tools
 
 ```python

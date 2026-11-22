@@ -92,6 +92,46 @@ All notable changes to this project are recorded here. The format follows
   after R2C's.
 - `[mcp]` brings PyYAML (`>=6.0.3,<7`), which reads the frontmatter. The core
   and the `[a2a]` extra do not need it.
+- `ext_r2c.bridges.langgraph`, the first bridge (the `[langgraph]` extra):
+  `LangGraphAgent` serves a compiled LangGraph graph, such as a LangChain agent,
+  as an `AgentSource` of the checkpoint style, so both doors serve it with no
+  change to the graph. A wrap with no checkpointer, an uncompiled graph or an
+  input with no `messages` fails at once and says what is missing.
+  - Pauses become asks: `HumanInTheLoopMiddleware` in `per_call` and `batched`
+    mode (an approval per call, one at a time, in the model's order; `allow`,
+    `edit` and `deny`, only what the call allows), a call that allows only a
+    reply (a question), a hand-written `interrupt()` (a valid R2C question or
+    approval as it is, anything else a question for a person) and a turn that ends
+    with a structured reply `status = "input_required"` (a question for the
+    caller; its answer is the next message of the thread). An approval is never
+    addressed to the caller. A pause is read from the checkpointer, so it is
+    answered after a restart, with the same request ids, over a durable async
+    checkpointer.
+  - An answer the graph would refuse is refused first, with the problems, and the
+    pause stays pending (the middleware would leave the thread stuck). An answer for
+    a pause the checkpointer no longer holds ends the run `lost`. A declined approval
+    is a `deny` for the graph, and in `batched` mode a call already decided is not
+    decided again (`lost`). A new message on a thread with a tool call nothing answered
+    (an approval waiting, a tool that raised, a run cancelled in a tool) first answers
+    that call by a state update, as withdrawn or as not finished, so a provider that
+    checks the history never sees a call with no answer.
+  - The stream becomes run events: the reply as chunks (the last one marked), tool
+    activity (`running`, `done`, `failed`; arguments and results only for
+    `expose_tools`), `reasoning` (opt-in), cumulative `usage` read from the
+    checkpoint, and file blocks as artifacts.
+  - `tool_from_langchain` and `tools_from_langchain` turn LangChain tools into
+    `ToolSpec`s; a tool that takes an injected argument is refused. A call runs the
+    tool only with the keys its schema declares, checked as the tool will receive them.
+  - Activity of a tool that a sync node runs on a worker thread is seen while the node
+    goes on, and a run no longer hangs in asyncio debug mode.
+- `PauseLost` in `ext_r2c.core`: a checkpoint source raises it in `resume` when it
+  holds no stopping point for the answer; the driver ends the run `lost`.
+- The shared `AgentSource` suite runs on a real graph, and its sequence checks are
+  structural (an `Ask` is last, one request at a time) so a real source can pass them.
+- A race in the core's `Driver` is fixed (found on Python 3.11 by the bridge): the run
+  pump read the run's pending ask to decide it was done, so an answer delivered while
+  the source was still ending its stream could be lost. The pump now keeps its own
+  `asked` flag.
 
 ### Changed
 
@@ -104,6 +144,9 @@ All notable changes to this project are recorded here. The format follows
   flat `args_schema` is, and how edited `args` are rebuilt.
 - Extras: `[langchain]` is now `[langgraph]` (`langchain>=1.3`, `langgraph`),
   and no longer pulls `[a2a]`.
+- `[langgraph]` names the bounds the bridge's tests prove: `langchain>=1.4.6,<2`,
+  `langchain-core>=1.6.10,<2` and `langgraph>=1.2.14,<2` (the first `langgraph` past
+  an advisory). It brings no checkpointer: the owner brings theirs.
 - `R2C-ANSWER-6`: the remote takes `answered_by.role` as given and need not
   refuse an answer for it; `R2C-ANSWER-4` and `R2C-ANSWER-5` are enforced by
   the client.

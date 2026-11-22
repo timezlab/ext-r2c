@@ -54,8 +54,23 @@ python/src/ext_r2c/
       _read.py       the safe read: each name opened from "/" with O_NOFOLLOW, regular files
                      only, never past the entry's size   (_content.py: the bytes to the wire)
       _frontmatter.py, _uris.py, _cursor.py, _settings.py, _limits.py, _wire.py
-  bridges/langgraph/ LangGraphAgent (graph → run events: HITL interrupts, reply tokens, tool
-                     activity, reasoning opt-in, usage); LangChain tools → ToolSpec  [langgraph]
+  bridges/           one subpackage per agent framework; imports nothing itself
+    langgraph/       LangGraphAgent: a compiled graph as a checkpoint AgentSource;
+                     LangChain tools → ToolSpec                                extra: [langgraph]
+      agent.py       LangGraphAgent: run, resume, the wrap checks; one leg per astream
+      _leg.py        one leg: a producer task reads astream, a queue merges stream and handler,
+                     the generator yields run events and ends right after an Ask
+      _handler.py    the per-run callback handler (tool start/end/error, hidden model calls)
+      _pauses.py     a pause read from the checkpointer's pending list, never from the stream:
+                     request ids, the order, what the graph gets back for a value
+      _decisions.py  a tool call's decisions both ways (graph ⇄ R2C); the checks before the graph
+      _batch.py      Batches: the answers of a `batched` pause in progress (in memory)
+      _settle.py     a new message on a pending approval: one state update, no resume
+      _structured.py `input_required`: a turn that ends asking the caller
+      _reply.py      hold-one, the blank line between messages, the JSON hold
+      _reasoning.py, _usage.py, _blocks.py   reasoning pieces, usage from the checkpoint,
+                     content blocks both ways (human input; file artifacts)
+      tools.py       tool_from_langchain, tools_from_langchain
   bridges/<other>/   later: one bridge and one extra per agent framework
   remote/            Remote: the only remote-side adapter; exposes A2A, MCP or both
                      (a setting) as one ASGI app; agent, tools and skills are passed in
@@ -65,9 +80,13 @@ Three extension points live in `core`: `AgentSource` (an agent framework; suppor
 checkpoint pause and a live pause), `ToolSpec` (a tool), and the run events both doors read.
 A new framework adds a bridge; `Remote` and the doors do not change.
 
-`__init__.py`, `core/`, `a2a/` and `mcp/` exist today; the rest is the planned shape from the
-design brief and the ADR [one remote, two doors](docs/design-docs/one-remote-two-doors.md). MCP
-Skills (SEP-2640) is its own spec, `005-mcp-skills`, built under `mcp/skills/`. The public names of
+`__init__.py`, `core/`, `a2a/`, `mcp/` and `bridges/langgraph/` exist today; the rest is the
+planned shape from the design brief and the ADR
+[one remote, two doors](docs/design-docs/one-remote-two-doors.md). MCP
+Skills (SEP-2640) is its own spec, `005-mcp-skills`, built under `mcp/skills/`. The LangGraph
+bridge is spec `006-langgraph-bridge` (names in
+[specs/006-langgraph-bridge/contracts/langgraph-api.md](specs/006-langgraph-bridge/contracts/langgraph-api.md);
+why in the ADR [a pause becomes an ask](docs/design-docs/langgraph-pause-to-ask.md)). The public names of
 `core` are in
 [specs/002-python-core/contracts/core-api.md](specs/002-python-core/contracts/core-api.md), those
 of `a2a` in [specs/003-a2a-binding/contracts/a2a-api.md](specs/003-a2a-binding/contracts/a2a-api.md),
@@ -89,6 +108,13 @@ each other. `mcp/skills/` is not R2C: it imports nothing of `ext_r2c` at all (no
 it can be lifted out whole; `mcp/__init__.py` re-exports its names and `mcp/server.py` only takes
 any `Extension` beside R2C's. `test_packaging.py::test_mcp_skills_imports_no_ext_r2c` enforces the
 rule on the installed wheel, and `test_skills_compose.py` shows R2C's wire is unchanged beside it.
+
+`bridges/langgraph/` imports `ext_r2c.core`, `langgraph`, `langchain_core`, `jsonschema` and
+`pydantic` and nothing else of `ext_r2c`, and no other module of `ext_r2c` imports it (a bridge
+is the end of a line: `Remote` takes the agent it is given and imports no bridge).
+`test_packaging.py::test_langgraph_bridge_imports_only_allowed_modules` is an `ast` scan of that on
+the installed wheel; a CI step installs the wheel with only `[langgraph]` and runs
+`tests/langgraph_only.py`, which also proves no `a2a` or `mcp` module is loaded.
 
 Importing `ext_r2c` or `ext_r2c.core` must work with no extra installed; opening a door
 whose extra is missing fails with a message naming the extra. `test_packaging.py` enforces the

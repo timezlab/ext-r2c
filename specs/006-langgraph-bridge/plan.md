@@ -400,3 +400,15 @@ None.
   - phase 4's size-limit test uses an oversized reply, because file blocks come in phase 7; the file
     variant is added there. `tools.py` is created in phase 5 with `schema_of` (an approval's `edit`
     needs it) and completed in phase 9.
+- 2026-11-22, closing note (the body above is not rewritten): all ten phases are built and committed on
+  `main`, none pushed. The design above held, with these changes, each recorded where it was decided:
+  - the settle (D9) answers every call the last AI message left open, not only a middleware approval
+    (R19, F1; a dated note on FR-007 in `spec.md`);
+  - a second core change beside `PauseLost`: a pump-local `asked` flag in `core/source.py` (phase 3, a race
+    found on Python 3.11);
+  - tools refuse undeclared keys and are called through `arun` (R19, S1 and S2); a batched answer for a
+    decided position ends `lost` (S4); a declined hand-written approval resumes as a `deny` (S6);
+  - the handler hands events to the loop of the run when a sync node calls it from a worker thread (F2);
+  - wrapping reads the state class when pydantic cannot describe the state (R19, found on 3.11).
+  The five points of the plan were answered as recommended (`tasks.md`, "The five points"). What is left is
+  SC-012 read by the maintainer (`tasks.md`, "Phase 10"), the push, and spec 007 (`Remote`).

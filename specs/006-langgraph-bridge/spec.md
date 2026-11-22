@@ -626,3 +626,24 @@ Each has a default, so the plan can start; the maintainer can overrule any of th
 - **D11. An in-memory checkpointer works and warns.** Default: a `UserWarning` at wrap time, once,
   that a pause will not survive a restart. *Alternative:* silence, docs only. Rejected: it is the
   default in every LangGraph tutorial and the failure shows up only in production.
+
+## Notes after approval
+
+The text above is the approved spec and is not rewritten. What changed since is dated here.
+
+- **2026-11-22, FR-007 and D9 widened** (phase 10, an outside review; [research.md](research.md) R19,
+  F1). As approved, only a pending middleware approval was settled before a new input. A tool that
+  raised, a run cancelled in a tool, or a tool body whose `interrupt()` was abandoned left a tool call
+  with no answer all the same, and a provider that checks the history refused every later message on
+  that thread. The bridge now answers any tool call of the final AI message that no tool message
+  answers, on an unfinished thread, with an error message ("withdrawn" for an approval, "did not
+  finish" otherwise), before it sends the new input. Other pauses (a hand-written `interrupt()` in a
+  plain node) and a graph that ended are still left as LangGraph leaves them. The reason of FR-007 is
+  unchanged; its scope grew to the cases that reason covers.
+- **2026-11-22, FR-024 (a LangChain tool as a `ToolSpec`) tightened** (R19, S1, S2). A tool served on its own
+  refuses a key its schema does not declare, unless the schema says `additionalProperties` or
+  `patternProperties`, and runs through `arun`. It is stricter than JSON Schema's default and the same
+  as a function tool of the core.
+- **2026-11-22, FR-019 and R2C-ANSWER-3** (R19, S4, S6). An answer for a `batched` call that already has
+  a decision ends the run `lost` and the first decision stands; a declined hand-written approval gives
+  the graph `{"decision": "deny"}`.

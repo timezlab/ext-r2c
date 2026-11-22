@@ -417,6 +417,10 @@ file layout (R18). Five points were not in the approved spec and are listed in
   - Mutation check (SC-009): with the update removed, the strict-model test fails.
 - **Alternatives**: refuse the new input while a pause is pending (a cancelled task would lock the
   context: D9); a rejecting resume (above); send it as it is (finding 6).
+- **Dated note, 2026-11-22 (phase 10; the decision above is kept as written)**: the settle now covers any
+  unanswered tool call of the final AI message on an unfinished thread, not only a middleware approval
+  (a tool that raised, a run cancelled in a tool, an abandoned `interrupt()` in a tool body), and for an
+  unfinished step that is not an approval the update names that step as its writer. See R19, F1.
 
 ## R12. `input_required` (D10) and the open `completed` reply
 
@@ -808,6 +812,43 @@ file layout (R18). Five points were not in the approved spec and are listed in
 - **Not covered, on purpose**: which message a key gets when it breaks two rules (the first, as jsonschema
   finds them): the contract says one problem per key, not which, and pinning it would pin jsonschema's wording.
 
+### Mutation check of the review fixes (phase 10, 2026-11-22)
+
+- **How**: as above, over the files of the area each mutant touches (355 tests across the timeline, settle,
+  approvals, batch, pauses, run, structured and tools files for the baseline, green first); the installed
+  wheel is patched and restored for each mutant.
+- **Result: 29 of 30 died; the survivor is equivalent.** Three survived the first run and each was a real
+  hole, filled with a test, then died:
+  - **the writer of the settle with several unfinished steps** (the first one named instead of none): no test
+    had two different steps left unfinished. A graph where two parallel steps both failed showed what LangGraph
+    does with none named (the call is answered, nothing raises) and with the first named (the other step is
+    silently dropped), so the rule is pinned, with the case of one step in two tasks (a call each), where the
+    name collapses to one;
+  - **a finished task's tool message with no call left open**: the guard of the first cut wrote it only for an
+    approval. Reading it again showed no reason for that: the write starts from the saved checkpoint, which does
+    not hold a finished task's message, so it must be written on any unfinished thread, and the guard is now the
+    plain "nothing to write" it was before phase 10. Two tests (an approval waits; a step did not finish), the
+    second red against the first cut;
+  - **`patternProperties` read as an open schema**: no test had a schema with it.
+- **The survivor, equivalent**: an approval's update naming the unfinished step as its writer. A probe on both
+  modes with a real graph shows the same messages and the same pending interrupts either way, and the same `next`
+  for `per_call` (`model`); for `batched` the update with no writer leaves the middleware's own step as `next`
+  where the named one leaves `model`, and the new input starts the next step in both cases, which is what R11
+  recorded. Nothing a caller or a model can see differs, so no test can tell them apart.
+- **What the 29 cover**: a callback on another thread put at once, or handed over even on the loop of the run
+  (order of the events), or only for the end of a tool; the settle ignoring a thread with an unfinished step and
+  no approval, naming no writer, naming one for an approval, settling a thread that ended, reading the calls of
+  any AI message instead of the last, not skipping the tool messages after it, answering a call that already has
+  its message, saying "withdrawn" for a call that did not finish, not marking the answer an error, writing no
+  finished message; a declined hand-written approval giving the graph `None`, a deny with no reason, a reject, or
+  a declined question given a deny too (the last fails the `approval for the caller` case of the SC-012 walk, so
+  that test can fail); a decided position of a batch replaced (the batch and the agent each); a tool run through
+  `ainvoke`, a key the schema does not declare let through, refused when the schema declares others, refused with
+  no key, or checked by the pydantic model only, the tool's own list of injected keys not read; a message that is
+  not the model's read as reply text, from the stream and from an update (the last two fail the
+  `a human message a node writes` test of the same walk). Both new tests of the sync node (live activity, and the
+  child process in debug mode) fail under the first mutant.
+
 ## R18. Layout, imports and packaging
 
 - **Decision**
@@ -834,3 +875,102 @@ file layout (R18). Five points were not in the approved spec and are listed in
 - **Alternatives**: put the bridge under `ext_r2c.langgraph`: ARCHITECTURE.md already names
   `ext_r2c/bridges/<name>/` for bridges. One big `agent.py`: too much for one reader, and the pure
   parts (reply, reasoning, decisions, pauses) are unit-testable without a graph.
+
+## R19. Outside review of the bridge (phase 10, 2026-11-22)
+
+- **How**: two reviewers, each with no memory of the build and read-only on the repository, read the
+  committed range `cecdd21..HEAD` (the bridge as phase 9 left it) and ran their own probes against the
+  installed wheel: a code review and a security review. A finding was acted on only after it was
+  reproduced here as a failing test against the old wheel (the "red" below), then fixed, then the full
+  suite run. What was not acted on is named with its reason, so it is a decision and not an omission.
+- **Security review** (eight findings; the reviewer found no private host, token, path or email in the
+  committed diff)
+
+  | # | Sev. | What | Decision |
+  |---|---|---|---|
+  | S1 | medium | `call` checked the top-level arguments, then ran `tool.ainvoke(given)`; LangChain reads a dict with `"type": "tool_call"` as an envelope and runs its nested `args`, so what was checked was not what ran (a dict `args_schema` is not validated by LangChain, so nothing caught it) | **Fixed.** The tool runs through `arun`, and a key the schema does not declare is refused. Red first |
+  | S2 | medium | the injected-argument refusal read only the fields of the `args_schema`; with an explicit `args_schema` that leaves out `state`, `runtime`, a tool-call id or an `InjectedToolArg`, a caller's value for it reached the function | **Fixed.** `_injected` also reads the tool's own `_injected_args_keys`; an undeclared key is refused. Red first |
+  | S3 | low | a hand-written R2C request keeps the id the graph wrote; a graph that reuses one id for two asks one after another can take a stale or repeated answer to the first as the answer to the second | **Left on purpose, documented.** A valid R2C request is asked as it is, with its own id (ADR table, rows 4 and 5), so the id is the graph's to choose. Fallback, middleware and `input_required` ids come from the interrupt or message id and have no such risk. The README says: one id per ask, also for asks one after another |
+  | S4 | low | in `batched` mode `resume` accepted an answer for a call that already had a decision and `Batch.decide` overwrote it (`per_call` already ended `lost`) | **Fixed.** A decided position ends `lost`, as an answered `per_call` request does, and the first decision stands. Red first |
+  | S5 | low | no guard in the bridge against two concurrent resumes of one pause: with two processes on one durable checkpointer the tool can run twice | **Left on purpose, documented.** The contract assumes the doors keep one unfinished run per owner and context, and the core `Driver` enforces it inside a process; across processes a guard would need a lock in a store the bridge does not own. The README says two processes must not resume one thread at once |
+  | S6 | low | a declined hand-written approval resumed the graph with `None`, not a deny (R2C-ANSWER-3: a declined approval counts as `deny`) | **Fixed.** The graph gets `{"decision": "deny"}` plus `reason` when there is a note. This is also gap G2 of the SC-012 walk below. Red first |
+  | S7 | low, unconfirmed | a caller's URL part is forwarded as it is in the human message, so a model integration that downloads URLs in the host process would fetch an address the caller chose | **Left on purpose, documented.** FR-006: the bridge does not read, convert or drop a part. Which schemes and hosts a model integration may fetch is the owner's decision there, not the bridge's. The README says so |
+  | S8 | low, hygiene | `WORKSTATE.md` quoted a maintainer's chat phrase in another language, against "everything committed is English" | **Fixed** with the closing notes (T103): the quotes are English |
+
+- **Code review** (five findings)
+
+  | # | Sev. | What | Decision |
+  |---|---|---|---|
+  | F1 | high | `settle` acted only for a middleware approval. A tool that raised, a run cancelled in a tool, or an abandoned `interrupt()` in a tool body left an AI message with a call and no tool message; the next message reached a strict provider with a dangling call, and every later turn failed the same way: the thread was lost for good | **Fixed, and it widens FR-007** (below). Red first (6 tests with F2); the old test `test_a_hand_written_interrupt_is_not_settled` had used a model that does not check the history, which hid the defect |
+  | F2 | medium | `Handler` called `asyncio.Queue.put_nowait` from the worker thread's private loop (a `def` node or a sync tool): the consumer was not woken, so tool activity of a sync node arrived only when the node ended, and in asyncio debug mode the run hung with no event | **Fixed.** The handler keeps the loop of the run and hands an event over with `call_soon_threadsafe` when it is on another thread (order is kept). Two tests: a thread-and-event test that sees the activity while the node goes on, and a child-process test in debug mode (an in-process test cannot catch the hang: the cancel never lands on the stuck waiter) |
+  | F3 | low, unconfirmed | `shape()` in the shared suite drops `activity`, so the suite cannot see lost or wrong activity | **Left on purpose.** The shape is what every source, a fake with no tool activity included, must agree on; its docstring says why. The activity of the bridge is proven in `test_langgraph_timeline.py` and, for sync nodes, by the F2 tests |
+  | F4 | low, unconfirmed | `_is_per_call` classifies by key shape only (a hand-written payload with exactly the middleware's keys is read as a middleware approval); `schema_decisions` walks every `properties.type.const`, so a tool argument named `type` with a `const` of `edit` could add a decision name | **Left on purpose.** The shape is how the middleware's payload is told apart (R8), and a payload with its four keys is one for all that can be seen; the second case needs a tool whose own argument is called `type` and is pinned by `const` to exactly a decision name, and no such tool was found. Recorded as a known limit of reading the schema, with no test |
+  | F5 | low, unconfirmed | `pauses[0]` raises `IndexError` for a batched interrupt with empty `action_requests` | **Left on purpose.** The middleware builds `action_requests` from the tool calls it gates, at least one; the reviewer could not build an empty list with the real middleware, so it is not shown to be reachable |
+
+  Not a defect (the reviewer's own probes): the suspected producer hang when a node is cancelled does
+  not occur, because LangGraph turns the cancellation into `NodeCancelledError` and the run ends `failed`.
+
+- **What the settle does now (F1, the widening of FR-007).** FR-007 as approved settled a pending
+  middleware approval and left every other pause to LangGraph. Its own reason, that the model must never
+  see a tool call with no answer, holds for any call a run left open, and the thread that follows is
+  lost without it. The rule is now: on a new input, if the thread has a middleware approval pending, or
+  an unfinished step (`state.next` is not empty), every tool call of the AI message the thread ends on
+  that has no tool message gets one with `status="error"`: "withdrawn" for an approval, "did not
+  finish" otherwise. A graph that ended, a pause that holds no call (a hand-written `interrupt()` in a
+  plain node), and calls that are not in the wrapped graph's own messages are left alone, as before.
+  **`as_node`**: for a middleware approval the update has none (R11); for another unfinished step the
+  update is written as that step (the single name in `state.next`), because without it LangGraph routes
+  from the model node, whose own edge has no way back to the model, and raises `KeyError: 'model'`.
+  The approved text of FR-007, D9 and R11 is kept as it was and carries a dated note.
+- **Gaps found by walking SC-012 against the contract** (the same pass, before the reviewers were
+  briefed): G1, an approval for the caller asked as a question had no test of its own (added); G2 = S6;
+  G3, a human message a node writes into the state could be read as reply text (a test, which passed at
+  once, so the mutation check below proves it can fail).
+- **Examined by the reviewers and found sound**: the lifecycle of a leg (the producer, the per-run
+  handler and queue, the `finally` that cancels and awaits the producer; a cancel closes the model's
+  stream and leaves no task); the core `Run._pump` `asked` flag and `PauseLost` ending `lost`; the order
+  of the checks on an answer (pending id, then the core, then the graph; a refused answer leaves the
+  pause pending and a right one still resumes); the batch record (keyed by thread and interrupt id, at
+  most 1024, dropped on a new input, nothing shared between threads); request-id uniqueness across the
+  four id forms; `to_graph` and `check` against the installed middleware for both modes; the held last
+  reply piece, the JSON hold of a structured graph and the usage sum; syntax on Python 3.11; replay after
+  an answer, another thread's pause being out of reach (the thread id is a hash of door, owner and
+  context), an approver's edit of `state` or an injected argument being stripped by the tool node, the
+  settle writing only a constant text for the last AI message's unanswered ids, injected values never
+  reaching `args` or `detail`, the activity showing args and result only for exposed tools, reasoning
+  reading only the standard text, the fallback cuts, and the graph receiving only `messages` with a
+  config that carries only the thread and the handler.
+- **Could not be checked by the reviewers**: whether `langgraph>=1.2.14` is the right floor (no network;
+  settled in T001); a real provider's streaming and message shapes (only the scripted model); the
+  runtime on Python 3.11 (settled here, in T101); both doors outside the range; a cancel in the middle of
+  a tool (covered here by a test); and `msgpack` deserialization under `allowed_msgpack_modules`, which
+  nobody has checked.
+- **Other facts the fixes taught** (kept for the next reader): `aupdate_state` forks from the saved
+  checkpoint, so the settle also writes again the finished ungated tool messages; with an explicit
+  `args_schema` the tool's input model *is* that schema, so a parameter it leaves out is in neither
+  model, and only `_injected_args_keys` (read from the signature) names it; an undeclared key is refused
+  unless the schema says `additionalProperties` or `patternProperties`, which is stricter than JSON
+  Schema's default and the same as `tool_from_function`; the doors normally check an answer against the
+  request they hold, so S4 shows only when a replayed answer gets past them (the reviewer did not
+  check how the real doors behave on a duplicate delivery, for S3 or S4).
+- **Found by the run on Python 3.11 (T101, after the reviews; neither reviewer saw it).** `_accepts_messages`
+  asked LangGraph for the input's JSON schema (`get_input_jsonschema`), and pydantic cannot always build one:
+  for a `typing.TypedDict` state before Python 3.12 (the style LangGraph's own documents use), and on any
+  version for a state that keeps a field pydantic cannot describe (a client, a connection: an arbitrary class).
+  LangGraph never asks for that schema to run a graph, so such a graph ran and could not be wrapped, with a
+  `PydanticUserError` that says nothing about the bridge (principle III). It is a defect of the bridge from
+  its first cut in phase 3 (`31ac91d`; not of a fix of this phase), hidden because every test state used
+  `typing_extensions.TypedDict` or `MessagesState`. Four tests of `test_langgraph_structured.py` had `typing.TypedDict` of their own and
+  failed on 3.11 alone: one of them inside LangChain's `ToolStrategy` (a limit of LangChain, so the tests now
+  use `typing_extensions.TypedDict`, as `test_langgraph_wrap.py` already did), the other three through this
+  defect. **Fixed test first**: when pydantic raises `PydanticUserError`, the keys are read from the state
+  class itself (`builder.input_schema`: `model_fields` for a pydantic model, the annotations of the class and
+  its bases otherwise); a graph with no such class keeps the original error. Eight tests, five of them red
+  before the fix on 3.13 (a typed dict, a typed dict that inherits `messages`, a pydantic model with an
+  arbitrary field, and the two "no `messages`" refusals for the same states), the `typing.TypedDict` case red
+  on 3.11 only; 5 of 5 mutants died.
+- **A trap of the checking itself** (the by-hand SC-009 step): `uv` hard-links the files of an installed
+  wheel from its cache, so an edit of the installed file edits the cached wheel and every venv linked to it,
+  and `--reinstall-package` then brings the edited file back. The mutation scripts restore by writing the
+  original back into the same file, which is safe; the by-hand step of `quickstart.md` now says to restore
+  from a copy and to compare with `diff -r`.

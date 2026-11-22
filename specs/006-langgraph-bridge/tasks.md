@@ -890,13 +890,13 @@ criterion is checked on the three Pythons.
 
 **Independent test**: the whole suite and `quickstart.md`, end to end.
 
-- [ ] T093 [P] Write the ADR `docs/design-docs/langgraph-pause-to-ask.md` (Context, Decision,
+- [X] T093 [P] Write the ADR `docs/design-docs/langgraph-pause-to-ask.md` (Context, Decision,
   Alternatives, Consequences: Better / Worse / Must now be true): finding 2 (a refused `batched` resume
   leaves the thread unable to continue), the pause-to-ask rules by kind, D5 and the per-run handler
   (point 2: "the graph object is not edited"), D9 (the settle by a state update, and why not a rejecting
   resume), D10. It ends with the **SC-012 table**: each row of `contracts/pause-mapping.md` with the test
   that proves it; a row with no test is a gap, so write the test first.
-- [ ] T094 [P] `python/README.md`: a LangGraph section that says everything in `contracts/langgraph-api.md`
+- [X] T094 [P] `python/README.md`: a LangGraph section that says everything in `contracts/langgraph-api.md`
   "What the README must say": the one-line wrap and the three wrap checks; a durable **async**
   checkpointer is needed for a pause to survive a restart, and the in-memory one warns; `batched` keeps a
   batch in progress in memory only (use `per_call` where a restart in the middle matters); one chunk of
@@ -905,37 +905,37 @@ criterion is checked on the three Pythons.
   `allowed_msgpack_modules`; the queue between the graph and the door is unbounded; a `completed`
   structured reply under `ToolStrategy` has no reply text (point 1); two parallel requests need distinct
   ids.
-- [ ] T095 [P] `ARCHITECTURE.md` (the `bridges/langgraph/` rows and its import rule), `CHANGELOG.md`
+- [X] T095 [P] `ARCHITECTURE.md` (the `bridges/langgraph/` rows and its import rule), `CHANGELOG.md`
   (Added), and `AGENTS.md` (one row in the Docs table for the ADR; the file stays under 150 lines, it is 67
   now).
-- [ ] T096 [P] Dated notes (never rewrite a body): `docs/whitepaper.md` and
+- [X] T096 [P] Dated notes (never rewrite a body): `docs/whitepaper.md` and
   `docs/research/2026-11-20-r2c-v1-design-brief.md` where they name `serve()` or `a2a/langchain`; the 002
   contract `specs/002-python-core/contracts/core-api.md` (`PauseLost`, and the suite's structural
   sequence checks: D3); `docs/design-docs/one-remote-two-doors.md` if it names the bridge by the old
   number. Then grep the old names across docs and code until only intentional hits remain.
-- [ ] T097 [P] `.github/workflows/python.yml`: a step "The LangGraph bridge works with only its extra
+- [X] T097 [P] `.github/workflows/python.yml`: a step "The LangGraph bridge works with only its extra
   (wheel + [langgraph], no dev group)" beside the others, running `tests/langgraph_only.py` in
   `../.lg-venv`.
-- [ ] T098 Run `quickstart.md` end to end, step by step, on 3.11, 3.12 and 3.13; fix the guide where it
+- [X] T098 Run `quickstart.md` end to end, step by step, on 3.11, 3.12 and 3.13; fix the guide where it
   and the code disagree (the guide is the one that moves, unless the code is wrong). Include its step 7,
   the one-line wrap, by hand.
-- [ ] T099 Outside review: dispatch a **code reviewer** and a **security reviewer** (the
+- [X] T099 Outside review: dispatch a **code reviewer** and a **security reviewer** (the
   `.claude/agents/` ones), each with no memory of the work, on the range from the commit that adds this
   file to HEAD, briefed with what the bridge does and the plan's risks. Check every finding against the code. For
   each one acted on, write a test that **fails first**, then fix. Record the review, with what was **left
   on purpose** and why, as R19 in `research.md`.
-- [ ] T100 Mutation check of the review fixes (a list from T099), recorded in R19: confirm the baseline
+- [X] T100 Mutation check of the review fixes (a list from T099), recorded in R19: confirm the baseline
   is **green** before the run (a red baseline kills mutants for the wrong reason).
-- [ ] T101 The closing numbers, recorded here under "Phase 10 (date)": the suite's count on 3.11, 3.12 and
+- [X] T101 The closing numbers, recorded here under "Phase 10 (date)": the suite's count on 3.11, 3.12 and
   3.13 against the installed wheel; core only, a2a only, mcp only and langgraph only ok;
   `ruff check --select F` clean; the replays unchanged (R2C examples 46 valid, 20 invalid, 1 unknown kind
   ignored, 102 objects round-tripped; A2A 31/29/3; MCP 14/13/1); the bridge adds no example to
   `standard/`.
-- [ ] T102 Walk SC-001 to SC-012 and write the result against each in this file ("met by T0xx, run
+- [X] T102 Walk SC-001 to SC-012 and write the result against each in this file ("met by T0xx, run
   <date>"); name any not fully met, and what is left.
-- [ ] T103 Update `WORKSTATE.md` (006 closed locally, what is next: spec 007, `Remote`; the push waits for
+- [X] T103 Update `WORKSTATE.md` (006 closed locally, what is next: spec 007, `Remote`; the push waits for
   the maintainer's go) and `specs/006-langgraph-bridge/plan.md` (a dated closing note; the body stays).
-- [ ] T104 Final leak scan of the whole range since `3b26285` (must be 0), then commit
+- [X] T104 Final leak scan of the whole range since `3b26285` (must be 0), then commit
   `docs(006): ADR, README, notes, CI step and close the LangGraph bridge`. **Do not push.**
 
 **Checkpoint**: the maintainer decides on the push.
@@ -1275,3 +1275,83 @@ criterion is checked on the three Pythons.
 - **T092**: 2471 tests pass on Python 3.13 (2421 before); `ruff --select F` is clean; `test_packaging.py`
   holds (the bridge imports `jsonschema`, `langchain_core` and `pydantic` only). The three-version run is at
   the end of phase 10.
+
+### Phase 10 (2026-11-22)
+
+- **T093 to T097, the docs.** The ADR `docs/design-docs/langgraph-pause-to-ask.md` ends with the SC-012
+  table, and a test (`test_langgraph_adr_table.py`) reads the ADR and fails when it names a test that does not
+  exist, so the table cannot go stale unnoticed (checked by renaming one name). `python/README.md`, `CHANGELOG.md`,
+  `ARCHITECTURE.md` and `AGENTS.md` (68 lines) are written; dated notes are in the whitepaper, the design brief,
+  `core-api.md` and `one-remote-two-doors.md`; the CI step runs `langgraph_only.py` on the three Pythons.
+  Two non-English quotes in committed files (WORKSTATE.md twice, `specs/003-a2a-binding/tasks.md` once) were
+  made English (finding S8).
+- **T099, the two outside reviews** (R19): a security reviewer (S1 to S8) and a code reviewer (F1 to F5), each
+  with no memory of the work. Acted on, each test first: **S1** `ainvoke` read a dict with `type == "tool_call"`
+  as an envelope (now `arun`, and undeclared keys refused); **S2** an injected parameter was invisible when
+  the tool has an explicit `args_schema`; **S4** a batched position could be decided twice (now `lost`);
+  **S6** a declined hand-written approval resumed with `None` (now a `deny`; the same as gap G2); **F1** the
+  thread was bricked after a failed or cancelled tool, or an abandoned `interrupt()` in a tool body, because
+  the settle handled middleware approvals only; **F2** the handler touched an `asyncio.Queue` from a worker
+  thread. Left on purpose and written down: S3, S5, S7 (limits in the README), F3, F4, F5. Gaps of my own walk of
+  SC-012: G1 (an approval for the caller asked as a question had no test), G2, G3 (a human message a node writes
+  is never reply text).
+- **F1 widened an approved requirement.** FR-007 and D9 settled a pending middleware approval only. The settle
+  now answers every call the last AI message left open whenever the thread has an approval pending or an
+  unfinished step. The approved text is kept and carries a dated note in `spec.md` ("Notes after approval"),
+  R11 and R19. **For the maintainer to read.**
+- **T100**: 30 mutants of the review fixes, 29 died; the survivor (M123) is equivalent, shown by a probe. Three
+  test holes were found and filled on the way (several unfinished steps, a finished-only write, a schema with
+  `patternProperties`); one of them also changed code. Recorded in R17.
+- **T098, the quickstart** was run step by step. Steps 2, 3 and 8 as written (31, 501 and 15 tests), step 6
+  (the four single-extra checks, with `-I` as CI runs them), step 7 by hand on 3.11, 3.12 and 3.13 (the card
+  is the graph's name, `pause` is `checkpoint`, a driver runs it, no checkpointer fails at once, an in-memory
+  saver warns once), step 4 by hand (with `settle` disabled 20 of the 31 settle tests fail). The guide moved in
+  two places: step 4 says to restore from a copy and why (below), step 7 does not need a langgraph-only venv.
+- **The run on Python 3.11 found a defect nobody had seen** (R19, last items). `_accepts_messages` used
+  `get_input_jsonschema`, which pydantic cannot build for a `typing.TypedDict` state before 3.12, nor on any
+  version for a state with a field it cannot describe; LangGraph runs such a graph, the bridge could not wrap
+  it. Fixed test first (8 tests, 5 red before the fix on 3.13); 5 of 5 mutants died. The same run showed four
+  tests of `test_langgraph_structured.py` failing on 3.11, one inside LangChain itself (now
+  `typing_extensions.TypedDict`, as `test_langgraph_wrap.py` already had). **The phase 8 commit therefore holds
+  tests that fail on 3.11, and the bridge a defect since its first cut**, caught only by this run: after
+  phase 3 the per-phase runs were on 3.13, and the three-version run was left for the end (the phase 9 note).
+- **A trap of the by-hand step**: `uv` hard-links installed files from its cache, so patching the installed
+  `_settle.py` edited the cached wheel and a reinstall brought the patch back. Restored from a copy, and all
+  seven venvs were compared with the source (identical). No test result was taken while the patch was there.
+- **T101, the closing numbers.** Against the installed wheel: **2518 passed on 3.11, 3.12 and 3.13** (51 to 57
+  s each; the first run before the fix of the last item was 2510, with 4 failed on 3.11). Core only, a2a only, mcp
+  only and langgraph only: ok. `ruff check --select F` on `python/src` and `python/tests`: clean. Replays
+  unchanged: R2C examples 46 valid, 20 invalid, 1 unknown kind ignored, 102 objects round-tripped; A2A 31 / 29 /
+  3; MCP 14 / 13 / 1. `standard/` has no change since `3b26285`: the bridge adds no example.
+- **T102, the walk of the success criteria** (run 2026-11-22; "met" means a test of the installed wheel passes
+  on 3.11, 3.12 and 3.13):
+  - **SC-001 met** by T022, T023 and T024 (`test_langgraph_suite.py`: S1 to S10 on a real graph); the two fakes
+    pass the suite as changed (`test_agent_source.py`, T014 to T019 and T025).
+  - **SC-002 met** by T037 to T040 (`test_langgraph_doors.py`): a real in-process A2A and MCP round trip each,
+    with a pause and an answer, the reply equal to the script's.
+  - **SC-003 met** by T056 (`test_langgraph_restart.py`, 13 tests): `per_call`, `batched` (asked again from
+    its first call) and a hand-written `interrupt()`, in a second process over the same SQLite file; each tool
+    ran once; the ids are equal.
+  - **SC-004 met** by T045 (`test_langgraph_approvals.py`, section 1) and T046 (`test_langgraph_batch.py`).
+  - **SC-005 met** for every refusal that can occur, by T045 and T046; two refusals the task names cannot
+    occur (an `edit` that renames the tool, a wrong batch count: phase 5 notes), and each is recorded as
+    unreachable, with no test.
+  - **SC-006 met** by T075 (`test_langgraph_pauses.py`, the walk of section 6) and T045 (section 7), and by G1
+    added in this phase.
+  - **SC-007 met** by T023 (`test_langgraph_run.py`, section 2).
+  - **SC-008 met** by T062 to T064 (`test_langgraph_timeline.py`, the restart in the middle included).
+  - **SC-009 met** by T077 (`test_langgraph_settle.py`), and the by-hand mutation of T098: 20 of the 31 fail
+    without the settle.
+  - **SC-010 met** by T002 and T026 (`test_packaging.py`, `langgraph_only.py`); the other three single-extra
+    checks run again at T101.
+  - **SC-011 met** by T087 (`test_langgraph_tools.py`, 50 tests).
+  - **SC-012 not fully met**: the table is in the ADR and a test keeps it true, I walked it row by row, and the
+    two reviewers read the contract against the code (gaps G1 to G3 were found and closed), but the criterion
+    is that **the maintainer**, with the spec, the plan and the ADR only, can say what the caller sees and what
+    the graph gets back for each pause. Only the maintainer can show that; it is the one thing left of this
+    feature.
+- **For the maintainer (flagged in the report of the run)**: (a) FR-007 and D9 widened (F1); (b) a second
+  core change beside `PauseLost`, the `asked` flag in `core/source.py` (phase 3, a race found on 3.11); (c) a tool
+  with an explicit schema now refuses undeclared keys, and `arun` replaces `ainvoke` (S1, S2); (d) a batched
+  answer for a position already decided ends `lost` (S4); (e) a declined hand-written approval resumes as a
+  `deny` (S6).

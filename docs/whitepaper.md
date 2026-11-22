@@ -644,6 +644,10 @@ never translates: both doors read the same neutral run.
 | `ext-r2c[mcp]` | mcp ≥ 2.3 | the MCP door, MCP callers |
 | `ext-r2c[langgraph]` | langchain ≥ 1.3, langgraph | agents written with LangChain / LangGraph |
 
+> **Note, 2026-11-22 (spec 006):** the `[langgraph]` bounds the tests prove are `langchain>=1.4.6,<2`,
+> `langchain-core>=1.6.10,<2` and `langgraph>=1.2.14,<2`; the extra brings no checkpointer, the owner
+> brings a durable one with async support.
+
 ### 10.4 The caller side
 
 The same package carries caller-side clients: for A2A, reading R2C parts from the stream,
@@ -707,6 +711,21 @@ The stopping point is read back from the graph's checkpoint when an answer arriv
 left, the remote returns a clear error rather than hanging. A disallowed decision never kills
 the run.
 
+> **Note, 2026-11-22 (spec `006-langgraph-bridge`, built locally).** The bridge is
+> `ext_r2c.bridges.langgraph` (`LangGraphAgent`, `tool_from_langchain`, `tools_from_langchain`);
+> `Remote(agent=...)` is still spec 007. What it does that the table above does not say, kept as
+> written: `per_call` answers resume their own interrupt by id, one at a time, and only `batched`
+> collects every decision for one resume; a decision the call does not allow, or an `edit` its schema
+> does not take, is refused with the problems before the graph is touched (the run of that answer ends
+> `failed`, the pause stays pending and a correct answer continues it), because the middleware itself
+> would leave the thread unable to continue; the reply is the text of every AI message, not only the
+> last; a hand-written approval addressed to the caller is asked to a person as a question; an answer
+> for a pause the checkpointer no longer holds ends the run `lost` (`PauseLost` in the core); a new
+> message on a thread with a middleware approval pending withdraws the approval first; there is no
+> detector function for `input_required`, it is read from the final structured reply's `status`; and
+> `LangGraphAgent` takes `card=`, not `card_skills=`. The reasons are in the ADR
+> [langgraph-pause-to-ask](design-docs/langgraph-pause-to-ask.md).
+
 ## 12. Compatibility and graceful degradation
 
 | Caller | Remote | Result |
@@ -767,7 +786,7 @@ Breaking changes move to a new URI (`…/standard/v2`) and an MCP `revision` bum
 | `003-a2a-binding` | A2A door and client: streamed reply, activity, usage, ask/answer/re-ask/expiry, artifacts, threads |
 | `004-mcp-binding` | MCP door and client: elicitation, tool approval, progress, artifacts, usage, sealed `requestState`, threads |
 | `005-mcp-skills` | MCP Skills (SEP-2640) served from folders, with include and exclude (built 2026-11-22, local) |
-| `006-langgraph-bridge` | `LangGraphAgent`, passing the bridge conformance suite: HITL in both modes, `interrupt()`, tokens, tool activity, reasoning, usage, files |
+| `006-langgraph-bridge` | `LangGraphAgent`, passing the bridge conformance suite: HITL in both modes, `interrupt()`, tokens, tool activity, reasoning, usage, files (built 2026-11-22, local) |
 | `007-remote` | `Remote`: one app, A2A / MCP / both, agent / tools / approvals / skills (include, exclude) passed in, agent as MCP tool on request |
 | later | a sample remote; bridges for Google ADK, the OpenAI Agents SDK and the Claude Agent SDK; MCP Tasks for long runs; PyPI release; TypeScript SDK |
 

@@ -55,6 +55,7 @@ neutral data only (constitution VI).
 | Know why no model ever answers an approval       | `docs/design-docs/approval-never-answered-by-a-model.md`    |
 | Know why the thread is keyed by owner and context | `docs/design-docs/thread-per-owner-and-context.md`         |
 | Know why MCP Skills has a small YAML reader and the nearest `SKILL.md` wins | `docs/design-docs/skills-frontmatter-and-nesting.md` |
+| Know how a LangGraph pause becomes an ask and an answer returns to the graph | `docs/design-docs/langgraph-pause-to-ask.md` |
 | Read the normative standard                      | `standard/v1/README.md`                                     |
 | Find active feature work                         | `specs/NNN-<name>/`                                         |
 

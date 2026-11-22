@@ -212,6 +212,9 @@ pending ──ask──▶ asked ──answer──▶ checked ──ok──▶
 | `call` | validates the arguments with `jsonschema`, raises `InvalidArguments` with one `Problem("invalid_args", key, message)` per breaking key, then awaits `tool.ainvoke(dict(args))` |
 | refusal at conversion | the input schema has an injected argument (`InjectedState`, `InjectedStore`, `ToolRuntime`, `InjectedToolCallId`, `InjectedToolArg`): `TypeError` naming the tool and the argument |
 
+*Phase 10 (2026-11-22):* `call` awaits `tool.arun(dict(args))`, not `ainvoke`, and refuses a key the schema does
+not declare (contracts/langgraph-api.md, "Tools", and research R19, S1 and S2).
+
 ## Limits and constants
 
 | Name | Value | Where chosen |

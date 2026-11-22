@@ -43,3 +43,8 @@ jobs:
           uv venv --python ${{ matrix.python }} ../.mcp-venv
           uv pip install --python ../.mcp-venv "$(ls dist/*.whl)[mcp]"
           ../.mcp-venv/bin/python -I tests/mcp_only.py
+      - name: The LangGraph bridge works with only its extra (wheel + [langgraph], no dev group)
+        run: |
+          uv venv --python ${{ matrix.python }} ../.lg-venv
+          uv pip install --python ../.lg-venv "$(ls dist/*.whl)[langgraph]"
+          ../.lg-venv/bin/python -I tests/langgraph_only.py
