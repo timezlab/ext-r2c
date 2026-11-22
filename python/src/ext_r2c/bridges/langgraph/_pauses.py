@@ -12,6 +12,7 @@ a request the caller answers on its own, in the order the model made the calls.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -33,9 +34,12 @@ from ext_r2c.core import (
 from ._decisions import offered, schema_decisions
 from .tools import schema_of
 
-__all__ = ["Pause", "read_pauses", "resume_value"]
+__all__ = ["NEEDS_INPUT", "Pause", "is_approval_payload", "read_pauses", "resume_value", "title_and_description"]
 
 _PER_CALL_KEYS = ("tool_call_id", "name", "args", "description")
+NEEDS_INPUT = "The agent needs input"  # the title of a question whose payload has no words of its own
+_TITLE = 200  # a title is cut at this many characters (pause-mapping rows 7 and 8)
+_DESCRIPTION = 2000  # and a description at this many
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +53,7 @@ class Pause:
 
     request: Question | Approval
     interrupt_id: str
-    kind: Literal["tool_call", "batch_call", "own_request"] = "own_request"
+    kind: Literal["tool_call", "batch_call", "own_request", "fallback"] = "own_request"
     tool_name: str | None = None
     tool_call_id: str | None = None
     position: int | None = None
@@ -69,6 +73,42 @@ def _own_request(value: Any) -> Question | Approval | None:
     return parsed if isinstance(parsed, (Question, Approval)) else None
 
 
+def title_and_description(text: str) -> tuple[str, str | None]:
+    """A question's title from a text, and its description: the first line cut at 200 characters, and
+    the whole text (cut at 2000) when the title is not all of it. A text with no words gets the plain title."""
+    whole = text.strip()
+    first = whole.splitlines()[0].strip() if whole else ""
+    title = first[:_TITLE]
+    return title or NEEDS_INPUT, whole[:_DESCRIPTION] if whole != title else None
+
+
+def _as_json(value: Any) -> str:
+    """Any value a graph can hand to `interrupt()`, as text a person can read: JSON, with `str` for what
+    JSON cannot write, and `repr` for what cannot be written at all (a loop, a key that is not text)."""
+    try:
+        return json.dumps(value, default=str, ensure_ascii=False, indent=2)
+    except (TypeError, ValueError):
+        return repr(value)
+
+
+def _fallback(interrupt: Any) -> Pause:
+    """The question for a person that any other payload becomes (rows 6 and 7): a string is its title, any
+    other value is shown as JSON in its description. What the person types is what `interrupt()` returns."""
+    value = interrupt.value
+    if isinstance(value, str):
+        title, description = title_and_description(value)
+    else:
+        title, description = NEEDS_INPUT, _as_json(value)[:_DESCRIPTION]
+    question = Question(
+        id=f"lg-{interrupt.id}",
+        title=title,
+        description=description,
+        answer_by=AnswerBy(role="person"),
+        fields=[Field(key="answer", header="Answer", text="Your answer, given to the agent", type="text")],
+    )
+    return Pause(question, interrupt.id, kind="fallback")
+
+
 def _is_per_call(value: Any) -> bool:
     return isinstance(value, Mapping) and all(k in value for k in _PER_CALL_KEYS) and isinstance(value["name"], str)
 
@@ -79,6 +119,11 @@ def _is_batched(value: Any) -> bool:
         and isinstance(value.get("action_requests"), list)
         and isinstance(value.get("review_configs"), list)
     )
+
+
+def is_approval_payload(value: Any) -> bool:
+    """Whether an interrupt's value is one `HumanInTheLoopMiddleware` wrote, in either mode."""
+    return _is_per_call(value) or _is_batched(value)
 
 
 def _tool_pause(
@@ -192,15 +237,16 @@ def read_pauses(state: Any, tools: Mapping[str, Any] | None = None) -> list[Paus
             approvals.extend(_batched(interrupt, tools))
         else:
             request = _own_request(interrupt.value)
-            if request is None:
-                raise RuntimeError("this kind of pause is not supported yet")
-            others.append(Pause(request, interrupt.id))
+            others.append(Pause(request, interrupt.id) if request is not None else _fallback(interrupt))
     order = _call_order(state.values)
     approvals.sort(key=lambda p: (order.get(p.tool_call_id or "", len(order)), p.position or 0))
     return approvals + others
 
 
-def resume_value(answer: Answer) -> dict[str, Any] | None:
-    """What `interrupt()` returns inside the graph for a request it wrote itself: the answer's value,
-    or `None` when declined."""
-    return None if answer.outcome == "declined" else dict(answer.value or {})
+def resume_value(answer: Answer, kind: str = "own_request") -> Any:
+    """What `interrupt()` returns inside the graph for a request it wrote itself: the answer's value
+    mapping for a valid R2C request, the answered text for the fallback question, and `None` when declined."""
+    if answer.outcome == "declined":
+        return None
+    value = dict(answer.value or {})
+    return value.get("answer") if kind == "fallback" else value

@@ -38,6 +38,8 @@ from ._decisions import check, to_graph
 from ._leg import run_leg, seeded_reply, sent_before
 from ._pauses import read_pauses, resume_value
 from ._reply import Reply
+from ._settle import settle
+from ._structured import pending_question
 from .tools import tools_by_name
 
 __all__ = ["LangGraphAgent"]
@@ -111,6 +113,7 @@ class LangGraphAgent:
         self._reasoning = reasoning
         self._expose_tools = frozenset(names)
         self._tools = tools_by_name(graph)  # only to find the schema of an edit
+        self._structured = "structured_response" in graph.channels  # a turn may end `input_required` (FR-022)
         self._batches = Batches()  # the decisions of the batches in progress: the agent's only state
         self.card = card if card is not None else CardInfo(graph.name or "LangGraph", _DEFAULT_DESCRIPTION, "0.0.0")
 
@@ -126,11 +129,17 @@ class LangGraphAgent:
         return next((p for p in pauses if open_(p)), pauses[0]).request
 
     async def run(self, input: RunInput, ctx: RunContext) -> AsyncIterator[RunEvent]:
-        """One turn on the context's thread: the input as one human message."""
-        pick = partial(self._next_ask, ctx.thread_id)
+        """One turn on the context's thread: the input as one human message.
+
+        An approval still waiting on the thread is settled first (D9), so the model never sees a tool
+        call nothing answered; a batch in progress goes with it.
+        """
+        thread = ctx.thread_id
+        await settle(self._graph, thread, await self._graph.aget_state({"configurable": {"thread_id": thread}}))
+        self._batches.drop_thread(thread)
         leg = run_leg(
-            self._graph, {"messages": [to_message(input)]}, ctx.thread_id, Reply(), pick,
-            reasoning=self._reasoning, expose_tools=self._expose_tools,
+            self._graph, {"messages": [to_message(input)]}, thread, Reply(structured=self._structured),
+            partial(self._next_ask, thread), reasoning=self._reasoning, expose_tools=self._expose_tools,
         )
         async with aclosing(leg) as events:
             async for event in events:
@@ -149,7 +158,12 @@ class LangGraphAgent:
         self._batches.prune(thread, (p.interrupt_id for p in pauses))  # what the graph no longer holds
         pause = next((p for p in pauses if p.request.id == answer.id), None)
         if pause is None:
-            raise PauseLost(f"The paused run was lost: nothing waits for request {answer.id!r}. Ask again.")
+            asked = pending_question(state)  # none for a graph with no `structured_response`
+            if asked is None or asked.id != answer.id:
+                raise PauseLost(f"The paused run was lost: nothing waits for request {answer.id!r}. Ask again.")
+            async for event in self._answer_input_required(answer, asked, thread):
+                yield event
+            return
         problems = check_answer(answer, pause.request)
         if problems:
             raise ValueError("The answer is not acceptable: " + "; ".join(p.message for p in problems))
@@ -170,14 +184,31 @@ class LangGraphAgent:
         elif pause.kind == "tool_call":
             value = to_graph(answer, pause)
         else:
-            value = resume_value(answer)
+            value = resume_value(answer, pause.kind)
 
         values = state.values
         earlier = values.get("messages") or () if isinstance(values, dict) else ()
         leg = run_leg(
-            self._graph, Command(resume={pause.interrupt_id: value}), thread, seeded_reply(earlier),
-            partial(self._next_ask, thread),
+            self._graph, Command(resume={pause.interrupt_id: value}), thread,
+            seeded_reply(earlier, structured=self._structured), partial(self._next_ask, thread),
             reasoning=self._reasoning, expose_tools=self._expose_tools, known=sent_before(earlier),
+        )
+        async with aclosing(leg) as events:
+            async for event in events:
+                yield event
+
+    async def _answer_input_required(self, answer: Answer, asked: Question, thread: str) -> AsyncIterator[RunEvent]:
+        """The caller answers the question a turn ended with: no interrupt waits, so the answer is the next
+        human message of the thread, not a resume (FR-022). A declined question ends the run, with no call."""
+        problems = check_answer(answer, asked)
+        if problems:
+            raise ValueError("The answer is not acceptable: " + "; ".join(p.message for p in problems))
+        if answer.outcome == "declined":
+            return
+        text = str((answer.value or {}).get("answer", ""))
+        leg = run_leg(
+            self._graph, {"messages": [to_message(RunInput(text))]}, thread, Reply(structured=self._structured),
+            partial(self._next_ask, thread), reasoning=self._reasoning, expose_tools=self._expose_tools,
         )
         async with aclosing(leg) as events:
             async for event in events:

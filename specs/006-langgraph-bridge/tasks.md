@@ -759,7 +759,7 @@ new message on a pending approval all behave (SC-006 closed, SC-009).
 
 ### Tests for User Story 5 ⚠️ (write first)
 
-- [ ] T075 [P] [US5] Write `python/tests/test_langgraph_pauses.py` (R8, R14; FR-014, FR-021;
+- [X] T075 [P] [US5] Write `python/tests/test_langgraph_pauses.py` (R8, R14; FR-014, FR-021;
   pause-mapping rows 4 to 7, 9, 10):
   - `interrupt(<a valid R2C question>)` and `interrupt(<a valid approval for a person or an approver>)`
     are asked **as they are**, with their own id, and `interrupt()` returns the answer's `value` mapping;
@@ -776,7 +776,7 @@ new message on a pending approval all behave (SC-006 closed, SC-009).
   - **SC-006 closed**: a test walks **every** path that yields an approval (`per_call`, `batched`, a valid
     hand-written approval for a person and for an approver, the caller-addressed one) and asserts no
     `Approval` has `answer_by.role == "caller"` and that nothing in the bridge answers one.
-- [ ] T076 [P] [US5] Write `python/tests/test_langgraph_structured.py` (R12; FR-022, D10; points 1 and 4)
+- [X] T076 [P] [US5] Write `python/tests/test_langgraph_structured.py` (R12; FR-022, D10; points 1 and 4)
   on a real `create_agent` with `response_format` (`ToolStrategy` and `ProviderStrategy`), a schema
   `Reply(status, message)`:
   - a turn ending with `status="input_required"` is asked as a `Question` for the caller (`answer_by`
@@ -793,7 +793,7 @@ new message on a pending approval all behave (SC-006 closed, SC-009).
     follows it, the structured reply still says `input_required`); otherwise `PauseLost`;
   - **point 4**: a declined `input_required` question ends the run `done` and the graph is not called (the
     model's counter does not move).
-- [ ] T077 [P] [US5] Write `python/tests/test_langgraph_settle.py` (R11; FR-007, D9, SC-009), with the
+- [X] T077 [P] [US5] Write `python/tests/test_langgraph_settle.py` (R11; FR-007, D9, SC-009), with the
   strict model:
   - a new input while an approval is pending, in `per_call` and in `batched`, reaches a **normal reply**;
     the model saw a "withdrawn" `ToolMessage` (`status="error"`, the call's name and id) for every call
@@ -806,39 +806,39 @@ new message on a pending approval all behave (SC-006 closed, SC-009).
   - **the mutation check (SC-009)**, `-k mutation`: with the settle replaced by a no-op (a patched copy of
     `_settle.py`, or a monkeypatch of its one function), the strict-model test **fails**; with it, it
     passes.
-- [ ] T078 [US5] Build, install, and run T075 to T077. Confirm the expected failures: the fallback and caller
+- [X] T078 [US5] Build, install, and run T075 to T077. Confirm the expected failures: the fallback and caller
   addressed cases end `failed` ("not supported yet"), no `input_required` question, the dangling-call error
   of finding 6.
 
 ### Implementation for User Story 5
 
-- [ ] T079 [P] [US5] `_structured.py` (R12): normalise the leg's own `structured_response` (pydantic by
+- [X] T079 [P] [US5] `_structured.py` (R12): normalise the leg's own `structured_response` (pydantic by
   `model_dump()`, a dataclass by `asdict`, a mapping as it is, an `Enum` by its value; anything else is
   ignored), read `status` and `message`, and build the `input_required` question with id
   `lg-ir-<last AI message id>`; `still_pending(state, request_id)` for `resume`.
-- [ ] T080 [P] [US5] `_settle.py` (R11, D9): when a run starts and `aget_state` shows a pending middleware
+- [X] T080 [P] [US5] `_settle.py` (R11, D9): when a run starts and `aget_state` shows a pending middleware
   approval, one `aupdate_state(config, {"messages": [...]})` with **no `as_node`**: the `ToolMessage`s of
   finished `per_call` tasks (from `state.tasks[i].result`), then, for each tool call of the last AI message
   with no `ToolMessage`, a `ToolMessage(content="The call was withdrawn: a new message came before it was
   approved.", name=<tool>, tool_call_id=<id>, status="error")`; the batch record is dropped.
-- [ ] T081 [US5] `_pauses.py` completed (R8, R14): the fallback question (pause-mapping rows 6 and 7), the
+- [X] T081 [US5] `_pauses.py` completed (R8, R14): the fallback question (pause-mapping rows 6 and 7), the
   order of several interrupts (tool approvals first, in the model's order, then the others as LangGraph
   lists them), and the `input_required` pause; the resume value for a fallback is the answered text, and
   `None` when declined.
-- [ ] T082 [US5] `_reply.py`, the JSON hold (R12): only in a graph with a `structured_response` channel,
+- [X] T082 [US5] `_reply.py`, the JSON hold (R12): only in a graph with a `structured_response` channel,
   the text of an AI message whose first non-blank character is `{` is held until that message's node
   update, then dropped when the update's structured reply is `input_required` and released otherwise.
-- [ ] T083 [US5] `_leg.py` and `agent.py` extended: `run` settles before it sends the input; an
+- [X] T083 [US5] `_leg.py` and `agent.py` extended: `run` settles before it sends the input; an
   `input_required` turn yields `UsageEvent` then the `Ask`; `resume` of that request checks it is still
   pending (`PauseLost` if not), a declined answer ends the run `done` without calling the graph, and an
   answer is sent as the next human message through the `run` path.
-- [ ] T084 [US5] Run T075 to T077 until green, the settle mutation test included.
-- [ ] T085 [US5] Mutation check, recorded under R17: each of these must make a test fail: a caller-addressed
+- [X] T084 [US5] Run T075 to T077 until green, the settle mutation test included.
+- [X] T085 [US5] Mutation check, recorded under R17: each of these must make a test fail: a caller-addressed
   approval asked as an approval; the fallback's string cut removed; sequential interrupts both asked at
   once; the JSON hold removed; `input_required` read from a value of an earlier turn; the answer sent as a
   resume; the settle's `as_node` set; the withdrawn message's `status` not `error`; a finished tool
   message dropped by the settle.
-- [ ] T086 [US5] Verify, then commit `feat(006): other pauses, input_required and a new message on a pause`.
+- [X] T086 [US5] Verify, then commit `feat(006): other pauses, input_required and a new message on a pause`.
 
 **Checkpoint**: SC-006 and SC-009 hold; US5's scenarios 1 to 6 pass.
 
@@ -1208,3 +1208,38 @@ criterion is checked on the three Pythons.
   run is at the end of phase 10.
 - **Not planned and not done**: the model's name is the last non-empty `model_name` of the turn, so a turn
   that changes model reports the last one; a message with only a `model_provider` has none.
+
+### Phase 8 (2026-11-22)
+
+- **T075 to T077**: 85 tests in three files (pauses 29, structured 39, settle 17). The plan's
+  `still_pending(state, request_id)` of T079 is `pending_question(state)` in `_structured.py`; `resume`
+  compares the id it returns.
+- **The JSON hold is on for every `create_agent` graph, not only those built with a `response_format`**
+  (T082, R12): `"structured_response" in graph.channels` is true for all of them. The hold is therefore
+  cheap and bounded: a message that starts with `{` waits only for its own node update, and is released as
+  ordinary text when that update does not ask. Research R12 has a dated correction.
+- **T080, the settle writes the finished tool messages again**: `state.values` shows the message of an
+  ungated `per_call` call that already ran, but `aupdate_state` forks from the saved checkpoint, which does
+  not hold it yet. Filtering the finished messages by "already answered" lost it and the strict model
+  refused the history. The settle writes them again (a message with the same id replaces, so nothing is
+  doubled) and withdraws only the calls with no message anywhere.
+- **T081, one addition to the contract**: a fallback string longer than 200 characters has the whole text
+  (cut at 2000) as its description, as an `input_required` message does; the plan only said the title is cut.
+- **A tool body with sequential `interrupt()` calls starts again from its top** at each resume, and the
+  earlier calls replay their answers. A test must record what each call returned by its index, not append.
+- **The settle writes nothing, and `run` still drops the thread's batch record**, when the pending
+  approval's calls are not in the wrapped graph's own messages (an agent that is a node of another graph).
+- **Seen on the A2A door, not changed**: an `input_required` answer starts a new turn, and the door then
+  appends to the `reply` artifact it closed with `last_chunk`. Door behaviour, noted for phase 10.
+- **`UsageEvent` comes before the `input_required` ask**, so the answer's turn counts its own usage (D7's
+  limit); pinned by a test.
+- **A redundant guard removed**: `resume` asked `pending_question` only for a graph with a
+  `structured_response`; the function already returns nothing for one without it. The mutant of that guard
+  was equivalent, so the guard went.
+- **T085 mutation check** (R17, "Mutation check of other pauses, input_required and the settle"): of 43
+  mutants 30 died on the first run. Of the 13 survivors two are killed by older tests (phases 3 and 5), ten
+  were holes in the new tests, and one was equivalent (the guard above, so it was removed and its mutant
+  with it). All 42 died after the tests were filled. One of the ten was a badly chosen mutant: an `as_node`
+  of `"tools"` is what LangGraph infers for a `per_call` pause, so only another node differs.
+- **T086**: 2421 tests pass on Python 3.13 (2336 before); `ruff --select F` is clean. The three-version
+  run is at the end of phase 10.

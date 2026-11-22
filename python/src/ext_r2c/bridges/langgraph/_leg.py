@@ -27,9 +27,10 @@ from ._blocks import files_of
 from ._handler import Handler, Hidden, ToolEnded, ToolStarted
 from ._reasoning import Reasoning, thoughts
 from ._reply import Reply
+from ._structured import asked_at_end, wanted
 from ._usage import turn_of, usage_of
 
-__all__ = ["run_leg", "seeded_reply"]
+__all__ = ["run_leg", "seeded_reply", "sent_before"]
 
 _END = object()
 _DETAIL = 2000  # a tool's result or failure message is cut to this many characters (research R4)
@@ -47,13 +48,13 @@ def _messages(values: Any) -> list[Any]:
     return list(found) if isinstance(found, (list, tuple)) else []
 
 
-def seeded_reply(messages: Sequence[Any]) -> Reply:
+def seeded_reply(messages: Sequence[Any], *, structured: bool = False) -> Reply:
     """The reply of a leg that goes on after a pause: it knows which message spoke last, so the
     next message gets its blank line, and the closing chunk can tell the turn had reply text."""
     for message in reversed(turn_of(messages)):
         if isinstance(message, AIMessage) and message.text:
-            return Reply(previous=message.id)
-    return Reply()
+            return Reply(previous=message.id, structured=structured)
+    return Reply(structured=structured)
 
 
 def sent_before(messages: Sequence[Any]) -> list[str]:
@@ -93,6 +94,7 @@ class _Timeline:
         self._expose = frozenset(expose)
         self._running: dict[str, _Running] = {}
         self._sent = set(known)  # the messages whose files already left, so a message seen twice sends them once
+        self._structured: Any = None  # the structured reply this leg's own updates carried (FR-022)
 
     # -- what the handler saw ---------------------------------------------------------------------
 
@@ -139,10 +141,17 @@ class _Timeline:
                 out += self._stop(message.id)
             return out + self.reply.feed(text, message.id)
         if part.get("type") == "updates" and isinstance(data, dict):
-            done = [m for update in data.values() for m in _ai_messages(update)]
+            done: list[AIMessage] = []
             out = []
-            for message in done:  # the message is complete: its thoughts are over
-                out += self._stop(message.id)
+            for update in data.values():
+                structured = update.get("structured_response") if isinstance(update, dict) else None
+                if structured is not None:
+                    self._structured = structured
+                for message in _ai_messages(update):  # the message is complete: its thoughts are over
+                    done.append(message)
+                    out += self._stop(message.id)
+                    # ... and what was kept apart as a possible structured reply is now known to be one or not
+                    out += self.reply.resolve(message.id, wanted(structured) is not None)
             if any(m.tool_calls for m in done):
                 # The model asked for tools: the reply may or may not go on, so what is ready leaves now.
                 out += self.reply.flush()
@@ -176,13 +185,19 @@ class _Timeline:
 
     def settle(self) -> list[RunEvent]:
         """What is ready leaves before an ask or before the end of the turn: the thoughts still in the
-        buffer, then the reply's held piece (the end of the turn closes the reply itself)."""
-        if self._thoughts is None:
-            return []
-        return [self._thought(message_id, text) for message_id, text in self._thoughts.drain()]
+        buffer, then the text that was kept apart and never resolved (the end of the turn closes the
+        reply itself)."""
+        out: list[RunEvent] = []
+        if self._thoughts is not None:
+            out += [self._thought(message_id, text) for message_id, text in self._thoughts.drain()]
+        return out + list(self.reply.release_all())
 
     def pause(self) -> list[RunEvent]:
         return self.settle() + list(self.reply.flush())
+
+    def question(self, messages: Sequence[Any]) -> Question | None:
+        """The question a turn that ends here asks of the caller, when its structured reply asks for input."""
+        return asked_at_end(messages, self._structured)
 
     def fail(self) -> list[RunEvent]:
         """The graph raised: what is ready leaves, and each tool still in its body ends `failed` (no
@@ -244,9 +259,7 @@ async def run_leg(
             yield Ask(pick(state))
             return
         messages = _messages(state.values)
-        had_text = any(
-            isinstance(m, AIMessage) and m.text and not reply.hidden(m.id) for m in turn_of(messages)
-        )
+        had_text = any(isinstance(m, AIMessage) and reply.spoke(m) for m in turn_of(messages))
         for event in timeline.settle():
             yield event
         for closing in reply.end_turn(had_text):
@@ -254,6 +267,9 @@ async def run_leg(
         usage = usage_of(messages)
         if usage is not None:
             yield UsageEvent(usage)
+        question = timeline.question(messages)
+        if question is not None:  # the turn ended asking the caller: its answer is the next message (FR-022)
+            yield Ask(question)
     finally:
         producer.cancel()
         await asyncio.gather(producer, return_exceptions=True)

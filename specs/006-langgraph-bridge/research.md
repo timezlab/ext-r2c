@@ -456,6 +456,15 @@ file layout (R18). Five points were not in the approved spec and are listed in
     `completed` structured reply would be an option, not a silent behaviour.
 - **Alternatives**: an owner-supplied predicate (D10: later, not now); detecting `input_required`
   from the last AI message's text: fails for `ToolStrategy` (no text).
+- **Correction, 2026-11-22 (phase 8), what "a graph that has a `structured_response` channel" means.**
+  Every graph `create_agent` builds has that channel, with or without a `response_format`, so the hold
+  above applies to all of them, not only to the ones built with a format. The cost is small and bounded: a
+  message that starts with `{` is kept apart only until its own node update (which comes when that node
+  ends), and is then released as ordinary reply text when the update does not ask. A graph built by hand
+  with no such channel streams as before (`test_a_json_reply_is_only_held_when_the_graph_has_a_structured_response`).
+  Also seen while testing: `create_agent` clears the channel when the next turn starts, so a stale reply
+  reaches `resume` only from a graph that keeps its own `structured_response` from turn to turn; the
+  state's pending-interrupt and human-message checks are for those graphs.
 
 ## R13. A lost pause ends `lost`: one additive core exception (D2, FR-023)
 
@@ -706,6 +715,55 @@ file layout (R18). Five points were not in the approved spec and are listed in
   a file with no media type given `text/plain`; a name read from `filename` only; a message seen again
   sending its files again; the files of a hidden call sent; files read from chunks too; and an earlier
   leg's messages not known to the resumed leg.
+
+### Mutation check of other pauses, input_required and the settle (phase 8, 2026-11-22)
+
+- **How**: as above; the files run are `test_langgraph_pauses.py`, `test_langgraph_structured.py` and
+  `test_langgraph_settle.py` (72 tests when the check was first run, 85 after), baseline green first. A
+  mutant that survives is then run against every `test_langgraph_*.py` file, to tell a hole from a
+  mutant an older phase already kills.
+- **Result: 42 of 42 mutants died** (43 at the start). 30 died on the first run, and the 13 that did not were:
+  - **two killed by older tests**: tool approvals not in the model's order (M51: `test_tool_approvals_come_in_the_models_order`,
+    phase 5) and prose held until its node update (M70: the reply's chunk tests, phase 3);
+  - **ten holes in the new tests**, each filled and killed afterwards:
+    - the description of a *string* was never checked past 2000 characters (the test only cut a large JSON
+      value): a string of 2500 characters, in both the fallback and the `input_required` tests;
+    - an `Enum` status read by its value: the test's `Kind` was a `str` Enum, whose members equal the text
+      anyway; it is a plain `Enum` now;
+    - the human-message check of a pending question: the "conversation moved on" test ran a whole new
+      turn, which overwrites the reply; a message put on the thread with no turn does what the check is for;
+    - the pending-interrupt check of a pending question: it needs a graph that keeps its `structured_response`
+      from turn to turn (R12's correction), stopped at an interrupt, and an answer to the id the new last
+      message would give;
+    - held text whose node update never came is released at the end of the leg: a graph node that streams a
+      model's text and returns none of it, and a unit test of `Reply.release_all`;
+    - blanks before a `{` do not decide what a message is: a unit test of `Reply` (the scripted model does
+      not split its text at a blank);
+    - the JSON hold after a pause: the leg that goes on after an answered interrupt, ending `input_required`;
+    - **a hand-written interrupt must not be settled**: the first test accepted `Done`, `Error` or `Ask`
+      as the end of the run, and a settle that did write ended in an `Error` (a `KeyError` in the graph's
+      routing), so it passed. It now asks for `Done` and for the exact messages the run added;
+    - an empty write when the calls are not in the graph's own messages: a unit test of `settle` with a
+      recording stand-in for the graph;
+    - the settle's `as_node`: the first mutant used `"tools"`, which is the node LangGraph infers for a
+      `per_call` pause, so it changed nothing; with `"model"` the thread's `next` is the middleware's step
+      instead of the model's, and a test now reads it (`per_call` only: in `batched` the waiting step is
+      the middleware's own and any `as_node` of the agent gives the same).
+  - **one equivalent mutant, so the code went**: `resume` asked for a pending question only when the graph
+    had a `structured_response`; `pending_question` already returns nothing without one.
+- **What the 42 cover**: a caller-addressed approval asked as an approval; the fallback title not cut, an
+  empty title kept, a title that is the whole text repeated as the description; a value that is not text shown
+  uncut or with no description; the resume value (the text for the fallback, the mapping for a valid request,
+  `None` when declined); requests the graph wrote ordered before the tool approvals, in reverse, or the last
+  one asked first; an `Enum` or dataclass reply unread; a blank message a question; the title the whole text
+  and not its first line; the question's id not the last AI message's; a question read from the state and
+  not from the leg's updates; the answer sent as a resume; a declined question that still calls the graph;
+  a conversation that moved on, or a pending interrupt, that does not drop the question; the JSON never
+  held, held in every graph, released when it asks, dropped when it does not, dropped when its update never
+  came, held after blanks or not, and not held after a pause; a dropped message that still counts as having
+  spoken; the settle with another `as_node`, a withdrawn message that is a success, a finished call's
+  message dropped, a call that has its answer withdrawn again, a hand-written interrupt settled, no settle
+  at all, the batch record kept, an empty reason and an empty write.
 
 ## R18. Layout, imports and packaging
 

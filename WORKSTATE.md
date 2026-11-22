@@ -206,13 +206,22 @@ Last updated 2026-11-22. Read this first in a new session.
     is "set" and goes out as `null` (the first cut of `usage_of` had it). Research R4 was wrong about a node
     that calls a tool without its config (the callbacks do reach it) and is corrected by a dated note.
     79 new tests, 2336 in all; 39 of 39 mutants died (two test holes found and filled).
+    **Phase 8 (T075–T086) is done** (2026-11-22): the other pauses. A hand-written `interrupt()` with a valid
+    R2C question or approval is asked as it is; any other value, and an approval addressed to the caller
+    (never asked as an approval), is a question for a person with one text field; several interrupts are asked
+    one at a time, tool approvals first. A turn that ends `input_required` is a question for the caller, and its
+    answer is the next human message of the thread, not a resume (the structured JSON is kept off the reply). A
+    new message on a pending approval first answers its calls (`aupdate_state`, no `as_node`): what ran is
+    kept, the rest is withdrawn as an error, so a strict model never sees a call with no answer. 85 new tests,
+    2421 in all; 42 of 42 mutants died (ten test holes found and filled, one equivalent guard removed).
+    Finding: every `create_agent` graph has a `structured_response` channel, so the JSON hold applies to all of them.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
     (spec 006), `3b26285` (its plan) and the tasks commit after it.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 under way, phase 7 of 10 done; 007 onward proposed)
+## Spec sequence (001–005 built; 006 under way, phase 8 of 10 done; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -243,7 +252,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–7 done) —
+6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–8 done) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply
