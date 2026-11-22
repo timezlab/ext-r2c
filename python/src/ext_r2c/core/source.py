@@ -21,7 +21,9 @@ from typing import Any, Literal, NoReturn, Protocol
 from .events import AnswerEvent, Ask, Content, Done, Error, RunEvent
 from .models import Answer, AnsweredBy, Approval, Question
 
-__all__ = ["AgentSource", "CardInfo", "CardSkill", "Driver", "Run", "RunContext", "RunInput", "thread_id"]
+__all__ = [
+    "AgentSource", "CardInfo", "CardSkill", "Driver", "PauseLost", "Run", "RunContext", "RunInput", "thread_id",
+]
 
 _CANCEL_GRACE = 5.0  # seconds a live source has to see its declined answer after a cancel
 _END = object()
@@ -93,7 +95,9 @@ class AgentSource(Protocol):
     driver emits those. The run ends with ``Error("protocol")`` when a source yields one of
     them, asks while an ask is unanswered, yields ``Ask`` from a live source, yields anything
     after its ``Ask`` (checkpoint), or calls ``ctx.ask`` from a checkpoint source. An exception
-    raised by the source ends the run with ``Error("failed")``, its message as the reason.
+    raised by the source ends the run with ``Error("failed")``, its message as the reason, except
+    ``PauseLost``: a checkpoint source raises it in ``resume`` when it holds no stopping point for
+    the answer, and the run ends ``Error("lost")``.
 
     The answer's ``value`` is ``{field key: value}`` for a question and ``{"decision": ...,
     "reason"?: ..., "args"?: ...}`` for an approval; a declined answer has none.
@@ -105,6 +109,12 @@ class AgentSource(Protocol):
     def run(self, input: RunInput, ctx: RunContext) -> AsyncIterator[RunEvent]: ...
 
     def resume(self, answer: Answer, ctx: RunContext) -> AsyncIterator[RunEvent]: ...  # checkpoint only
+
+
+class PauseLost(Exception):
+    """A checkpoint source raises it in ``resume`` when it holds no stopping point for the answer:
+    the pause was lost. The driver ends the run ``Error("lost", <message>)``; the doors show it as
+    they show ``lost`` from a live source. The message is the reason the caller reads."""
 
 
 class _Broken(Exception):
@@ -203,6 +213,9 @@ class Run:
                     break
                 self._accept(event)
         except _Broken:
+            return
+        except PauseLost as exc:  # the source holds no stopping point for the answer
+            self._finish(Error("lost", str(exc) or "The paused run was lost; ask again."))
             return
         except Exception as exc:  # the source failed: the run ends, the door reads why
             self._finish(Error("failed", str(exc) or type(exc).__name__))

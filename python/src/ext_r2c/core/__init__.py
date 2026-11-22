@@ -46,7 +46,7 @@ from .models import (
     parse,
     to_json,
 )
-from .source import AgentSource, CardInfo, CardSkill, Driver, Run, RunContext, RunInput, thread_id
+from .source import AgentSource, CardInfo, CardSkill, Driver, PauseLost, Run, RunContext, RunInput, thread_id
 from .tools import InvalidArguments, ToolSpec, tool_from_function
 
 __all__ = [
@@ -79,6 +79,7 @@ __all__ = [
     "NotAskableOverMcp",
     "Option",
     "Origin",
+    "PauseLost",
     "Problem",
     "Question",
     "R2CObject",

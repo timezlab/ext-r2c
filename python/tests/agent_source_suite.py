@@ -98,33 +98,56 @@ async def _answered(make_source: MakeSource, input: RunInput, answer: Answer) ->
     return events
 
 
-def _replies(events: list[RunEvent]) -> list[str]:
-    return [e.text for e in events if isinstance(e, ReplyChunk)]
+def shape(events: list[RunEvent]) -> list[str]:
+    """The structure of a run: `activity` dropped (a streaming source runs its tools where its
+    graph does), consecutive `reply` events merged into one (a streaming source sends many
+    chunks). The order of `ask`, `answer`, `usage` and the terminal event stays exact."""
+    out: list[str] = []
+    for event in events:
+        label = name(event)
+        if label == "activity" or (label == "reply" and out and out[-1] == "reply"):
+            continue
+        out.append(label)
+    return out
 
 
-FULL = ["activity", "ask", "answer", "reply", "activity", "usage", "done"]
+def reply_text(events: list[RunEvent]) -> str:
+    """The reply chunks joined, in order."""
+    return "".join(e.text for e in events if isinstance(e, ReplyChunk))
+
+
+def check_last(events: list[RunEvent]) -> None:
+    """The reply ends with a chunk marked `last`, and no earlier chunk is (FR-008)."""
+    flags = [e.last for e in events if isinstance(e, ReplyChunk)]
+    assert flags and flags[-1] and not any(flags[:-1]), flags
+
+
+SHAPE = ["ask", "answer", "reply", "usage", "done"]
 
 
 def scenario_question_answered(make_source: MakeSource) -> None:  # S1
     events = _run(_answered(make_source, ASK_QUESTION, TITLE))
-    assert [name(e) for e in events] == FULL
-    assert _replies(events) == ["Got: October stock"]
-    answer = events[2]
-    assert isinstance(answer, AnswerEvent) and answer.answer == TITLE
+    assert shape(events) == SHAPE
+    assert reply_text(events) == "Got: October stock"
+    check_last(events)
+    answers = [e for e in events if isinstance(e, AnswerEvent)]
+    assert len(answers) == 1 and answers[0].answer == TITLE
 
 
 def scenario_approval_allowed(make_source: MakeSource) -> None:  # S2
     events = _run(_answered(make_source, ASK_APPROVAL, ALLOW))
-    assert [name(e) for e in events] == FULL
-    assert _replies(events) == ["Done"]
+    assert shape(events) == SHAPE
+    assert reply_text(events) == "Done"
+    check_last(events)
 
 
 def scenario_approval_denied_with_reason(make_source: MakeSource) -> None:  # S3
     async def go() -> None:
         source = make_source()
         events = await _answered(lambda: source, ASK_APPROVAL, DENY)
-        assert [name(e) for e in events] == FULL
-        assert _replies(events) == ["Not done: Not before Monday."]
+        assert shape(events) == SHAPE
+        assert reply_text(events) == "Not done: Not before Monday."
+        check_last(events)
         assert source.answers == [DENY]  # type: ignore[attr-defined]
 
     _run(go())
@@ -132,8 +155,9 @@ def scenario_approval_denied_with_reason(make_source: MakeSource) -> None:  # S3
 
 def scenario_declined(make_source: MakeSource) -> None:  # S4
     events = _run(_answered(make_source, ASK_QUESTION, DECLINED))
-    assert [name(e) for e in events] == FULL
-    assert _replies(events) == ["Declined"]
+    assert shape(events) == SHAPE
+    assert reply_text(events) == "Declined"
+    check_last(events)
 
 
 def scenario_cancelled_while_paused(make_source: MakeSource) -> None:  # S5
@@ -144,7 +168,7 @@ def scenario_cancelled_while_paused(make_source: MakeSource) -> None:  # S5
         await run.cancel()
         events += await rest(run)
         check_sequence(events)
-        assert [name(e) for e in events] == ["activity", "ask", "error:cancelled"]
+        assert shape(events) == ["ask", "error:cancelled"]
         seen = source.answers  # type: ignore[attr-defined]
         if source.pause == "checkpoint":
             assert seen == []  # never resumed
@@ -167,7 +191,8 @@ def scenario_delivered_with_nothing_pending(make_source: MakeSource) -> None:  #
             await run.deliver(TITLE)  # already answered
         events += await rest(run)
         check_sequence(events)
-        assert [name(e) for e in events] == FULL
+        assert shape(events) == SHAPE
+        check_last(events)
         with pytest.raises(ValueError):
             await run.deliver(TITLE)  # ended
 
@@ -184,10 +209,11 @@ def scenario_restart(make_source: MakeSource) -> None:  # S7
         events = await rest(Driver(later).resume(THREAD, request, TITLE))
         check_sequence(events)
         if later.pause == "checkpoint":
-            assert [name(e) for e in events] == ["answer", "reply", "activity", "usage", "done"]
-            assert _replies(events) == ["Got: October stock"]
+            assert shape(events) == ["answer", "reply", "usage", "done"]
+            assert reply_text(events) == "Got: October stock"
+            check_last(events)
         else:
-            assert [name(e) for e in events] == ["error:lost"]
+            assert shape(events) == ["error:lost"]
             error = events[0]
             assert isinstance(error, Error) and "lost" in error.reason
         await first.cancel()
@@ -202,7 +228,7 @@ def scenario_raises_after_the_ask(make_source: MakeSource) -> None:  # S8
         await run.deliver(TITLE)
         events += await rest(run)
         check_sequence(events)
-        assert [name(e) for e in events] == ["activity", "ask", "answer", "error:failed"]
+        assert shape(events) == ["ask", "answer", "error:failed"]
         error = events[-1]
         assert isinstance(error, Error) and error.reason
 
@@ -214,7 +240,7 @@ def scenario_second_ask_before_the_answer(make_source: MakeSource) -> None:  # S
         run = Driver(make_source(double_ask=True)).start(THREAD, ASK_QUESTION)
         events = await rest(run)
         check_sequence(events)
-        assert [name(e) for e in events] == ["activity", "ask", "error:protocol"]
+        assert shape(events) == ["ask", "error:protocol"]
         assert run.pending is None
 
     _run(go())

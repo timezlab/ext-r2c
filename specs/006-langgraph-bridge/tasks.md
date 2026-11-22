@@ -289,7 +289,7 @@ is a passing test.
 
 **Independent test**: `test_core_pause_lost.py`, `test_agent_source.py`, `core_only.py`.
 
-- [ ] T013 [P] Write `python/tests/test_core_pause_lost.py` (no `langgraph` import; contract
+- [X] T013 [P] Write `python/tests/test_core_pause_lost.py` (no `langgraph` import; contract
   `langgraph-api.md`, "The core's one addition"):
   - a checkpoint source whose `resume` raises `PauseLost("The pause for q-1 was lost; ask again.")` ends
     the run with `AnswerEvent` then `Error("lost", <that message>)`, nothing after, the thread free
@@ -298,7 +298,7 @@ is a passing test.
   - a source that raises a plain `RuntimeError` still ends `Error("failed", ...)` (unchanged);
   - `PauseLost` is an `Exception`, is exported from `ext_r2c.core`, and is in `ext_r2c.core.__all__`;
   - a live source that raises it also ends `lost` (the driver does not look at the style).
-- [ ] T014 [P] Change `python/tests/agent_source_suite.py` per `contracts/suite-changes.md` (a), tests
+- [X] T014 [P] Change `python/tests/agent_source_suite.py` per `contracts/suite-changes.md` (a), tests
   first (the suite is the test):
   - add `shape(events)`: drop `activity`, merge consecutive `reply` into one `reply`, keep the other
     names; `SHAPE = ["ask", "answer", "reply", "usage", "done"]` replaces `FULL`; `reply_text(events)`
@@ -312,18 +312,18 @@ is a passing test.
     only this test can show a streaming shape before phase 3): `shape` drops `activity`, merges
     **consecutive** `reply` events into one, keeps a `reply`, `ask`, `reply` run as two replies and keeps
     `usage`; `reply_text` joins the chunks in order.
-- [ ] T015 Build, install, and run T013 and `tests/test_agent_source.py`. Confirm the expected failures:
+- [X] T015 Build, install, and run T013 and `tests/test_agent_source.py`. Confirm the expected failures:
   `ImportError: cannot import name 'PauseLost'`, and for both fakes the new `last` check (each fake's
   one reply chunk has `last=False`). The structural parts of the suite and the unit test of `shape` pass
   at once: T019 proves the unit test is not vacuous.
-- [ ] T016 Change `python/tests/fake_sources.py`: `_after` builds `ReplyChunk(_reply(request, answer),
+- [X] T016 Change `python/tests/fake_sources.py`: `_after` builds `ReplyChunk(_reply(request, answer),
   last=True)`. Nothing else changes: the fakes still emit their activity, which their own tests check.
-- [ ] T017 Add `PauseLost` to the core: in `python/src/ext_r2c/core/source.py` the class (docstring from
+- [X] T017 Add `PauseLost` to the core: in `python/src/ext_r2c/core/source.py` the class (docstring from
   the contract) and, in `Driver._pump`, an `except PauseLost as exc:` branch **before** `except
   Exception`, calling `self._finish(Error("lost", str(exc) or "The paused run was lost; ask again."))`
   and returning; export it from `python/src/ext_r2c/core/__init__.py` (import and `__all__`).
-- [ ] T018 Run T013 and `test_agent_source.py` until green; run `core_only.py` in the core-only venv.
-- [ ] T019 Mutation check of the suite (scratch run, nothing committed), recording **"N of N mutants
+- [X] T018 Run T013 and `test_agent_source.py` until green; run `core_only.py` in the core-only venv.
+- [X] T019 Mutation check of the suite (scratch run, nothing committed), recording **"N of N mutants
   died"** under a new "Mutation check of the suite" heading in `research.md` R17: each mutant is a
   one-line change to a scratch copy of a fake, of the suite or of the driver, and the changed suite must
   fail it. The 12 that apply now (the 13th, "the wrapper never yields the second ask", needs the wrapper
@@ -334,7 +334,7 @@ is a passing test.
   swallows its exception after the ask (S8); the shape check merges non-consecutive replies (the
   unit test of `shape`); the shape check drops `usage` (S1 and the unit test). A survivor is either fixed or named as
   equivalent, with the reason.
-- [ ] T020 Verify, then commit `feat(006): PauseLost in the core and a structural shape for the suite`.
+- [X] T020 Verify, then commit `feat(006): PauseLost in the core and a structural shape for the suite`.
 
 **Checkpoint**: the core ends a lost pause `lost`; the fakes pass the changed suite; every mutant of the
 suite died.
@@ -1043,3 +1043,23 @@ criterion is checked on the three Pythons.
   changed nothing, because the wheel writes `langgraph<2,>=1.2.14`; the script now refuses a no-op.)
 - **T012**: 2071 tests pass on Python 3.11.14, 3.12.3 and 3.13.16; `core_only.py`, `a2a_only.py` and
   `mcp_only.py` print ok; `ruff --select F` is clean.
+
+### Phase 2 (2026-11-22)
+
+- **T013**: six tests, not five bullets: the contract's bullets plus a `Driver.resume` path (the restart
+  case: the driver holds no run and the source holds no stopping point; the run ends `answer`, `lost`).
+- **T014**: `check_last` is a named helper of the suite (not an inline assert), so the unit test can
+  show it refuses a reply with no `last`, with one too early, with a last chunk that is not `last`, and with
+  no reply at all. S1 reads its one `AnswerEvent` by type rather than by index (`events[2]`), because the
+  shape no longer fixes the position of the activity events.
+- **T015**: the run failed as planned: `ImportError: cannot import name 'PauseLost'`, and 11 `last`
+  failures on the fakes (S1 to S4 and S6 on both, S7 on the checkpoint fake: the live fake sends no reply
+  after a restart). The first run of the `shape` unit test failed for a reason of its own, a `tool`
+  activity built in the test without the `name` the schema requires; fixed in the test, not in `shape`.
+- **T017**: the `AgentSource` docstring in `core/source.py` also names `PauseLost` beside the
+  `Error("failed")` rule, so a source author finds it where the rules are.
+- **T019**: 12 of 12 mutants of the suite died, and 3 of 3 extra mutants of the core piece (R17, "Mutation
+  check of the suite"). No survivor.
+- **T018 and T020**: 2079 tests pass on Python 3.13 (2071 plus 6 for `PauseLost` and 2 for `shape` and
+  `check_last`); `core_only.py`, `a2a_only.py` and `mcp_only.py` print ok; `ruff --select F` is clean.
+  The three-version run is at the end of phases 1, 3 and 10, as planned.

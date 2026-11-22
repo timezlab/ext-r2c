@@ -171,13 +171,17 @@ Last updated 2026-11-22. Read this first in a new session.
     Python 3.11, 3.12 and 3.13 (2071 tests in all). Findings that shaped it: a `batched` resume with a wrong decision leaves
     the thread unable to continue (so the bridge validates first); the `tasks` stream cannot tell a
     running tool from a paused one (so a callback handler does); `nostream` hides tokens only.
+    **Phase 2 (T013–T020) is done** (2026-11-22): `PauseLost` is in `ext_r2c.core` (a checkpoint source
+    raises it in `resume`; the driver ends the run `lost`), and the shared suite compares a structural
+    `shape` (no `activity`, consecutive replies merged) and checks that the last reply chunk is `last`;
+    both fakes pass it as changed (2079 tests); 12 of 12 mutants of the suite died.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
     (spec 006), `3b26285` (its plan) and the tasks commit after it.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 under way, phase 1 of 10 done; 007 onward proposed)
+## Spec sequence (001–005 built; 006 under way, phase 2 of 10 done; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -208,7 +212,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phase 1 done) —
+6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–2 done) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply

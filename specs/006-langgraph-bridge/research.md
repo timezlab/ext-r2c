@@ -570,6 +570,37 @@ file layout (R18). Five points were not in the approved spec and are listed in
 - **Alternatives**: a real model: no network or keys in tests. Skip S9 for the bridge: a skipped
   scenario is a hole (D3).
 
+### Mutation check of the suite (phase 2, 2026-11-22)
+
+- **How**: a scratch script (not committed) copies `tests/` to a scratch folder per mutant, changes
+  one thing in a fake or in the suite there (or in the installed driver, restored after), and runs
+  `test_agent_source.py` and `test_core_pause_lost.py`. It refuses a mutation that changes nothing and
+  checks that the baseline is green first (31 passed).
+- **Result: 12 of 12 mutants died** (the 13th, "the wrapper never yields the second ask", needs the
+  wrapper and runs in T035):
+
+  | Mutant | Died by |
+  |---|---|
+  | the source drops its reply | S1–S4, S6, S7 (checkpoint): 11 failures |
+  | the reply comes before the answer | S1–S4, S6: 10 failures (S7 starts at the answer) |
+  | `usage` is missing | 11 failures |
+  | `usage` comes before the reply | 11 failures |
+  | a second `usage` at the pause | 10 failures |
+  | the source yields `Done` itself | 11 failures (the driver ends `protocol`, the shape no longer matches) |
+  | the last reply chunk has `last=False` | 11 failures, all from the new `check_last` |
+  | the driver calls `resume` on a cancelled run | S5 (checkpoint) and S7, whose last line cancels the first run |
+  | the source never records the answer it got | S3 (checkpoint) |
+  | the source swallows its exception after the ask | S8 (checkpoint) |
+  | the shape check merges non-consecutive replies | the unit test of `shape` only (no fake sends two replies) |
+  | the shape check drops `usage` | S1–S4, S6, S7 and the unit test: 12 failures |
+
+- **Beside the 12**, three mutants of the new core piece also died: the `PauseLost` branch removed
+  (the run ends `failed`: 4 failures), the empty-message fallback removed (1), and the branch placed
+  after `except Exception` (the general branch wins: 4).
+- **Survivors**: none, so nothing to fix or to name as equivalent. One mutant a first draft got wrong,
+  found while writing the script and fixed before the run: "the source yields `Done`" must build a real
+  `Done` (a bare name would raise a `NameError` and kill the mutant for the wrong reason).
+
 ## R18. Layout, imports and packaging
 
 - **Decision**

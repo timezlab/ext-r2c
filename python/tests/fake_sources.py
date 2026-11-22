@@ -63,7 +63,7 @@ def _reply(request: Question | Approval, answer: Answer) -> str:
 
 
 def _after(request: Question | Approval, answer: Answer) -> list[RunEvent]:
-    return [ReplyChunk(_reply(request, answer)), _step("done"), UsageEvent(Usage(output_tokens=3))]
+    return [ReplyChunk(_reply(request, answer), last=True), _step("done"), UsageEvent(Usage(output_tokens=3))]
 
 
 class CheckpointFake:

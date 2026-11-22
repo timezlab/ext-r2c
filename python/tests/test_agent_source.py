@@ -10,18 +10,36 @@ from typing import Any
 
 import pytest
 
-from agent_source_suite import ASK_QUESTION, SCENARIOS, THREAD, TITLE, MakeSource, until_pause
+from agent_source_suite import (
+    ASK_QUESTION,
+    SCENARIOS,
+    THREAD,
+    TITLE,
+    MakeSource,
+    check_last,
+    reply_text,
+    shape,
+    until_pause,
+)
 from ext_r2c.core import (
+    Activity,
+    ActivityEvent,
+    Answer,
+    AnswerEvent,
+    Ask,
     BytesContent,
     Done,
     Driver,
     Error,
     ReplyChunk,
+    RunEvent,
     TextContent,
     UrlContent,
+    Usage,
+    UsageEvent,
     thread_id,
 )
-from fake_sources import CheckpointFake, LiveFake
+from fake_sources import QUESTION, CheckpointFake, LiveFake
 
 
 def _checkpoint() -> MakeSource:
@@ -40,6 +58,44 @@ FAKES: dict[str, Callable[[], MakeSource]] = {"checkpoint": _checkpoint, "live":
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=[s.__name__.removeprefix("scenario_") for s in SCENARIOS])
 def test_suite(scenario: Callable[[MakeSource], None], fake: str) -> None:
     scenario(FAKES[fake]())
+
+
+def _tool(state: str) -> ActivityEvent:
+    return ActivityEvent(Activity.parse({"kind": "activity", "id": "t-1", "type": "tool", "name": "search",
+                                         "label": "Search", "state": state}))
+
+
+def test_shape_and_reply_text_of_a_streamed_run() -> None:
+    # The fakes send one chunk, so only this test shows what a streaming source looks like to the suite.
+    answer = Answer.parse({"kind": "answer", "id": "q-1", "outcome": "declined", "answered_by": {"role": "person"}})
+    streamed: list[RunEvent] = [
+        _tool("running"), ReplyChunk("Got: "), _tool("done"), ReplyChunk("Oct"), ReplyChunk("ober", last=True),
+        UsageEvent(Usage(output_tokens=3)), Done(),
+    ]
+    # activity goes, the three chunks (two of them apart in the stream) become one reply
+    assert shape(streamed) == ["reply", "usage", "done"]
+    assert reply_text(streamed) == "Got: October"
+    check_last(streamed)
+    # a reply, an ask, a reply stay two replies: only consecutive ones merge
+    paused: list[RunEvent] = [
+        ReplyChunk("One"), Ask(QUESTION), AnswerEvent(answer), ReplyChunk("Two", last=True), Done(),
+    ]
+    assert shape(paused) == ["reply", "ask", "answer", "reply", "done"]
+    assert reply_text(paused) == "OneTwo"
+    # usage is kept, an error carries its code
+    assert shape([UsageEvent(Usage(output_tokens=1)), Error("failed", "It broke.")]) == ["usage", "error:failed"]
+
+
+def test_check_last_refuses_a_reply_that_does_not_end_on_last() -> None:
+    with pytest.raises(AssertionError):
+        check_last([ReplyChunk("a"), ReplyChunk("b"), Done()])  # none is last
+    with pytest.raises(AssertionError):
+        check_last([ReplyChunk("a", last=True), ReplyChunk("b", last=True), Done()])  # one too early
+    with pytest.raises(AssertionError):
+        check_last([ReplyChunk("a", last=True), ReplyChunk("b"), Done()])  # the last one is not
+    with pytest.raises(AssertionError):
+        check_last([Done()])  # no reply at all
+    check_last([ReplyChunk("a"), ReplyChunk("b", last=True), Done()])
 
 
 def test_thread_id() -> None:
