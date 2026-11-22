@@ -352,6 +352,12 @@ package. The extension is **Beta and may break**: R16 says what we do about that
     with the entry, in that order; failing either raises `SkillRefused` and returns nothing. For
     `SKILL.md`, the frontmatter is then read with the shared reader and compared with the
     entry's field by field (equal mappings; same keys, same values).
+  - **Never from the SDK's cache** (found in phase 4, SDK 2.3.0): `Client.read_resource` takes
+    `cache_mode="use" | "refresh" | "bypass"`, and with the default `CacheConfig()` it answers a
+    repeated read from memory whenever the server sent `ttlMs` (or `default_ttl_ms > 0`). The
+    SDK server's own default is `ttlMs: 0`, so a test against it never shows the problem. The client
+    reads with `cache_mode="bypass"`: every `read()` is a request, and what is verified is what the
+    server holds now.
   - Content comes back as `SkillContent(origin, uri, data)`: bytes tagged with where they came
     from, with `text()` decoding strictly. **Nothing is ever acted on**: `allowed-tools` and every
     other field are data in `frontmatter`.

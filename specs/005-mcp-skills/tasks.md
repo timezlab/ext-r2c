@@ -325,7 +325,7 @@ without reading ahead of need.
 **Independent test**: `test_skills_client.py`, against the fixture tree and against servers that
 lie.
 
-- [ ] T032 [P] [US2] Write `python/tests/test_skills_client.py`, part A (happy paths):
+- [x] T032 [P] [US2] Write `python/tests/test_skills_client.py`, part A (happy paths):
   - `declared` is true on a skills server and false on a server without the extension;
     `directory_read` reflects the declaration;
   - `list()` returns a `SkillListing` whose items carry `origin`, `uri`, `name`, `description`,
@@ -340,7 +340,7 @@ lie.
     have different keys; two servers with the same skill give different keys by origin; two
     `SkillsClient`s share nothing;
   - a frontmatter field such as `allowed-tools` is returned as data and nothing is done with it.
-- [ ] T033 [US2] In the same file, part B (refusals; **SC-002**). A test subclass
+- [x] T033 [US2] In the same file, part B (refusals; **SC-002**). A test subclass
   `Lying(SkillsExtension)` overrides `_entry` and `_read_bytes` (T028) so that a server says
   something false; each case asserts a `SkillRefused` with the URI (or `None`) and the named
   `check`, and that **no content is returned** (the exception is the only result):
@@ -361,27 +361,27 @@ lie.
     method raises `declaration` and the recorder shows **no `skills/*` request**;
   - one bad entry among good ones: `list()` returns the good items and a `Refused` for the bad,
     while `get()` of the bad one raises.
-- [ ] T034 [US2] Build, install, and run T032–T033. Confirm the expected failure: no `SkillsClient`.
-- [ ] T035 [US2] Create `python/src/ext_r2c/mcp/skills/client.py`, part 1: the types of
+- [x] T034 [US2] Build, install, and run T032–T033. Confirm the expected failure: no `SkillsClient`.
+- [x] T035 [US2] Create `python/src/ext_r2c/mcp/skills/client.py`, part 1: the types of
   `contracts/skills-api.md` (`SkillFileRef`, `SkillItem`, `Refused`, `SkillListing`,
   `SkillContent`, `LoadedSkill`, `DirectoryEntry`, `SkillRefused`), `SkillsClient.__init__`
   (non-empty `origin`), `declared`, `directory_read`, and the declaration check every method
   runs first.
-- [ ] T036 [US2] Same file, part 2: entry validation (R13): one function turns a raw JSON entry
+- [x] T036 [US2] Same file, part 2: entry validation (R13): one function turns a raw JSON entry
   into a `SkillItem` or raises `SkillRefused` with `entry`, `resources` or `limit`, covering every
   case of T033's entry list.
-- [ ] T037 [US2] Same file, part 3: `list()` (follows `nextCursor`, validates each entry on its
+- [x] T037 [US2] Same file, part 3: `list()` (follows `nextCursor`, validates each entry on its
   own) and `get(uri)`, through the typed requests of `_wire`.
-- [ ] T038 [US2] Same file, part 4: `read(item, uri)` and `load(item)`: refuse an unlisted URI
+- [x] T038 [US2] Same file, part 4: `read(item, uri)` and `load(item)`: refuse an unlisted URI
   without a request; check one content with the same URI; bound by `size` before decoding; then
   length, then SHA-256; for `SKILL.md`, the frontmatter by `_frontmatter` against the entry's,
   field by field. Nothing is cached or written.
-- [ ] T039 [US2] Export the client names from `ext_r2c/mcp/skills/__init__.py` and
+- [x] T039 [US2] Export the client names from `ext_r2c/mcp/skills/__init__.py` and
   `ext_r2c/mcp/__init__.py`.
-- [ ] T040 [US2] Run T032–T033 on the wheel until green. **Mutation check**: remove, one at a
+- [x] T040 [US2] Run T032–T033 on the wheel until green. **Mutation check**: remove, one at a
   time, the size check, the digest check, the frontmatter comparison, the unlisted check and the
   declaration check, and confirm a named test fails for each; restore them.
-- [ ] T041 [US2] Verify, then commit `feat(005): the skills client verifies what it loads`.
+- [x] T041 [US2] Verify, then commit `feat(005): the skills client verifies what it loads`.
 
 ---
 
@@ -786,3 +786,49 @@ Kept as a running list while the phases are built; T080 closes it.
   as `text/markdown`, and after the file is edited the next read is `-32603` with the "refresh them"
   message. The fixture's own nested skill is `skill://team/billing/refunds/SKILL.md`, not the
   quickstart's flat one. `refresh()` is phase 6.
+
+**Phase 4 (2026-11-22)**
+
+- **T034 failed as expected**: the file stopped at collection with `cannot import name
+  'DirectoryEntry' from 'ext_r2c.mcp.skills'`, the first of the new names.
+- **Two files, not one.** The client is `client.py`, and the two numbers the server (phase 6) and the
+  client both need, 512 files and 16 MiB, live in a new `_limits.py` (`MAX_FILES`, `MAX_BYTES`), so
+  neither side copies the other's constant. It is not in T035; it is two lines.
+- **The SDK's read cache would have served a stale file.** `Client.read_resource` takes
+  `cache_mode="use" | "refresh" | "bypass"`. With the default `CacheConfig()` it caches a read when the
+  server sends `ttlMs` (or `default_ttl_ms > 0`), and a server that sends one would make a second
+  `read()` return the first answer without a request, so the bytes verified would not be the bytes the
+  server now holds. The client reads with `cache_mode="bypass"`, and a test serves `ttl_ms=60_000` to
+  prove two reads are two requests. The SDK server's own default is `ttlMs: 0`, so a plain test would
+  never have shown the problem (`research.md` R13).
+- **A read answer with no `contents` cannot come from the SDK server**, which validates its own
+  results ("Handler returned an invalid result"). That case, and a `pydantic.ValidationError` from
+  the typed request, are tested through a stub client (`_Stub`, `_read_through_stub`), not through
+  `Lying`. A `ValidationError` becomes `SkillRefused("response")` with `from None`, so the file's
+  content is never echoed through pydantic's message.
+- **`get(uri)` checks that the answer is for the skill asked.** T038 did not say so; a server that
+  answers `skills/get` for another skill is refused with `response`, naming the URI requested.
+- **The frontmatter comparison is strict.** `True` is not `1`, `2 == 2.0`, lists are ordered, and
+  dictionaries must have the same keys both ways. That is the same grammar as the reader (R7), so a
+  value the reader would call a boolean cannot pass as a number on either side.
+- **The bound before decoding** is on the wire form: for `text`, `len(text) > size`; for a `blob`,
+  `len(blob) > 4 * ((size + 2) // 3)`, the base64 length of `size` bytes. Reasons are fixed text and
+  never echo file content.
+- **The `declaration` check uses what the SDK lets through.** `ServerCapabilities.extensions` is
+  `dict[str, dict]`, so a non-dict setting cannot reach the client and is not tested; the SDK always
+  declares `resources`, so "extension declared but no `resources`" is tested through the stub too.
+- **Deferred to phase 8:** the repeated-`nextCursor` guard (T064 and T069 already say so for
+  `list()` and `list_directory()`). Today `list()` follows `nextCursor` until it is `None`. **Not
+  refused:** two entries with the same URI in one listing; R13 does not list it, and they are two
+  `SkillItem`s with one key.
+- **The tests passed at once once the code existed, apart from four mistakes in the tests**
+  (an `edit()` helper whose parameter `uri` clashed with a field; two cases that raised inside the
+  harness's `connected()` and escaped as an `ExceptionGroup`; a "16 MiB exactly" case whose files
+  summed to more). Because they were written before the code and the first run was green, each was
+  proven by mutation, not by the green: 115 mutants over `client.py` and `_limits.py`, 114 killed; the
+  one survivor is the control with no change. Mutation found six gaps in the tests, all closed:
+  the reason fragments, the order of files, the nested `extra-key`, a text one byte short in
+  multi-byte characters, a blob one byte short, and the rounding of the blob bound; and one branch
+  of `_same` that nothing could reach (a numeric case after the `bool` case), which was removed.
+- **Numbers.** 136 tests in `test_skills_client.py`; the suite is 1454 passed; replay counts are
+  unchanged (A2A 31/29/3, MCP 14/13/1).

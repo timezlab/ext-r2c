@@ -109,9 +109,13 @@ Last updated 2026-11-22. Read this first in a new session.
   **Phase 3 (T023–T031, serve skills from folders) is done** (2026-11-22): `SkillsExtension` scans
   folders and serves `skills/list`, `skills/get` and every file as an ordinary resource, a real SDK
   client reads every byte back (SC-001); 61 new tests (1318 in all), 67 of 73 real mutants died and
-  the six that did not are equivalent (listed in the notes). The maintainer then asked for the whole spec in one run ("implement hết spec"), so phases 3–9 follow
-  without a stop between them; where each phase differed from its plan is kept in "Notes: where
-  reality differed" at the end of `specs/005-mcp-skills/tasks.md`. Nothing is pushed.
+  the six that did not are equivalent (listed in the notes). **Phase 4 (T032–T041, the client
+  verifies what it loads) is done** (2026-11-22): `SkillsClient` lists, gets and reads, refuses on
+  size, digest, frontmatter, an unlisted URI or an undeclared extension, and reads with the SDK's
+  cache bypassed; 136 new tests (1454 in all), 114 of 115 mutants died (the survivor is the
+  control). The maintainer then asked for the whole spec in one run ("implement hết spec"), so
+  phases 5–9 follow without a stop between them; where each phase differed from its plan is kept in
+  "Notes: where reality differed" at the end of `specs/005-mcp-skills/tasks.md`. Nothing is pushed.
 
 ## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)
 

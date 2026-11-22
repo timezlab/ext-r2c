@@ -26,7 +26,19 @@ from .client import (
 )
 from .extension import R2CExtension
 from .server import mcp_server
-from .skills import SkillInfo, SkillsExtension
+from .skills import (
+    DirectoryEntry,
+    LoadedSkill,
+    Refused,
+    SkillContent,
+    SkillFileRef,
+    SkillInfo,
+    SkillItem,
+    SkillListing,
+    SkillRefused,
+    SkillsClient,
+    SkillsExtension,
+)
 from .source_tool import SourceTool
 from .tools import Approve, ToolOutput
 
@@ -35,17 +47,26 @@ __all__ = [
     "AnswerRejected",
     "Approve",
     "ArtifactItem",
+    "DirectoryEntry",
     "Item",
     "Link",
+    "LoadedSkill",
     "MemoryLedger",
     "ProgressItem",
     "R2CClient",
     "R2CExtension",
+    "Refused",
     "ReplyItem",
     "RequestItem",
     "ResultItem",
     "RoundLedger",
+    "SkillContent",
+    "SkillFileRef",
     "SkillInfo",
+    "SkillItem",
+    "SkillListing",
+    "SkillRefused",
+    "SkillsClient",
     "SkillsExtension",
     "SourceTool",
     "TooLarge",

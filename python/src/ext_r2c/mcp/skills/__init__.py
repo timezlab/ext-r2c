@@ -12,6 +12,29 @@ Install with the ``[mcp]`` extra.
 from __future__ import annotations
 
 from ._catalogue import SkillInfo
+from .client import (
+    DirectoryEntry,
+    LoadedSkill,
+    Refused,
+    SkillContent,
+    SkillFileRef,
+    SkillItem,
+    SkillListing,
+    SkillRefused,
+    SkillsClient,
+)
 from .extension import SkillsExtension
 
-__all__ = ["SkillInfo", "SkillsExtension"]
+__all__ = [
+    "DirectoryEntry",
+    "LoadedSkill",
+    "Refused",
+    "SkillContent",
+    "SkillFileRef",
+    "SkillInfo",
+    "SkillItem",
+    "SkillListing",
+    "SkillRefused",
+    "SkillsClient",
+    "SkillsExtension",
+]
