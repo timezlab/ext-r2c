@@ -155,12 +155,19 @@ Last updated 2026-11-22. Read this first in a new session.
   entry no server could have served and no longer requires the `skill://` scheme; 146 new tests
   (2034 in all, green on 3.11, 3.12 and 3.13), 70 of 70 mutants of the fixes died.
 - **Waiting for the maintainer** (nothing is blocked on these):
-  - **Spec 006** (`006-langgraph-bridge`): being specified, see below.
+  - **Spec 006** (`006-langgraph-bridge`): `spec.md` is drafted (2026-11-22; the quality checklist
+    passes) and waits for the maintainer's approval, the gate before `plan.md`. Two of its
+    decisions touch spec 002 and are asked first: **D2** (one small additive core piece so a
+    checkpoint source can end a run `lost`) and **D3** (the shared suite becomes structural where
+    streaming differs, the real source is wrapped by a test-only recorder). Finding that shaped
+    it: a `batched` middleware resume with a wrong decision leaves the thread unable to continue,
+    so the bridge must never send one.
+  - **Push** the local commit `a6929a7` (the rename of the three generic names of spec 005).
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 onward proposed, awaiting approval)
+## Spec sequence (001–005 built; 006 specified, awaiting approval; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -191,11 +198,12 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** — `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain
-   tools → `ToolSpec`), passing the shared bridge conformance suite: graph → run events;
-   `HumanInTheLoopMiddleware` in `batched` and `per_call` modes, hand-written `interrupt()`,
-   the `status = "input_required"` turn end, reply tokens, tool activity, reasoning (opt-in),
-   usage, file content blocks → artifacts.
+6. **`006-langgraph-bridge`** (`spec.md` drafted 2026-11-22, awaiting approval) —
+   `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
+   bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
+   `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply
+   tokens, tool activity, reasoning (opt-in), usage, file content blocks → artifacts. Checked
+   against langchain 1.5.2 / langgraph 1.2.24 (the findings are in the spec's Context).
 7. **`007-remote`** — `Remote`, the only remote-side adapter, configured declaratively:
    `expose` = A2A, MCP or both; one ASGI app; `agent=` (an `AgentSource` or an a2a-sdk
    executor), `tools=`, `approve=`, `skills=` (folders, include / exclude), `resources=`,
