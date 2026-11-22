@@ -53,6 +53,30 @@ file layout (R18). Five points were not in the approved spec and are listed in
     the OSV vet and the lowest-direct check; there is no CI job for the lowest set.
   - The wheel's `test_extras` changes to match: the extra requires exactly those three names, each
     with a lower and an upper bound.
+- **Vet repeated on 2026-11-22 by T001** (OSV and the PyPI JSON API; the lowest-direct check in a
+  scratch venv on Python 3.12)
+  - **No `MAL-` advisory** for `langchain`, `langchain-core`, `langgraph`, `langgraph-checkpoint`,
+    `langgraph-prebuilt`, `langgraph-checkpoint-sqlite` or `aiosqlite`. No file is yanked at any version
+    looked at; every package ships a wheel and an sdist.
+  - **The floor of `langgraph` moves from 1.2.12 to 1.2.14.** `GHSA-3fx2-cqw9-xr3c` (moderate,
+    CWE-22, published 2026-10-28) covers `langgraph` 1.2.3 up to 1.2.14 (fixed in 1.2.14): the
+    `RemoteGraph` v3 streaming client builds request paths from an unencoded `thread_id`, with a
+    vulnerable `langgraph-sdk` (0.4.0 to 0.4.5). The bridge wraps a local compiled graph and never
+    uses `RemoteGraph`, so it is not exposed; the floor moves anyway, because it costs nothing:
+    `langgraph` 1.2.14 (uploaded 2026-10-06, 46 days old) requires `langgraph-sdk>=0.4.6`, and
+    `langchain` 1.4.6 accepts `langgraph>=1.2.12,<1.3.0`. The advisories on the other packages are all
+    fixed below the floors (`langchain-core` 1.3.3, `langgraph-checkpoint` 4.1.1,
+    `langgraph-checkpoint-sqlite` 3.1.3: its own floor).
+  - Upload dates of the floors: `langchain` 1.4.6 on 2026-10-14 (38 days), `langchain-core` 1.6.10 on
+    2026-10-12 (41 days), `langgraph` 1.2.14 on 2026-10-06 (46 days), `langgraph-checkpoint-sqlite`
+    3.1.3 on 2026-10-30 (22 days): each older than two weeks. `aiosqlite` 0.22.1 is from 2025-12-23.
+  - Lowest-direct: `langchain==1.4.6`, `langchain-core==1.6.10`, `langgraph==1.2.14` resolve together
+    (with `langgraph-checkpoint` 4.3.2, `langgraph-prebuilt` 1.1.3, `langgraph-sdk` 0.4.14), and
+    `HumanInTheLoopMiddleware(interrupt_mode="per_call")` and `"batched"` are both accepted;
+    `langchain==1.4.5` raises `TypeError` on the keyword, so 1.4.6 is still the floor. The spike's
+    facts are run on that set too (the closing note of phase 1).
+  - **The extra is therefore** `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2`,
+    `langgraph>=1.2.14,<2`. Everything below that names 1.2.12 as the floor is the earlier reading.
 - **Alternatives**
   - Keep `langchain>=1.3`: rejected; 1.3 to 1.4.5 pass the wrap and then fail on the first
     approval, late and far from the cause.
@@ -303,6 +327,9 @@ file layout (R18). Five points were not in the approved spec and are listed in
     **leaves the thread unable to continue** (spec finding 2).
   - `edit` needs the tool's arguments schema for R2C-APPROVAL-3. In a `create_agent` graph the tool
     node holds the tools by name; their schema is read as in R16.
+  - Pinned by the phase 1 spike (2026-11-22): after an `edit`, the `ToolMessage` text is the
+    middleware's `edit_notice` followed by the tool's own result; the model is told a person replaced
+    the call. The bridge sends nothing of its own for it.
 - **Decision**
   - Allowed decisions: `per_call`, every `properties.type.const` found by walking the schema
     (`$defs` and `oneOf` included); `batched`, `allowed_decisions`. **A `per_call` payload whose
@@ -489,6 +516,9 @@ file layout (R18). Five points were not in the approved spec and are listed in
     a 0.3 s sync tool ran). A tool with a dict `args_schema` is **not** validated by LangChain: a
     wrong key reaches the function and fails as a `TypeError`.
   - The core's argument checker (`tool_from_function`'s) is private to the core.
+  - Pinned by the phase 1 spike (2026-11-22): for a **dict** `args_schema`, `tool_call_schema` comes back
+    as a copy with the tool's `description` added at the top level, so the conversion drops it (the
+    `ToolSpec` carries the description itself) as it drops `title`.
 - **Decision**
   - `tool_from_langchain(tool)`: schema from `tool_call_schema` (a copy; `title` removed, as
     `tool_from_function` does); description and name from the tool; refuse at conversion, with a

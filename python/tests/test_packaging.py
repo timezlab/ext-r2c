@@ -1,5 +1,5 @@
-"""The installed wheel: its extras, and the import rules of `ext_r2c.core`, `ext_r2c.a2a` and
-`ext_r2c.mcp` (constitution VIII)."""
+"""The installed wheel: its extras, and the import rules of `ext_r2c.core`, `ext_r2c.a2a`,
+`ext_r2c.mcp` and `ext_r2c.bridges.langgraph` (constitution VIII)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,11 @@ from importlib.resources import files
 from importlib.resources.abc import Traversable
 
 ALLOWED_TOP_LEVEL = {"pydantic", "pydantic_core", "jsonschema", "ext_r2c"}
-FORBIDDEN = ("a2a", "mcp", "langchain", "langgraph")
+FORBIDDEN = ("a2a", "mcp", "langchain", "langchain_core", "langgraph")
+# What the `langgraph` extra brings that the bridge may import (spec 006, research R18): the graph
+# library and the message types. `langchain` itself is not imported: the payloads the bridge reads
+# are plain data.
+LANGGRAPH_ALLOWED_TOP_LEVEL = ALLOWED_TOP_LEVEL | {"langgraph", "langchain_core"}
 # What `a2a-sdk[http-server]` brings, besides the core's own (research R15).
 A2A_ALLOWED_TOP_LEVEL = ALLOWED_TOP_LEVEL | {"a2a", "google", "httpx", "starlette", "sse_starlette"}
 # What `mcp` brings that the MCP door may use (spec 004, research R17), and `PyYAML`, which the
@@ -31,10 +35,14 @@ def _sources(folder: Traversable, prefix: str = "") -> Iterator[tuple[str, Trave
             yield f"{prefix}{item.name}", item
 
 
-def _imports(package: str) -> list[tuple[str, int, str]]:
-    """(file, line, module) for every absolute import in the installed `ext_r2c/<package>/`."""
-    folder = files("ext_r2c") / package
-    assert folder.is_dir(), f"ext_r2c/{package} is not in the installed wheel"
+def _imports(*package: str) -> list[tuple[str, int, str]]:
+    """(file, line, module) for every absolute import in the installed `ext_r2c/<package>/`;
+    `package` is the folder's segments (`"bridges", "langgraph"`), not a slash path."""
+    folder = files("ext_r2c")
+    for segment in package:
+        folder = folder / segment
+    where = "/".join(package)
+    assert folder.is_dir(), f"ext_r2c/{where} is not in the installed wheel"
     found: list[tuple[str, int, str]] = []
     for name, item in _sources(folder):
         tree = ast.parse(item.read_text(encoding="utf-8"), filename=name)
@@ -56,11 +64,19 @@ def test_extras() -> None:
     meta = metadata("ext-r2c")
     assert set(meta.get_all("Provides-Extra") or []) == {"a2a", "mcp", "langgraph"}
     langgraph = [
-        _requirement_name(r) for r in meta.get_all("Requires-Dist") or []
+        r.split(";", 1)[0].replace(" ", "") for r in meta.get_all("Requires-Dist") or []
         if re.search(r"""extra\s*==\s*["']langgraph["']""", r)
     ]
-    assert langgraph, "the langgraph extra requires nothing"
-    assert not [n for n in langgraph if n.startswith(("a2a-sdk", "ext-r2c"))], langgraph
+    # Spec 006, research R1: the graph library, the message library and the agent library, each
+    # bounded on both sides (1.4.6 is the first `langchain` with the `per_call` middleware mode;
+    # 1.2.14 is the first `langgraph` past GHSA-3fx2-cqw9-xr3c). No checkpointer: the owner brings it.
+    assert len(langgraph) == 3, langgraph
+    lg_by_name = {_requirement_name(r).lower(): r for r in langgraph}
+    assert set(lg_by_name) == {"langchain", "langchain-core", "langgraph"}, langgraph
+    assert ">=1.4.6" in lg_by_name["langchain"] and "<2" in lg_by_name["langchain"], lg_by_name["langchain"]
+    assert ">=1.6.10" in lg_by_name["langchain-core"] and "<2" in lg_by_name["langchain-core"], lg_by_name
+    assert ">=1.2.14" in lg_by_name["langgraph"] and "<2" in lg_by_name["langgraph"], lg_by_name["langgraph"]
+    assert not [n for n in lg_by_name if n.startswith(("langgraph-checkpoint", "a2a-sdk", "ext-r2c"))]
     a2a = [
         r.split(";", 1)[0].replace(" ", "") for r in meta.get_all("Requires-Dist") or []
         if re.search(r"""extra\s*==\s*["']a2a["']""", r)
@@ -81,9 +97,10 @@ def test_extras() -> None:
     assert ">=6.0.3" in by_name["pyyaml"] and "<7" in by_name["pyyaml"], by_name["pyyaml"]
 
 
-def _bad_imports(package: str, allowed: set[str]) -> list[str]:
+def _bad_imports(package: str | tuple[str, ...], allowed: set[str]) -> list[str]:
     bad: list[str] = []
-    for file, line, name in _imports(package):
+    segments = (package,) if isinstance(package, str) else package
+    for file, line, name in _imports(*segments):
         top = name.split(".")[0]
         if top not in sys.stdlib_module_names and top not in allowed:
             bad.append(f"{file}:{line} {name}")
@@ -157,3 +174,97 @@ def test_core_import_loads_no_yaml() -> None:
     code = "import sys, ext_r2c, ext_r2c.core; print('yaml' in sys.modules)"
     out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "False"
+
+
+def test_langgraph_bridge_imports_only_allowed_modules() -> None:
+    """Spec 006, FR-004: the bridge imports the core, the extra's two packages and the core's own
+    dependencies; an `ext_r2c` import starts with `ext_r2c.core` (the shared rule of `_bad_imports`),
+    and no relative import climbs out of `ext_r2c/bridges/langgraph/`."""
+    bad = _bad_imports(("bridges", "langgraph"), LANGGRAPH_ALLOWED_TOP_LEVEL)
+    folder = files("ext_r2c") / "bridges" / "langgraph"
+    for name, item in _sources(folder):
+        depth = name.count("/")
+        for node in ast.walk(ast.parse(item.read_text(encoding="utf-8"), filename=name)):
+            if isinstance(node, ast.ImportFrom) and node.level > depth + 1:
+                bad.append(f"{name}:{node.lineno} {'.' * node.level}{node.module or ''} (climbs out)")
+    assert not bad, "bridges/langgraph imports outside core and the langgraph extra:\n" + "\n".join(bad)
+
+
+def test_bridges_package_imports_nothing() -> None:
+    """`ext_r2c/bridges/__init__.py` is a docstring: importing it must not load any bridge."""
+    init = files("ext_r2c") / "bridges" / "__init__.py"
+    tree = ast.parse(init.read_text(encoding="utf-8"), filename="bridges/__init__.py")
+    imports = [n for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom))]
+    assert not imports, [n.lineno for n in imports]
+
+
+def _mentions_a_bridge(node: ast.AST) -> bool:
+    """An import of `ext_r2c.bridges`, absolute, `from ext_r2c import bridges`, or relative."""
+    if isinstance(node, ast.Import):
+        return any(a.name == "ext_r2c.bridges" or a.name.startswith("ext_r2c.bridges.") for a in node.names)
+    if isinstance(node, ast.ImportFrom):
+        module = node.module or ""
+        if node.level == 0:
+            return (
+                module == "ext_r2c.bridges"
+                or module.startswith("ext_r2c.bridges.")
+                or (module == "ext_r2c" and any(a.name == "bridges" for a in node.names))
+            )
+        return module.split(".")[0] == "bridges" or (not module and any(a.name == "bridges" for a in node.names))
+    return False
+
+
+def test_no_other_module_imports_a_bridge() -> None:
+    """Spec 006, FR-004 and constitution VIII: the core and the doors never import a bridge
+    (`Remote`, spec 007, will not either). The scans above already refuse any `ext_r2c` import
+    beyond core; this names the rule."""
+    bad: list[str] = []
+    for package in ("core", "a2a", "mcp"):
+        folder = files("ext_r2c") / package
+        assert folder.is_dir(), f"ext_r2c/{package} is not in the installed wheel"
+        for name, item in _sources(folder):
+            for node in ast.walk(ast.parse(item.read_text(encoding="utf-8"), filename=name)):
+                if _mentions_a_bridge(node):
+                    bad.append(f"{package}/{name}:{node.lineno}")
+    assert not bad, "a bridge is imported from:\n" + "\n".join(bad)
+
+
+def test_the_mentions_check_sees_each_way_to_import_a_bridge() -> None:
+    """The scan above is only worth its name if it recognises every spelling."""
+    for source in (
+        "import ext_r2c.bridges.langgraph",
+        "from ext_r2c.bridges import langgraph",
+        "from ext_r2c.bridges.langgraph import LangGraphAgent",
+        "from ext_r2c import bridges",
+        "from ..bridges import langgraph",
+        "from .. import bridges",
+    ):
+        (node,) = ast.parse(source).body
+        assert _mentions_a_bridge(node), source
+    for source in ("import ext_r2c.core", "from ext_r2c.core import Driver", "from ext_r2c import core"):
+        (node,) = ast.parse(source).body
+        assert not _mentions_a_bridge(node), source
+
+
+def test_langgraph_import_loads_no_door() -> None:
+    """Spec 006, SC-010: the bridge needs neither the A2A nor the MCP packages."""
+    code = (
+        "import sys, ext_r2c.bridges.langgraph; "
+        "print(sorted({m.split('.')[0] for m in sys.modules} & {'a2a', 'mcp'}))"
+    )
+    out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "[]"
+
+
+def test_langgraph_import_without_the_extra_names_it() -> None:
+    """With the extra's packages missing, the error says which extra to install."""
+    for blocked in ("langgraph", "langchain_core"):
+        code = (
+            "import sys; "
+            f"sys.modules[{blocked!r}] = None; "
+            "\ntry:\n    import ext_r2c.bridges.langgraph\n"
+            "except ImportError as exc:\n    print(exc)\n"
+            "else:\n    print('imported')\n"
+        )
+        out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True)
+        assert 'ext-r2c[langgraph]' in out.stdout, (blocked, out.stdout, out.stderr)

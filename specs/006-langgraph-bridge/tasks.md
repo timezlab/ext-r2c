@@ -110,13 +110,13 @@ Each is small, each is recorded as a dated note in [plan.md](plan.md); none chan
 
 **Independent test**: `test_packaging.py`; `core_only.py`; `test_langgraph_spike.py`.
 
-- [ ] T001 Repeat the vet of R1 with the `security-audit` skill, on the day the dependencies change, and
+- [X] T001 Repeat the vet of R1 with the `security-audit` skill, on the day the dependencies change, and
   write the result under R1 of `specs/006-langgraph-bridge/research.md` ("Vet repeated on <date> by
   T001"):
   - OSV query for `langchain`, `langchain-core`, `langgraph`, `langgraph-checkpoint`,
     `langgraph-prebuilt`, `langgraph-checkpoint-sqlite` and `aiosqlite` (`MAL-` advisories: must be none;
     list the advisories that apply to the ranges);
-  - upload dates of the lowest versions (`langchain` 1.4.6, `langchain-core` 1.6.10, `langgraph` 1.2.12,
+  - upload dates of the lowest versions (`langchain` 1.4.6, `langchain-core` 1.6.10, `langgraph` 1.2.14 (T001 moved it from 1.2.12 on 2026-11-22: R1),
     `langgraph-checkpoint-sqlite` 3.1.3: each older than two weeks), yanked files, wheels for CPython
     3.11, 3.12, 3.13, no install script;
   - the lowest-direct check again, in a scratch venv: `uv pip install --resolution lowest-direct` for the
@@ -125,10 +125,10 @@ Each is small, each is recorded as a dated note in [plan.md](plan.md); none chan
     floor);
   - **stop and tell the maintainer** if a `MAL-` advisory, a yanked release, a changed maintainer or a
     changed dependency list shows up. If the floor moved, use the new one in T008.
-- [ ] T002 [P] Extend `python/tests/test_packaging.py` (test first):
+- [X] T002 [P] Extend `python/tests/test_packaging.py` (test first):
   - `FORBIDDEN` gains `langchain_core`.
   - **`test_extras`**: the `langgraph` extra has exactly three requirements, `langchain`, `langchain-core`
-    and `langgraph`, with `>=1.4.6`, `>=1.6.10` and `>=1.2.12` and each with `<2` (the wheel writes the
+    and `langgraph`, with `>=1.4.6`, `>=1.6.10` and `>=1.2.14` and each with `<2` (the wheel writes the
     names in lower case; compare as the `mcp` check does); none starts with `langgraph-checkpoint`,
     `a2a-sdk` or `ext-r2c` (no checkpointer: FR-027). The old "requires something" assertion goes.
   - **`LANGGRAPH_ALLOWED_TOP_LEVEL`** = `ALLOWED_TOP_LEVEL | {"langgraph", "langchain_core"}`; generalise
@@ -145,10 +145,10 @@ Each is small, each is recorded as a dated note in [plan.md](plan.md); none chan
   - **`test_langgraph_import_without_the_extra_names_it`**: a subprocess that sets
     `sys.modules["langgraph"] = None` and `sys.modules["langchain_core"] = None` before the import gets
     an `ImportError` whose message contains `ext-r2c[langgraph]`.
-- [ ] T003 [P] Extend `python/tests/core_only.py`: add `langchain_core` to its `FORBIDDEN` tuple (it
+- [X] T003 [P] Extend `python/tests/core_only.py`: add `langchain_core` to its `FORBIDDEN` tuple (it
   already lists `langchain` and `langgraph`); the comment says why. No other change: `a2a_only.py` and
   `mcp_only.py` stay as they are.
-- [ ] T004 [P] Create `python/tests/langgraph_models.py`, the scripted chat model (R17):
+- [X] T004 [P] Create `python/tests/langgraph_models.py`, the scripted chat model (R17):
   - `Scripted(BaseChatModel)`: `script` is a function from the message history to a turn
     (`Say(text)` or `Call(("tool", {args}), ...)`, with optional `text` before the calls); it must be a
     pure function of the history. `_generate` and `_astream` agree (a `updates`-only stream calls
@@ -165,7 +165,7 @@ Each is small, each is recorded as a dated note in [plan.md](plan.md); none chan
     (`Say(text, tokens=(input, output))`), and `response_metadata["model_name"]` when a name is set.
   - **`calls`**: a counter object the test passes in, counting model calls (never kept in the model).
   - Later phases extend it, test first (reasoning blocks, file blocks, a structured reply).
-- [ ] T005 [P] Create `python/tests/langgraph_graphs.py`, the builders:
+- [X] T005 [P] Create `python/tests/langgraph_graphs.py`, the builders:
   - `agent(model, tools, saver, *, middleware=(), response_format=None, name="agent")` over
     `langchain.agents.create_agent`.
   - Counted tools with invented names (`deploy_release`, `send_notice`, `publish_page`) whose bodies add
@@ -174,7 +174,7 @@ Each is small, each is recorded as a dated note in [plan.md](plan.md); none chan
     `AsyncSqliteSaver` on a file in `tmp_path`), and `restart(path)` (a new saver, so a new graph and a
     new agent can be built over the same file).
   - `wrap(graph, **options)` is added in phase 3, when `LangGraphAgent` exists.
-- [ ] T006 Write `python/tests/test_langgraph_spike.py`. Each test pins one library fact the design leans
+- [X] T006 Write `python/tests/test_langgraph_spike.py`. Each test pins one library fact the design leans
   on, with the scripted model and `create_agent`; a failing one stops the phase, and `research.md` and
   `plan.md` are updated before anything else. Test 2 pins a fact whose failure would be good news
   (the design could be simpler): record it and tell the maintainer, do not just fix the test.
@@ -251,29 +251,29 @@ Each is small, each is recorded as a dated note in [plan.md](plan.md); none chan
       text (`No generations found in stream`) and `Scripted` can; the same history gives the same
       answer from a second model object (pure); `strict=True` rejects a dangling tool call; the gate
       holds the stream after `k` tokens; the `closed` flag is set when the stream is closed early.
-- [ ] T007 Build, install, and run T002, T003 and T006. Confirm the expected failures: the extra has the
+- [X] T007 Build, install, and run T002, T003 and T006. Confirm the expected failures: the extra has the
   old two requirements, `ext_r2c/bridges/langgraph` is missing, `langgraph-checkpoint-sqlite` is not a
   dev dependency. The spike tests that need only the installed packages pass or fail by the facts alone.
-- [ ] T008 Change `python/pyproject.toml`: `langgraph = ["langchain>=1.4.6,<2",
-  "langchain-core>=1.6.10,<2", "langgraph>=1.2.12,<2"]`; the `dev` group gains the same three lines and
+- [X] T008 Change `python/pyproject.toml`: `langgraph = ["langchain>=1.4.6,<2",
+  "langchain-core>=1.6.10,<2", "langgraph>=1.2.14,<2"]`; the `dev` group gains the same three lines and
   `langgraph-checkpoint-sqlite>=3.1.3,<4`, under the existing comment that the group lists what the
   extras bring (a line says the SQLite saver is the tests' durable checkpointer and is never in the
   extra).
-- [ ] T009 Amend `.specify/memory/constitution.md` (point 3, answered A): Technical Constraints line 98–99
-  reads `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2` and `langgraph>=1.2.12,<2` in `[langgraph]`
+- [X] T009 Amend `.specify/memory/constitution.md` (point 3, answered A): Technical Constraints line 98–99
+  reads `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2` and `langgraph>=1.2.14,<2` in `[langgraph]`
   (and no checkpointer); version 1.1.2, `Last Amended` today; a Sync Impact Report on top with the
   reason (R1: 1.3 to 1.4.5 pass the wrap and fail at the first approval), "Templates: no edits needed",
   and the previous report kept below it. This goes in the same commit as T008 (Governance).
-- [ ] T010 Create `python/src/ext_r2c/bridges/__init__.py` (a docstring only: one subpackage per agent
+- [X] T010 Create `python/src/ext_r2c/bridges/__init__.py` (a docstring only: one subpackage per agent
   framework) and `python/src/ext_r2c/bridges/langgraph/__init__.py`: a module docstring that says what it
   is and that it imports only `ext_r2c.core` and the extra's packages; a `try:` that imports `langgraph`
   and `langchain_core` and an `except ImportError as exc: raise ImportError("... pip install
   \"ext-r2c[langgraph]\"") from exc`; an empty `__all__`.
-- [ ] T011 Run T002, T003 and T006 on the wheel until green. Fix the harness, not the facts. If a fact
+- [X] T011 Run T002, T003 and T006 on the wheel until green. Fix the harness, not the facts. If a fact
   does not hold, stop and update `research.md` and `plan.md` before going on. Run `core_only.py`.
   Confirm tests that passed on their first run are not vacuous (a changed premise: a wrong bound, a
   forbidden import added by hand, then restored).
-- [ ] T012 Verify (3.11, 3.12 and 3.13), then commit `feat(006): the [langgraph] extra, the bridge
+- [X] T012 Verify (3.11, 3.12 and 3.13), then commit `feat(006): the [langgraph] extra, the bridge
   skeleton and a library spike`.
 
 **Checkpoint**: the extra and the import rules are in place, and every library fact the design leans on
@@ -1002,3 +1002,44 @@ criterion is checked on the three Pythons.
 - Out of scope, as the spec says: `Remote` and the approval policy (007), other agent frameworks, a
   `messages`-less graph, the LangGraph server, forking or time travel, a `step` activity per node, a cost
   figure, the caller side, publishing to PyPI.
+
+## Notes: where reality differed (dated; the bodies above are not rewritten)
+
+### Phase 1 (2026-11-22)
+
+- **T001**: the vet found one advisory inside the old `langgraph` floor (R1, "Vet repeated"), so the floor
+  moved from 1.2.12 to **1.2.14** before any code used it; T002, T008 and T009 carry the new number.
+- **T006**: 31 tests, not 20. Several facts became parametrised or split: test 5 is two tests (a start only
+  when the body runs; a handled and a raised failure), tests 11 and 13 run per mode or per decision, test 14
+  runs per strategy and has a second test for the SQLite read-back, test 15 has a second test for two
+  interrupts in a row. The facts pinned are the ones listed.
+- **Facts that came out a little different from research.md** (the design is unchanged by each):
+  - A `batched` or `per_call` **edit** puts the middleware's `edit_notice` in front of the tool's own result
+    in the `ToolMessage` ("Note: a human reviewer replaced this tool call ... Tool response: ..."). A test
+    that compares that message uses `in`.
+  - `tool.tool_call_schema` of a **dict** `args_schema` comes back as a copy with the tool's `description`
+    added at the top level. R16's conversion removes `title` as `tool_from_function` does; it also removes
+    this `description`, which the `ToolSpec` carries on its own (phase 9).
+  - The handler's `on_chat_model_start` receives the tags as a list ("nostream" among `seq:step:N`), so the
+    check is membership.
+  - The stock `GenericFakeChatModel` error reads "No generation chunks were returned" here, not "No
+    generations found in stream"; the fact (it cannot stream a tool-call turn with no text) holds.
+  - Reading a pydantic `structured_response` back from a SQLite checkpoint recorded **no warning** on these
+    versions (langgraph 1.2.24, checkpoint-sqlite 3.1.3). The test records the category set and allows the
+    known categories, so a later warning is visible without failing; the README note (phase 10) is about the
+    owner's `allowed_msgpack_modules` setting and stays conditional.
+  - The `settle` test needs a baseline on a graph of its own: a failed attempt on the paused thread changes
+    the state it ran on, and its tools would count.
+- **T007**: against the old wheel, T002 failed in exactly five tests (the extra's requirements, the missing
+  `bridges/langgraph` folder, the missing `bridges/__init__.py`, and the two subprocess checks); T003 passed
+  (the core loads none of the names); the spike could not be collected (the old dev group has no
+  `langchain`), so its facts were first checked in a venv with the packages installed by hand (31 passed).
+- **T011 mutation check** (scratch, on the installed copy; a mutation that changes nothing is refused):
+  12 of 12 mutants died: a wrong floor, a missing upper bound, a checkpointer in the extra, a bridge that
+  imports `mcp` or a door, a bridge that loads `a2a` at import, a `bridges/__init__` with an import, a core,
+  `a2a` or `mcp` module that imports a bridge, a guard that raises another error, a message without the
+  extra's name. A thirteenth check, with a stand-in `langchain_core` in a core-only venv and a core that
+  imports it, fails `core_only.py` as it should. (The first run of this check had three mutants that
+  changed nothing, because the wheel writes `langgraph<2,>=1.2.14`; the script now refuses a no-op.)
+- **T012**: 2071 tests pass on Python 3.11.14, 3.12.3 and 3.13.16; `core_only.py`, `a2a_only.py` and
+  `mcp_only.py` print ok; `ruff --select F` is clean.

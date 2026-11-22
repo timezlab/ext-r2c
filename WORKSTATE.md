@@ -163,9 +163,12 @@ Last updated 2026-11-22. Read this first in a new session.
     under FR-001; the constitution goes PATCH 1.1.1 → 1.1.2 for the extra's bounds (task T009); a
     declined `input_required` question ends `done`; a `per_call` payload with no schema ends `failed`.
     **`tasks.md` is written** (2026-11-22): 104 tasks in 10 phases (US1 24, US2 11, US3 5, US4 14,
-    US5 12, US6 6; 32 in the setup, foundation and closing phases). **The next step is the maintainer's
-    go on `/speckit-implement`, phase 1 (T001–T012: the vet, the extra, the skeleton and the library
-    spike); one phase per go.** Findings that shaped it: a `batched` resume with a wrong decision leaves
+    US5 12, US6 6; 32 in the setup, foundation and closing phases). **The maintainer said "implement hết
+    các phase" (2026-11-22): all ten phases run in one go, each committed on its own, none pushed.
+    Phase 1 (T001–T012) is done** (2026-11-22): the vet moved the `langgraph` floor to 1.2.14, the extra
+    is `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2`, `langgraph>=1.2.14,<2` (constitution 1.1.2), the
+    bridge skeleton imports with the extra and names it without it, and 31 library-fact tests pass on
+    Python 3.11, 3.12 and 3.13 (2071 tests in all). Findings that shaped it: a `batched` resume with a wrong decision leaves
     the thread unable to continue (so the bridge validates first); the `tasks` stream cannot tell a
     running tool from a paused one (so a callback handler does); `nostream` hides tokens only.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
@@ -174,7 +177,7 @@ Last updated 2026-11-22. Read this first in a new session.
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 tasked, waiting for the go on phase 1; 007 onward proposed)
+## Spec sequence (001–005 built; 006 under way, phase 1 of 10 done; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -205,13 +208,14 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; the go on phase 1 awaits) —
+6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phase 1 done) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply
    tokens, tool activity, reasoning (opt-in), usage, file content blocks → artifacts. Checked
    against langchain 1.5.2 / langgraph 1.2.24 (the findings are in the spec's Context) and the lowest
-   set the extra allows (`langchain>=1.4.6`, the first with the `per_call` mode). One additive core
+   set the extra allows (`langchain>=1.4.6`, the first with the `per_call` mode; `langgraph>=1.2.14`
+   after the advisory vet). One additive core
    piece (`PauseLost`) and a structural change to the shared suite; ten delivery phases in the plan.
 7. **`007-remote`** — `Remote`, the only remote-side adapter, configured declaratively:
    `expose` = A2A, MCP or both; one ASGI app; `agent=` (an `AgentSource` or an a2a-sdk

@@ -1,6 +1,17 @@
 <!--
 Sync Impact Report
-- Version: 1.1.0 → 1.1.1 (2026-11-20)
+- Version: 1.1.1 → 1.1.2 (2026-11-22)
+- Wording: Technical Constraints name the bounds of the `[langgraph]` extra as spec 006 settled
+  them (research R1): `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2` and
+  `langgraph>=1.2.14,<2`, and no checkpointer in the extra (the owner brings the one the graph
+  they wrap already uses). LangChain 1.3 to 1.4.5 build the approval middleware and then fail at
+  the first approval, so 1.4.6 is the floor; 1.2.14 is the first `langgraph` after an advisory
+  (vetted again on 2026-11-22). PATCH.
+- Docs updated in the same change: specs/006-langgraph-bridge (research, plan, contracts,
+  quickstart, tasks), python/pyproject.toml.
+- Templates: no edits needed
+
+Previous: 1.1.0 → 1.1.1 (2026-11-20)
 - Wording: Technical Constraints size limits read MiB (2^20 bytes), not MB (maintainer, open
   point O11 of specs/001-standard-v1/research.md). PATCH.
 - Docs updated in the same change: standard/v1/README.md (R2C-SAFETY-4), docs/whitepaper.md,
@@ -95,8 +106,8 @@ changes only. The package version (SemVer) is separate from the standard's versi
 
 ## Technical Constraints
 
-- Python ≥ 3.11; `a2a-sdk>=1.3` in `[a2a]`, `mcp>=2.3` in `[mcp]`, `langchain>=1.3` +
-  `langgraph` in `[langgraph]`.
+- Python ≥ 3.11; `a2a-sdk>=1.3` in `[a2a]`, `mcp>=2.3` in `[mcp]`, `langchain>=1.4.6,<2`,
+  `langchain-core>=1.6.10,<2` and `langgraph>=1.2.14,<2` in `[langgraph]` (and no checkpointer).
 - Build with hatchling through `uv build`; tests with pytest.
 - License Apache-2.0.
 - Everything committed is written in English (specs, docs, code, commit messages).
@@ -125,4 +136,4 @@ principle or section added; PATCH: wording), and fixes any template or doc it ma
 the same commit. Reviews check new specs and plans against the principles above; an exception
 is written into the plan's Complexity Tracking with its reason.
 
-**Version**: 1.1.1 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-20
+**Version**: 1.1.2 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-22

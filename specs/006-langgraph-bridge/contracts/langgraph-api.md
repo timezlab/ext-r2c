@@ -112,7 +112,7 @@ def tools_from_langchain(tools: Iterable[BaseTool]) -> list[ToolSpec]: ...
   (FR-004).
 - Importing it without the extra raises `ImportError("... pip install \"ext-r2c[langgraph]\"")`.
 - `pip install "ext-r2c[langgraph]"` brings `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2` and
-  `langgraph>=1.2.12,<2` and **no checkpointer**; the owner brings theirs. A durable checkpointer
+  `langgraph>=1.2.14,<2` and **no checkpointer**; the owner brings theirs. A durable checkpointer
   with async support (for example `langgraph-checkpoint-sqlite`'s `AsyncSqliteSaver`) is what makes
   a pause survive a restart.
 

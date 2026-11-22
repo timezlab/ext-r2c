@@ -59,7 +59,7 @@ Five points were not in the approved spec and need the maintainer ([below](#need
 **Primary Dependencies**:
 - runtime core: `pydantic>=2` and `jsonschema>=4`, unchanged;
 - extra: `[langgraph]` = `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2` and
-  `langgraph>=1.2.12,<2` (replaces `langchain>=1.3` and `langgraph`; R1). No checkpointer in the
+  `langgraph>=1.2.14,<2` (the floor moved from 1.2.12 on 2026-11-22: R1, T001; replaces `langchain>=1.3` and `langgraph`; R1). No checkpointer in the
   extra (FR-027);
 - dev group: the same three bounds and `langgraph-checkpoint-sqlite>=3.1.3,<4` (the tests'
   durable checkpointer; it brings `aiosqlite`).

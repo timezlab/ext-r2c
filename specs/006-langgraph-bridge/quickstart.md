@@ -13,7 +13,7 @@ uv venv --python 3.11 ../.ci-venv
 uv pip install --python ../.ci-venv dist/*.whl --group dev
 ```
 
-The dev group brings `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2`, `langgraph>=1.2.12,<2` and
+The dev group brings `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2`, `langgraph>=1.2.14,<2` and
 `langgraph-checkpoint-sqlite>=3.1.3,<4`, besides the doors' packages. Repeat with Python 3.12 and 3.13
 before claiming done.
 

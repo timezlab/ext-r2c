@@ -29,7 +29,7 @@ dependencies = [
 [project.optional-dependencies]
 a2a = ["a2a-sdk[http-server]>=1.3,<2"]
 mcp = ["mcp>=2.3,<3", "PyYAML>=6.0.3,<7"]
-langgraph = ["langchain>=1.3", "langgraph"]
+langgraph = ["langchain>=1.4.6,<2", "langchain-core>=1.6.10,<2", "langgraph>=1.2.14,<2"]
 
 [project.urls]
 Homepage = "https://github.com/timezlab/ext-r2c"
@@ -42,9 +42,16 @@ dev = [
   # The wire examples' envelopes are checked against the real protocol types, and the A2A door
   # is tested by real round trips; `sqlite` gives a durable task store for the restart test.
   "a2a-sdk[http-server,sqlite]>=1.3,<2",
-  # The group lists what the extras bring, so the tests run with them: `mcp` and its `PyYAML`.
+  # The group lists what the extras bring, so the tests run with them: `mcp` and its `PyYAML`,
+  # and the three packages of `langgraph`.
   "mcp>=2.3,<3",
   "PyYAML>=6.0.3,<7",
+  "langchain>=1.4.6,<2",
+  "langchain-core>=1.6.10,<2",
+  "langgraph>=1.2.14,<2",
+  # The SQLite saver is the tests' durable checkpointer (restart tests). It is never in an extra:
+  # the owner brings the checkpointer of the graph they wrap.
+  "langgraph-checkpoint-sqlite>=3.1.3,<4",
   "jsonschema[format-nongpl]>=4",
 ]
 
