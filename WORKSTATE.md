@@ -113,8 +113,12 @@ Last updated 2026-11-22. Read this first in a new session.
   verifies what it loads) is done** (2026-11-22): `SkillsClient` lists, gets and reads, refuses on
   size, digest, frontmatter, an unlisted URI or an undeclared extension, and reads with the SDK's
   cache bypassed; 136 new tests (1454 in all), 114 of 115 mutants died (the survivor is the
-  control). The maintainer then asked for the whole spec in one run ("implement hết spec"), so
-  phases 5–9 follow without a stop between them; where each phase differed from its plan is kept in
+  control). **Phase 5 (T042–T048, nothing outside is served) is done** (2026-11-22): the read opens
+  every name from `/` with `O_NOFOLLOW`, refuses anything that is not a regular file and never reads
+  past the entry's size; the scan reports what it left out (`left_out`) and logs it; 131 new tests
+  (1585 in all), 54 of 59 mutants died (the five are the control and four equivalents). The maintainer
+  then asked for the whole spec in one run ("implement hết spec"), so
+  phases 6–9 follow without a stop between them; where each phase differed from its plan is kept in
   "Notes: where reality differed" at the end of `specs/005-mcp-skills/tasks.md`. Nothing is pushed.
 
 ## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)

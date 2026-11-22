@@ -392,7 +392,7 @@ after the scan is never sent.
 
 **Independent test**: `test_skills_safety.py`.
 
-- [ ] T042 [P] [US3] Write `python/tests/test_skills_safety.py`, part A (**SC-003**): a fixture tree
+- [x] T042 [P] [US3] Write `python/tests/test_skills_safety.py`, part A (**SC-003**): a fixture tree
   plus a secret outside the root (T004), a hidden file, a symlink to the secret, and a folder
   next to the skills. A table of **at least 14** `resources/read` URIs, each `-32602` with none of the
   secret's or any unserved file's bytes in the response, and the skills still readable after:
@@ -401,7 +401,7 @@ after the scan is never sent.
   folder; a query; a fragment; a trailing slash on a file; `SKILL.MD` and `TEAM` (case); an encoded
   slash `%2F`; `skill:///etc/passwd` and `file:///etc/passwd`; a directory URI; an empty path.
   `resources/list` holds exactly the served files.
-- [ ] T043 [US3] In the same file, part B:
+- [x] T043 [US3] In the same file, part B:
   - **left out** (scenarios 2, 3): with a symlink to a file and one to a folder, a hidden file and
     folder, a named pipe and (where the platform allows) a name that is not valid UTF-8,
     `extension.left_out` holds one `LeftOut(path, reason)` for each, with the reasons `symbolic
@@ -423,28 +423,28 @@ after the scan is never sent.
     `O_APPEND`, `write_text`, `write_bytes`, `unlink`, `rmdir`, `rename`, `mkdir`, `chmod`,
     `shutil`, nor `open(` with a mode containing `w`, `a`, `x` or `+`.
   - **no host path on the wire**: every failing response above is searched for `str(tmp_path)`.
-- [ ] T044 [US3] Build, install, and run T042–T043. Confirm the expected failures: `left_out` is
+- [x] T044 [US3] Build, install, and run T042–T043. Confirm the expected failures: `left_out` is
   missing, the pipe test fails by the elapsed-time assertion, and the swapped link is followed
   by the first-cut read. The unreachable-URI table and the digest checks may pass at once: they
   are the SDK's exact matching and the first cut's digest check. Say so in the report and prove
   them by mutation in T047.
-- [ ] T045 [US3] `python/src/ext_r2c/mcp/skills/_scan.py`: record every skipped entry as
+- [x] T045 [US3] `python/src/ext_r2c/mcp/skills/_scan.py`: record every skipped entry as
   `LeftOut(path, reason)` (hidden, symbolic link, not a regular file, undecodable name; a
   `SKILL.md` that is a link is a `symbolic link`); put the list in the `Catalogue`; the
   extension's `left_out` property and the logging of the plan.
-- [ ] T046 [US3] `python/src/ext_r2c/mcp/skills/_read.py`: replace the first cut with the read of
+- [x] T046 [US3] `python/src/ext_r2c/mcp/skills/_read.py`: replace the first cut with the read of
   R4 in a function run in a worker thread: open the skill folder, then each component with
   `os.open(name, O_NOFOLLOW | O_CLOEXEC, dir_fd=fd)` (directories with `O_DIRECTORY`, the last
   with `O_RDONLY | O_NONBLOCK`); `fstat` must be a regular file; read at most `size + 1` bytes;
   compare the length and the SHA-256 of **those bytes**; return them. Every `OSError` and every
   mismatch is `FileChanged`, whose text carries no path. Where `O_NOFOLLOW` or `dir_fd` is missing,
   `lstat` each component first and say so in a comment. No write flag anywhere.
-- [ ] T047 [US3] Run T042–T043 on the wheel until green. **Mutation check**: remove `O_NOFOLLOW`
+- [x] T047 [US3] Run T042–T043 on the wheel until green. **Mutation check**: remove `O_NOFOLLOW`
   (the swapped-link tests fail), the `fstat` check (the pipe test fails), the digest comparison
   (the changed-on-disk tests fail), the `size + 1` bound (the grown-file test is still
   `-32603`, so note that the bound is verified by reading the code and by T043's source audit
   only); restore them.
-- [ ] T048 [US3] Verify, then commit `feat(005): nothing outside the skills is served`.
+- [x] T048 [US3] Verify, then commit `feat(005): nothing outside the skills is served`.
 
 ---
 
@@ -832,3 +832,62 @@ Kept as a running list while the phases are built; T080 closes it.
   of `_same` that nothing could reach (a numeric case after the `bool` case), which was removed.
 - **Numbers.** 136 tests in `test_skills_client.py`; the suite is 1454 passed; replay counts are
   unchanged (A2A 31/29/3, MCP 14/13/1).
+
+**Phase 5 (2026-11-22)**
+
+- **T044 failed where it was meant to, and passed where it was said it might.** Against the first-cut
+  read: 87 passed, 10 failed and 28 errored (the missing `_read._SAFE` flag, which the reader tests set).
+  The failures were the missing `left_out` and log records, the 256 MiB file read whole into memory (a
+  peak of 268,541,721 bytes against a 32 MiB bound), the pipe that took 2.99 s to refuse, and the pipe
+  holding the very bytes that was served (`DID NOT RAISE`). A probe showed the first-cut read served
+  through all five kinds of swap. The 32-row URI table, the audit and the digest checks passed at once,
+  as T044 predicted: that is the SDK's exact matching plus the first cut's digest check, so they were
+  proven by mutation (below), not by the green.
+- **The read walks from `/`, not from the skill folder.** Each name is opened with `O_NOFOLLOW` relative
+  to the folder opened before it, so a link anywhere on the way, above the root too, is refused by the
+  kernel and not by a check that could lose a race. A folder that is only passed through is opened with
+  `O_PATH` where there is one, so no read permission on an ancestor is needed. The last name is opened
+  `O_NONBLOCK`, so a pipe never makes the open wait for a writer. Where `O_NOFOLLOW` or `dir_fd` is
+  missing (Windows) each name is `lstat`ed first; that path is tested on Linux by switching `_read._SAFE`
+  off, and **has not run on Windows**: there is no such runner.
+- **`fstat` is observable in one test only.** A non-blocking read of a pipe nobody writes returns end of
+  file at once, so without the `S_ISREG` check a plain pipe fails on the length anyway. The test that
+  needs it opens a pipe `O_RDWR`, fills it with exactly the bytes of the entry and closes it from a timer
+  after 3 s; without the check the read returns those bytes and the digest matches.
+- **T047 said the `size + 1` bound could only be checked by reading the code. It is tested.** Reading
+  `size` instead of `size + 1` is killed by the 5 MiB growth test (a file that grew by appending would be
+  served as its old self), and reading without a bound is killed by the 256 MiB sparse file with a
+  `tracemalloc` peak under 32 MiB.
+- **`LeftOut`**: the order of the checks is symbolic link, hidden, undecodable name, not a regular file,
+  so `.dotlink` is a link and `.dotpipe` is hidden, and a pipe with a name that is not text is reported
+  for its name. A hidden folder is reported once and its content not at all. A skill's own entries are
+  reported once (by the walk of its files), and so are the entries of a folder that holds no skill (by
+  the search). A name that is not text is shown with `\xNN` for the bad bytes. The list is sorted by path,
+  then reason, and is `ext.left_out` (also `ext.catalogue.left_out`); `LeftOut` is exported from
+  `ext_r2c.mcp` and `ext_r2c.mcp.skills`.
+- **Logging**: logger `ext_r2c.mcp.skills`; one `INFO` per skill (its URI, files and bytes, never a host
+  path) and one `WARNING` per symbolic link, when the extension is built; nothing at import (checked in
+  a `python -I` subprocess).
+- **Mutation**: 59 mutants over `_read.py`, `_scan.py` and `extension.py`, tested by
+  `test_skills_safety.py`; **54 killed and five not**. Not killed: the control; `_SAFE` forced on (it is
+  already on where the kernel can refuse a link: equivalent); no length comparison (redundant, since a
+  different length never has the same digest); the read loop without its limit test (`os.read(fd, 0)`
+  returns nothing and the loop ends: equivalent); `FileChanged` with a text that names the working
+  directory (the text is never sent: what goes on the wire is the fixed message, and the mutant that puts
+  the folder in it is killed). "No digest comparison" is killed by `test_skills_serve.py` (same size, other
+  bytes), not by the safety file.
+- **Mutation found four gaps in the tests, closed with six new tests**: `_SAFE` silently off on Linux; a
+  file larger than one 1 MiB piece (a read that stopped after the first piece); the order of "not text"
+  and "not a regular file"; and `skills/get` answering for a host path (the folder, its `SKILL.md`, a
+  `file:` URL, or a path relative to the root).
+- **The URI rows are killed through registration, not through the package's own code.** The SDK matches a
+  resource URI as an exact string, so `..`, `%2e%2e`, `?x=1`, `#f`, a backslash and `TEAM` never reach any
+  code of the package. A mutant that registers `uri?x=1` as a second resource, and mutants of `skills/get`
+  that drop a query or a fragment, match by prefix or look up the folder path, are killed by the table; a
+  mutant inside `_serve` could not be, and none is needed.
+- **Left for phase 6**: the scan still reads each file whole to hash it, before any limit is checked; phase
+  6 checks the sizes from `stat` against 512 files and 16 MiB first. SC-003's row "a skill the filters do
+  not serve" belongs there too.
+- **Numbers.** 131 tests in `test_skills_safety.py` (125 first, six added by the mutation run); the suite
+  is 1585 passed; replay counts are unchanged. The stale docstring in `test_skills_scan.py::TestLeftOut`
+  ("phase 5 makes the scan report them") was updated.

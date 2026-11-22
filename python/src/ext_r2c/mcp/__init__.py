@@ -28,6 +28,7 @@ from .extension import R2CExtension
 from .server import mcp_server
 from .skills import (
     DirectoryEntry,
+    LeftOut,
     LoadedSkill,
     Refused,
     SkillContent,
@@ -49,6 +50,7 @@ __all__ = [
     "ArtifactItem",
     "DirectoryEntry",
     "Item",
+    "LeftOut",
     "Link",
     "LoadedSkill",
     "MemoryLedger",

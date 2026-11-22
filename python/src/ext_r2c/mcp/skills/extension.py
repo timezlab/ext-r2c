@@ -11,6 +11,7 @@ yet; later phases add them.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, Literal
@@ -22,7 +23,7 @@ from mcp.server.mcpserver.resources import Resource
 from mcp.shared.exceptions import MCPError
 from pydantic import Field
 
-from ._catalogue import Catalogue, FileRecord, SkillInfo, SkillRecord
+from ._catalogue import Catalogue, FileRecord, LeftOut, SkillInfo, SkillRecord
 from ._content import as_text_or_bytes
 from ._read import FileChanged, read_file
 from ._scan import scan_roots
@@ -38,6 +39,17 @@ from ._wire import (
 )
 
 CHANGED = "The skills changed on disk since they were scanned; refresh them."
+log = logging.getLogger("ext_r2c.mcp.skills")
+
+
+def _announce(catalogue: Catalogue) -> None:
+    """Say what a build serves (one `INFO` line per skill) and which links it refused to follow (one
+    `WARNING` each). Hidden entries and pipes are in `left_out`, not in the log."""
+    for skill in catalogue.skills:
+        log.info("Serving skill %s: %d files, %d bytes", skill.uri, len(skill.files), sum(f.size for f in skill.files))
+    for item in catalogue.left_out:
+        if item.reason == "symbolic link":
+            log.warning("Not serving the symbolic link %s: a link is never followed", item.path)
 
 
 class SkillFile(Resource):
@@ -69,11 +81,18 @@ class SkillsExtension(Extension):
         self._ttl_ms = ttl_ms
         self._cache_scope = cache_scope
         self._catalogue = scan_roots(self._folders, (), ())
+        _announce(self._catalogue)
 
     @property
     def catalogue(self) -> Catalogue:
         """What is served now."""
         return self._catalogue
+
+    @property
+    def left_out(self) -> tuple[LeftOut, ...]:
+        """What the scan did not serve, and why: hidden entries, symbolic links, anything that is
+        not a regular file, names that are not text. Sorted by path below the folder given."""
+        return self._catalogue.left_out
 
     @property
     def skills(self) -> tuple[SkillInfo, ...]:

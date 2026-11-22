@@ -206,7 +206,7 @@ class TestDescribing:
 
 class TestLeftOut:
     def test_hidden_entries_links_and_pipes_are_not_served(self, tmp_path: Path) -> None:
-        """First cut: they are absent from the served files (phase 5 makes the scan report them)."""
+        """They are absent from the served files (`test_skills_safety.py` checks what is reported)."""
         tree = standard_tree(tmp_path)
         before = tree.expected()
         secret = outside_secret(tmp_path)
