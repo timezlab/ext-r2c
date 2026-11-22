@@ -1,5 +1,6 @@
-"""Both fake sources pass the same `AgentSource` suite through one `Driver` (spec 002, story 4,
-SC-005); thread ids keep owners and doors apart (R11); events are frozen."""
+"""The two fake sources and the real LangGraph source pass the same `AgentSource` suite through one
+`Driver` (spec 002, story 4, SC-005; spec 006, SC-001); thread ids keep owners and doors apart
+(R11); events are frozen."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
+from langgraph.checkpoint.memory import InMemorySaver
 
 from agent_source_suite import (
     ASK_QUESTION,
@@ -40,6 +42,7 @@ from ext_r2c.core import (
     thread_id,
 )
 from fake_sources import QUESTION, CheckpointFake, LiveFake
+from langgraph_suite_source import SuiteSource
 
 
 def _checkpoint() -> MakeSource:
@@ -51,7 +54,12 @@ def _live() -> MakeSource:
     return lambda **options: LiveFake(**options)
 
 
-FAKES: dict[str, Callable[[], MakeSource]] = {"checkpoint": _checkpoint, "live": _live}
+def _langgraph() -> MakeSource:
+    saver = InMemorySaver()  # one saver per test: two sources from it are the same remote
+    return lambda **options: SuiteSource(saver, **options)
+
+
+FAKES: dict[str, Callable[[], MakeSource]] = {"checkpoint": _checkpoint, "live": _live, "langgraph": _langgraph}
 
 
 @pytest.mark.parametrize("fake", list(FAKES))
@@ -139,6 +147,69 @@ def test_a_thread_runs_one_run_at_a_time() -> None:
         driver.start(THREAD, ASK_QUESTION)  # the thread is free again
 
     asyncio.run(go())
+
+
+def test_an_answer_delivered_while_a_checkpoint_source_winds_down_still_resumes_it() -> None:
+    # A source may take a turn of the event loop between its Ask and its end (closing a connection,
+    # say), and the door can answer in that gap: it reads the Ask the moment it is queued. The first
+    # pump, seeing no pending ask by then, must not end the run `done`: the answer belongs to the
+    # run it spawned. Whether another interpreter wins this race by luck is no reason to rely on it.
+    class Winding(CheckpointFake):
+        async def run(self, input, ctx):  # type: ignore[no-untyped-def]
+            async for event in super().run(input, ctx):
+                yield event
+            await asyncio.sleep(0)
+
+    async def go() -> list[RunEvent]:
+        run = Driver(Winding({})).start(THREAD, ASK_QUESTION)
+        events = await until_pause(run)
+        assert isinstance(events[-1], Ask)
+        await run.deliver(TITLE)  # no turn of the loop between the Ask and this answer
+        return [event async for event in run]
+
+    rest = asyncio.run(asyncio.wait_for(go(), 10))
+    assert shape(rest) == ["answer", "reply", "usage", "done"], shape(rest)
+    assert reply_text(rest) == "Got: October stock"
+
+
+def test_a_checkpoint_source_that_speaks_after_its_ask_is_refused() -> None:
+    class Chatty(CheckpointFake):
+        async def run(self, input, ctx):  # type: ignore[no-untyped-def]
+            async for event in super().run(input, ctx):
+                yield event
+            yield ReplyChunk("one more thing", last=True)
+
+    async def go() -> list[RunEvent]:
+        return [event async for event in Driver(Chatty({})).start(THREAD, ASK_QUESTION)]
+
+    events = asyncio.run(asyncio.wait_for(go(), 10))
+    assert shape(events) == ["ask", "error:protocol"], shape(events)
+    assert isinstance(events[-1], Error) and "nothing after its Ask" in events[-1].reason
+
+
+def test_a_checkpoint_source_that_asks_again_after_its_answer_came_in_the_gap_is_refused() -> None:
+    # The same gap, a source that breaks the rule in it: nothing follows an Ask, even once the Ask was
+    # answered. The resumed leg is held back so the outcome does not depend on which pump is first.
+    class Again(CheckpointFake):
+        async def run(self, input, ctx):  # type: ignore[no-untyped-def]
+            async for event in super().run(input, ctx):
+                yield event
+            await asyncio.sleep(0)
+            yield Ask(QUESTION)
+
+        async def resume(self, answer, ctx):  # type: ignore[no-untyped-def]
+            await asyncio.Event().wait()
+            yield ReplyChunk("never", last=True)
+
+    async def go() -> list[RunEvent]:
+        run = Driver(Again({})).start(THREAD, ASK_QUESTION)
+        await until_pause(run)
+        await run.deliver(TITLE)
+        return [event async for event in run]
+
+    rest = asyncio.run(asyncio.wait_for(go(), 10))
+    assert shape(rest) == ["answer", "error:protocol"], shape(rest)
+    assert isinstance(rest[-1], Error) and "nothing after its Ask" in rest[-1].reason
 
 
 def test_events_are_frozen() -> None:

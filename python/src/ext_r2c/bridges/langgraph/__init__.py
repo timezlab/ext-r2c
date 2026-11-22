@@ -15,4 +15,6 @@ except ImportError as exc:  # pragma: no cover - exercised by a subprocess test
         'The LangGraph bridge needs the [langgraph] extra: pip install "ext-r2c[langgraph]"'
     ) from exc
 
-__all__: list[str] = []
+from .agent import LangGraphAgent
+
+__all__ = ["LangGraphAgent"]

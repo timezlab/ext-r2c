@@ -601,6 +601,29 @@ file layout (R18). Five points were not in the approved spec and are listed in
   found while writing the script and fixed before the run: "the source yields `Done`" must build a real
   `Done` (a bare name would raise a `NameError` and kill the mutant for the wrong reason).
 
+### Mutation check of the bridge (phase 3, 2026-11-22)
+
+- **How**: the same scratch script style (not committed): one thing is changed in the installed copy of the
+  bridge (restored after), or in a scratch copy of the tests, and the four phase-3 files run with `-x`.
+  A mutation that changes nothing is refused, and the baseline must be green first.
+- **Result: 17 of 17 mutants died.** The 13th suite mutant, "the wrapper never yields the second ask"
+  (S13), and sixteen of the bridge: B1 the last chunk has `last=False`; B2 a pause flushes with
+  `last=True`; B3 the paragraph break is removed; B4 the `finally` no longer cancels the producer; B5
+  `thread_id` is a constant; B6 a hidden id is not skipped; B7 `PauseLost` is a `RuntimeError`; B8 the
+  pending-set match is skipped; E1 no hold-one (a piece leaves at once); E2 a tool-call update does not
+  flush; E3 a turn with text closes with no empty chunk; E4 the resumed leg is not seeded; E5 the answer
+  is not checked; E6 usage counts only the last message; E7 a declined answer resumes with an empty value;
+  E8 a failure drops the held piece.
+- **Two holes the first run found**, filled with a test each before the run that counts: B8 would have
+  survived (no test had a pending pause and an answer for *another* request), and E5 survived (no test had
+  an answer the request refuses). Each test also checks that the graph is untouched and the pause stays
+  pending.
+- **The core fix found on 3.11** (the pump-local "asked" flag; see the phase 3 note in `tasks.md`): 4 of 4
+  mutants died: the end of a pump reads only `pending` again; an `Ask` after an answered `Ask` is
+  accepted; nothing is refused after an `Ask`; the pump never records its `Ask`. The third had survived
+  once: the "nothing after an `Ask`" rule for events other than `Ask` had no test of its own, and a test
+  was added.
+
 ## R18. Layout, imports and packaging
 
 - **Decision**

@@ -143,7 +143,6 @@ class Run:
         self._factory = factory
         self._task: asyncio.Task[None] | None = None
         self._future: asyncio.Future[Answer] | None = None
-        self._asked = False  # the current checkpoint iterator has yielded its Ask
         self._finished = False
         self._closed = False
 
@@ -201,17 +200,22 @@ class Run:
     # --- the source's side ------------------------------------------------------------------
 
     def _spawn(self, factory: _Factory) -> None:
-        self._asked = False
         self._task = asyncio.get_running_loop().create_task(self._pump(factory))
 
     async def _pump(self, factory: _Factory) -> None:
         events: AsyncIterator[RunEvent] | None = None
+        # Whether this pump's own iterator has yielded its Ask. It is the pump's, not the run's: the
+        # door reads the Ask the moment it is queued and may answer while the source is still ending,
+        # and the answer spawns the next pump. Reading the run's `pending` at the end would then end
+        # the run `done` under the resumed leg.
+        asked = False
         try:
             events = factory(self._ctx)
             async for event in events:
                 if self._finished:
                     break
-                self._accept(event)
+                self._accept(event, asked)
+                asked = asked or isinstance(event, Ask)
         except _Broken:
             return
         except PauseLost as exc:  # the source holds no stopping point for the answer
@@ -225,20 +229,21 @@ class Run:
             if aclose is not None:
                 with contextlib.suppress(Exception):
                     await aclose()
-        if not self._finished and self.pending is None:
+        if not self._finished and not asked and self.pending is None:
             self._finish(Done())
 
-    def _accept(self, event: RunEvent) -> None:
+    def _accept(self, event: RunEvent, asked: bool) -> None:
         if isinstance(event, (AnswerEvent, Done, Error)):
             self._break(f"a source does not yield {type(event).__name__}; the driver does")
         if isinstance(event, Ask):
             if self.pending is not None:
                 self._break("a second Ask came before the first was answered")
+            if asked:  # answered already, in the gap after the first: still nothing may follow an Ask
+                self._break("a checkpoint source yields nothing after its Ask")
             if self._live:
                 self._break("a live source asks through ctx.ask, not by yielding Ask")
             self.pending = event.request
-            self._asked = True
-        elif self._asked:
+        elif asked:
             self._break("a checkpoint source yields nothing after its Ask")
         self._put(event)
 

@@ -361,7 +361,7 @@ suite died.
 
 ### Tests for User Story 1 ⚠️ (write first, watch them fail)
 
-- [ ] T021 [P] [US1] Create `python/tests/langgraph_suite_source.py` and the suite's graph in
+- [X] T021 [P] [US1] Create `python/tests/langgraph_suite_source.py` and the suite's graph in
   `langgraph_graphs.py` (D3 b and c; `contracts/suite-changes.md`):
   - the graph: a scripted model reading the last human message. `"Write the report"` calls the tool
     `ask_question`, whose body is `interrupt(<a valid R2C question, id "q-1", one text field "title">)`
@@ -376,7 +376,7 @@ suite died.
     `double_ask=True` it yields a second `Ask` right after the first one the agent yields (S9); a
     "restart" is a new graph and a new agent over the **same** saver.
   - `wrap(graph, **options)`: builds a `LangGraphAgent`, ignoring only the D11 `UserWarning`.
-- [ ] T022 [P] [US1] Write `python/tests/test_langgraph_wrap.py` (R2, FR-001 to FR-004, FR-026, D11):
+- [X] T022 [P] [US1] Write `python/tests/test_langgraph_wrap.py` (R2, FR-001 to FR-004, FR-026, D11):
   - not a compiled graph: an object, and an uncompiled `StateGraph` (the message says to call
     `.compile(checkpointer=...)`): `TypeError`;
   - no checkpointer: `None`, `True`, `False`, and an object that is not a `BaseCheckpointSaver`:
@@ -389,7 +389,7 @@ suite died.
   - an `InMemorySaver` gives exactly one `UserWarning` per construction, and the text says a pause will
     not survive a restart; an `AsyncSqliteSaver` gives none;
   - FR-001: after a run the graph is the same object, with the same checkpointer, name and nodes.
-- [ ] T023 [P] [US1] Write `python/tests/test_langgraph_run.py` (R3, R5, R18; FR-005, FR-006, FR-008,
+- [X] T023 [P] [US1] Write `python/tests/test_langgraph_run.py` (R3, R5, R18; FR-005, FR-006, FR-008,
   FR-013, FR-023). Real graph and scripted model, through the `Driver`:
   - **reply**: the text equals the script's; chunks arrive as the model streams (at least three);
     exactly one chunk has `last=True` and it is the last; a one-token reply is one chunk with
@@ -416,15 +416,15 @@ suite died.
     started (the model's call counter does not move) (FR-023);
   - **pure units** of `_reply` (a state machine fed with pieces, no graph): hold-one, `last`, the
     paragraph break, chunks with no id count as one message while consecutive, a hidden id is skipped.
-- [ ] T024 [P] [US1] Write `python/tests/test_langgraph_suite.py`: the wrapper's own behaviour (T021) and
+- [X] T024 [P] [US1] Write `python/tests/test_langgraph_suite.py`: the wrapper's own behaviour (T021) and
   the suite on a real graph. `answers` records what reached `resume` (and is empty after a cancel);
   `double_ask` makes the driver end `error:protocol` with `run.pending is None`; `fail_after_ask` ends
   `error:failed` with a reason; a restart keeps the pause (same saver); every `SCENARIOS` entry passes
   over an `InMemorySaver` store.
-- [ ] T025 [US1] Change `python/tests/test_agent_source.py`: `FAKES` gains `"langgraph"`
+- [X] T025 [US1] Change `python/tests/test_agent_source.py`: `FAKES` gains `"langgraph"`
   (`lambda **options: SuiteSource(saver, **options)` over one saver per test), so the same parametrised
   scenarios run on both fakes and the real source through the same `Driver` (SC-001).
-- [ ] T026 [P] [US1] Write `python/tests/langgraph_only.py` (not collected by pytest, like
+- [X] T026 [P] [US1] Write `python/tests/langgraph_only.py` (not collected by pytest, like
   `core_only.py`; run as `python -I tests/langgraph_only.py` in a venv with the wheel and `[langgraph]`
   only). It must be **self-contained** (`-I` removes the script's folder from the path): a hand-built
   `StateGraph` over `MessagesState` with one node that calls `interrupt(<a valid R2C question>)` and then
@@ -432,33 +432,33 @@ suite died.
   `Ask`, the answer resumes it, the reply is read, `Done`. Then it asserts no `a2a` and no `mcp` module
   was imported (SC-010), and that blocking `langgraph` gives an `ImportError` that names
   `ext-r2c[langgraph]`. It prints `langgraph only: ok`.
-- [ ] T027 [US1] Build, install, and run T022 to T025. Confirm the expected failures: `ImportError: cannot
+- [X] T027 [US1] Build, install, and run T022 to T025. Confirm the expected failures: `ImportError: cannot
   import name 'LangGraphAgent' from 'ext_r2c.bridges.langgraph'`; the two fakes still pass the suite.
 
 ### Implementation for User Story 1
 
-- [ ] T028 [P] [US1] `python/src/ext_r2c/bridges/langgraph/_blocks.py` (input): `to_message(input)` makes
+- [X] T028 [P] [US1] `python/src/ext_r2c/bridges/langgraph/_blocks.py` (input): `to_message(input)` makes
   one `HumanMessage` from a `RunInput` (R18, FR-006): text only → `content=text`; with parts →
   `content_blocks` as in the data model's "Run input → message" table.
-- [ ] T029 [P] [US1] `_reply.py` (R5): the pure state machine, no graph import. `Reply.feed(piece)` takes
+- [X] T029 [P] [US1] `_reply.py` (R5): the pure state machine, no graph import. `Reply.feed(piece)` takes
   a piece of text with its message id and returns the chunks to send now; `flush(last)` leaves the held
   piece; `end_turn(had_text)` returns the held piece with `last=True`, or the closing
   `ReplyChunk("", last=True)` when nothing is held but the turn had reply text, or nothing. The paragraph
   break goes before the first piece of a different message when both have text. A hidden id is skipped.
   (No JSON hold yet: phase 8.)
-- [ ] T030 [P] [US1] `_handler.py`, first cut (R3, R5): `Handler(AsyncCallbackHandler)` with `run_inline =
+- [X] T030 [P] [US1] `_handler.py`, first cut (R3, R5): `Handler(AsyncCallbackHandler)` with `run_inline =
   True`; `on_chat_model_start` notes the run's tags, and `on_llm_end` puts the message's id on the leg's
   queue as `Hidden(id)` when the tags held `nostream`. Nothing about tools yet.
-- [ ] T031 [P] [US1] `_usage.py`, first cut (R7, adjustment 1 and 2): `usage_of(messages)` takes the
+- [X] T031 [P] [US1] `_usage.py`, first cut (R7, adjustment 1 and 2): `usage_of(messages)` takes the
   checkpoint's messages after the last `HumanMessage` and sums `input_tokens` and `output_tokens` of the AI
   messages that report them; a total no message reported stays absent; returns a `Usage` or `None` when
   neither total is known (R2C-USAGE-1). No cost, no duration.
-- [ ] T032 [P] [US1] `_pauses.py`, first cut (R8): read `aget_state(config).interrupts`; for each, a valid
+- [X] T032 [P] [US1] `_pauses.py`, first cut (R8): read `aget_state(config).interrupts`; for each, a valid
   hand-written R2C `question` or `approval` (the core's `parse`; an approval is accepted only for a person
   or an approver) becomes a `Pause` of kind `own_request` whose request id is the object's own id; any
   other shape raises a `RuntimeError("this kind of pause is not supported yet")`. The answer maps to the
   resume value: the answer's `value` mapping, or `None` when declined.
-- [ ] T033 [US1] `_leg.py` (R3, R5; decision 1 and 3 of the plan): one leg = a producer task iterating
+- [X] T033 [US1] `_leg.py` (R3, R5; decision 1 and 3 of the plan): one leg = a producer task iterating
   `astream(input, config, stream_mode=["messages", "updates"], version="v2")` into one unbounded
   `asyncio.Queue` that also receives the handler's items, and the consumer generator, the only reader,
   whose `finally` cancels the producer and awaits it. The config carries
@@ -467,20 +467,20 @@ suite died.
   update, a pause or an exception, and ends a turn with `Reply.end_turn`, then `UsageEvent`
   (`usage_of`) when it is not `None`; when the stream ends with a pending interrupt it reads the pause,
   flushes, yields the `Ask` and ends. A producer exception is put on the queue and raised in the consumer.
-- [ ] T034 [US1] `agent.py` (R2; FR-001 to FR-003, FR-005, FR-023, FR-026, D11): `LangGraphAgent` with the
+- [X] T034 [US1] `agent.py` (R2; FR-001 to FR-003, FR-005, FR-023, FR-026, D11): `LangGraphAgent` with the
   three wrap checks and the messages from the contract's table, the card, the options (keyword-only), and
   the `UserWarning` for an `InMemorySaver`; `run(input, ctx)` builds the message (`_blocks`) and runs a
   leg; `resume(answer, ctx)` rebuilds the pending set, matches `answer.id` (no match: `PauseLost` naming
   the id, before the graph is touched), checks the answer with the core's `check_answer` against the
   request the bridge would have asked, and runs a leg with `Command(resume={interrupt id: value})`. Export
   `LangGraphAgent` from `__init__.py`.
-- [ ] T035 [US1] Run T022 to T026 on the wheel until green (T026 in `../.lg-venv`). Then the one mutant of T019
+- [X] T035 [US1] Run T022 to T026 on the wheel until green (T026 in `../.lg-venv`). Then the one mutant of T019
   that needed the wrapper ("the wrapper never yields the second ask": S9 must fail) and, as a scratch
   run recorded under R17 in `research.md`, these bridge mutants, each of which must make at least one
   test fail: the last chunk's `last` is `False`; a pause flushes with `last=True`; the paragraph break
   is removed; the `finally` no longer cancels the producer; `thread_id` is a constant; a hidden id is not
   skipped; `PauseLost` is replaced by `RuntimeError`; the pending-set match is skipped.
-- [ ] T036 [US1] Verify (3.11, 3.12 and 3.13, with `langgraph_only.py`), then commit `feat(006): LangGraphAgent
+- [X] T036 [US1] Verify (3.11, 3.12 and 3.13, with `langgraph_only.py`), then commit `feat(006): LangGraphAgent
   runs a graph and streams its reply`.
 
 **Checkpoint**: a real graph passes S1–S10 (SC-001) and streams before its last token (SC-007).
@@ -1063,3 +1063,33 @@ criterion is checked on the three Pythons.
 - **T018 and T020**: 2079 tests pass on Python 3.13 (2071 plus 6 for `PauseLost` and 2 for `shape` and
   `check_last`); `core_only.py`, `a2a_only.py` and `mcp_only.py` print ok; `ruff --select F` is clean.
   The three-version run is at the end of phases 1, 3 and 10, as planned.
+
+### Phase 3 (2026-11-22)
+
+- **T021 to T026**: 110 tests in the four files (18 wrap, 38 run, 17 suite, 37 in `test_agent_source.py`,
+  where `FAKES` gains `"langgraph"`). `langgraph_only.py` is self-contained (a `python -I` script cannot
+  import `tests/` helpers), so it builds its own scripted model.
+- **T028 to T034**: `_handler.py`, `_pauses.py` and `_usage.py` are the first cuts the tasks named. In
+  this phase a pause is read as an own request only when the interrupt's value is a valid R2C question or
+  approval (the core's `parse`); any other shape raises `RuntimeError("this kind of pause is not supported
+  yet")` until phase 5 and phase 8 replace it. No `UsageEvent` is sent when no message reported a token
+  (R2C-USAGE-1); a pause sends none.
+- **T035 mutation check** (R17, "Mutation check of the bridge"): 17 of 17 mutants died, after two test
+  holes the check found were filled: no test had a pending pause and an answer for another request (the
+  pending-set match could be skipped), and none had an answer the request refuses (`check_answer` could be
+  skipped). Both now have a test (in `test_langgraph_run.py`).
+- **A core bug found on Python 3.11, fixed in the core** (a second core change beside `PauseLost`, D2).
+  On 3.11 seventeen tests of the suite ended the resumed run `done` with no reply. Root cause: `Run._pump`
+  decided at the end of a source's iterator whether the run was `done` by reading the run's `pending`. The
+  door reads an `Ask` the moment it is queued and may answer while the source is still ending (any
+  `await` after the `Ask`: the bridge's `finally` awaits its producer). The answer clears `pending` and
+  spawns the next pump, and the first pump then ended the run `done` under it. The race is won by luck on
+  3.12 and 3.13 and lost on 3.11. The flag that says "this iterator has yielded its Ask" is now a local of
+  each pump, not an attribute of the run (`_asked` is gone), and an `Ask` after an answered `Ask` is
+  refused like any event after an `Ask`. Three tests (`test_agent_source.py`) with a source that takes
+  one turn of the loop after its `Ask`; 4 of 4 mutants of the change died (R17). A bridge-level test
+  written first as a diagnostic was removed once the core test covered the cause.
+- **Python 3.11 only, in a test**: pydantic refuses `typing.TypedDict` before 3.12, so the plain-state graph
+  of `test_langgraph_wrap.py` uses `typing_extensions.TypedDict`.
+- **T036**: 2164 tests pass on Python 3.11.14, 3.12.3 and 3.13.16 (2079 at the end of phase 2);
+  `core_only.py`, `a2a_only.py`, `mcp_only.py` and `langgraph_only.py` print ok; `ruff --select F` is clean.
