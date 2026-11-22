@@ -35,7 +35,7 @@ from ext_r2c.core import (
 from ._batch import Batches
 from ._blocks import to_message
 from ._decisions import check, to_graph
-from ._leg import run_leg, seeded_reply
+from ._leg import run_leg, seeded_reply, sent_before
 from ._pauses import read_pauses, resume_value
 from ._reply import Reply
 from .tools import tools_by_name
@@ -128,7 +128,10 @@ class LangGraphAgent:
     async def run(self, input: RunInput, ctx: RunContext) -> AsyncIterator[RunEvent]:
         """One turn on the context's thread: the input as one human message."""
         pick = partial(self._next_ask, ctx.thread_id)
-        leg = run_leg(self._graph, {"messages": [to_message(input)]}, ctx.thread_id, Reply(), pick)
+        leg = run_leg(
+            self._graph, {"messages": [to_message(input)]}, ctx.thread_id, Reply(), pick,
+            reasoning=self._reasoning, expose_tools=self._expose_tools,
+        )
         async with aclosing(leg) as events:
             async for event in events:
                 yield event
@@ -170,9 +173,11 @@ class LangGraphAgent:
             value = resume_value(answer)
 
         values = state.values
-        seed = seeded_reply(values.get("messages") or ()) if isinstance(values, dict) else Reply()
+        earlier = values.get("messages") or () if isinstance(values, dict) else ()
         leg = run_leg(
-            self._graph, Command(resume={pause.interrupt_id: value}), thread, seed, partial(self._next_ask, thread)
+            self._graph, Command(resume={pause.interrupt_id: value}), thread, seeded_reply(earlier),
+            partial(self._next_ask, thread),
+            reasoning=self._reasoning, expose_tools=self._expose_tools, known=sent_before(earlier),
         )
         async with aclosing(leg) as events:
             async for event in events:

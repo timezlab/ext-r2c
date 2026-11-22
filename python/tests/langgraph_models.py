@@ -12,6 +12,7 @@ Every name here is invented (constitution VI): no real people, hosts or products
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import re
 from collections.abc import AsyncIterator, Callable, Iterator, Sequence
@@ -24,20 +25,44 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, Huma
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
 
+# What a provider keeps for itself: a signature on the reasoning and an encrypted block. A test looks
+# for these two strings in every event of a run: they must never be in one (R2C-ACTIVITY-5).
+SIGNATURE = "sig-9f2a-keep-private"
+ENCRYPTED = "enc-71cd-keep-private"
+
+
 @dataclass(frozen=True)
 class Turn:
-    """What the model says in one call: text, then tool calls, with optional usage and a name."""
+    """What the model says in one call: reasoning, then text, then tool calls, with optional usage and
+    a name.
+
+    `reasoning` is the pieces of the model's reasoning: a streaming model sends one chunk per piece,
+    a model that does not stream puts them in one block. With `sealed` the reasoning also carries a
+    provider's signature and an encrypted block, which are not the standard `reasoning` text.
+    """
 
     text: str = ""
     calls: tuple[tuple[str, dict[str, Any]], ...] = ()
     tokens: tuple[int, int] | None = None  # (input tokens, output tokens), as the provider reports
     model: str | None = None  # `response_metadata["model_name"]`
     blocks: tuple[dict[str, Any], ...] = ()  # extra standard content blocks, kept after the text
+    reasoning: tuple[str, ...] = ()
+    sealed: bool = False
 
 
-def Say(text: str, *, tokens: tuple[int, int] | None = None, model: str | None = None) -> Turn:
-    """A turn that is only text."""
-    return Turn(text=text, tokens=tokens, model=model)
+def Say(
+    text: str,
+    *,
+    tokens: tuple[int, int] | None = None,
+    model: str | None = None,
+    reasoning: Sequence[str] = (),
+    sealed: bool = False,
+    blocks: Sequence[dict[str, Any]] = (),
+) -> Turn:
+    """A turn that is only text (and, when given, reasoning and extra content blocks)."""
+    return Turn(
+        text=text, tokens=tokens, model=model, reasoning=tuple(reasoning), sealed=sealed, blocks=tuple(blocks)
+    )
 
 
 def Call(
@@ -45,9 +70,38 @@ def Call(
     text: str = "",
     tokens: tuple[int, int] | None = None,
     model: str | None = None,
+    reasoning: Sequence[str] = (),
+    sealed: bool = False,
 ) -> Turn:
     """A turn that calls tools (in this order), with optional text before the calls."""
-    return Turn(text=text, calls=tuple(calls), tokens=tokens, model=model)
+    return Turn(text=text, calls=tuple(calls), tokens=tokens, model=model, reasoning=tuple(reasoning), sealed=sealed)
+
+
+def media(kind: str, data: bytes, mime: str, **extras: Any) -> dict[str, Any]:
+    """A standard content block of `kind` (`image`, `audio`, `video`, `file`) that holds its bytes."""
+    block: dict[str, Any] = {"type": kind, "base64": base64.b64encode(data).decode("ascii"), "mime_type": mime}
+    return {**block, "extras": extras} if extras else block
+
+
+def linked(kind: str, url: str, mime: str, **extras: Any) -> dict[str, Any]:
+    """A standard content block of `kind` that holds a URL."""
+    block: dict[str, Any] = {"type": kind, "url": url, "mime_type": mime}
+    return {**block, "extras": extras} if extras else block
+
+
+def hosted(kind: str, file_id: str, mime: str) -> dict[str, Any]:
+    """A standard content block the provider keeps: it names the file and holds no data."""
+    return {"type": kind, "file_id": file_id, "mime_type": mime}
+
+
+def broken(kind: str, mime: str) -> dict[str, Any]:
+    """A standard content block whose `base64` is not base64."""
+    return {"type": kind, "base64": "!!! not base64 !!!", "mime_type": mime}
+
+
+def vendor(value: dict[str, Any]) -> dict[str, Any]:
+    """A block of a kind the standard does not have (`non_standard`)."""
+    return {"type": "non_standard", "value": value}
 
 
 @dataclass
@@ -175,6 +229,28 @@ class Scripted(BaseChatModel):
     def _meta(turn: Turn) -> dict[str, Any]:
         return {"model_name": turn.model} if turn.model else {}
 
+    @staticmethod
+    def _blocky(turn: Turn) -> bool:
+        """Whether the message is a list of content blocks, not a plain string."""
+        return bool(turn.blocks or turn.reasoning or turn.sealed)
+
+    @classmethod
+    def _whole(cls, turn: Turn) -> Any:
+        """The content of a message that did not stream: the text alone, or a list of blocks, in the
+        order a provider gives them (reasoning, text, files, the encrypted block)."""
+        if not cls._blocky(turn):
+            return turn.text
+        out: list[dict[str, Any]] = []
+        if turn.reasoning or turn.sealed:
+            thought: dict[str, Any] = {"type": "reasoning", "reasoning": "".join(turn.reasoning)}
+            out.append({**thought, "extras": {"signature": SIGNATURE}} if turn.sealed else thought)
+        if turn.text:
+            out.append({"type": "text", "text": turn.text})
+        out += turn.blocks
+        if turn.sealed:
+            out.append(vendor({"type": "redacted_thinking", "data": ENCRYPTED}))
+        return out
+
     # -- the two ways a model answers ---------------------------------------------------------
 
     def _generate(
@@ -185,11 +261,8 @@ class Scripted(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         turn = self._turn(messages)
-        content: Any = turn.text
-        if turn.blocks:
-            content = ([{"type": "text", "text": turn.text}] if turn.text else []) + list(turn.blocks)
         message = AIMessage(
-            content=content,
+            content=self._whole(turn),
             tool_calls=self._tool_calls(turn, messages),
             usage_metadata=self._usage(turn),  # type: ignore[arg-type]
             response_metadata=self._meta(turn),
@@ -216,14 +289,19 @@ class Scripted(BaseChatModel):
         gate = self.gate
         finished = False
         waited = gate is None
+        blocky = self._blocky(turn)
         try:
+            for piece in turn.reasoning:  # a provider streams its reasoning before its text
+                thought: dict[str, Any] = {"type": "reasoning", "reasoning": piece, "index": 0}
+                yield ChatGenerationChunk(message=AIMessageChunk(content=[thought]))  # type: ignore[list-item]
             sent = 0
             for piece in pieces(turn.text):
                 if not waited and sent == gate.after:
                     waited = True
                     gate.reached.set()
                     await gate.event.wait()
-                yield ChatGenerationChunk(message=AIMessageChunk(content=piece))
+                text: Any = [{"type": "text", "text": piece, "index": 1}] if blocky else piece
+                yield ChatGenerationChunk(message=AIMessageChunk(content=text))
                 sent += 1
             if not waited:
                 waited = True
@@ -233,7 +311,12 @@ class Scripted(BaseChatModel):
                 {"name": c["name"], "args": json.dumps(c["args"]), "id": c["id"], "index": i}
                 for i, c in enumerate(self._tool_calls(turn, messages))
             ]
-            content: Any = list(turn.blocks) if turn.blocks else ""
+            content: Any = ""
+            if blocky:  # the files, then what the provider keeps: the signature and the encrypted block
+                content = [{**block, "index": 2 + i} for i, block in enumerate(turn.blocks)]
+                if turn.sealed:
+                    content.insert(0, {"type": "reasoning", "reasoning": "", "extras": {"signature": SIGNATURE}, "index": 0})
+                    content.append({**vendor({"type": "redacted_thinking", "data": ENCRYPTED}), "index": 2 + len(turn.blocks)})
             yield ChatGenerationChunk(
                 message=AIMessageChunk(
                     content=content,

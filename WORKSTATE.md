@@ -197,13 +197,22 @@ Last updated 2026-11-22. Read this first in a new session.
     batch is asked again from its first call; an in-memory saver, an answer applied twice and a pruned
     thread end `lost` with the graph not started); 13 new tests, all green on the first run, 2257 in all;
     10 of 10 mutants died. No change to the bridge was needed.
+    **Phase 7 (T061–T074) is done** (2026-11-22): the caller's timeline. A tool is one `tool` activity
+    (`running` while its body runs, then `done` or `failed` with `duration_ms`; a pause inside a body is not
+    a failure; `args` and `detail` only for `expose_tools`); reasoning goes out only when asked for, in
+    pieces cut by a fixed rule (no timer) and never a signature; usage is one cumulative `usage` per turn
+    read from the checkpoint, so a restart in the middle changes nothing; file blocks of a completed message
+    become artifacts once. A real latent defect came out: a field passed as `None` to `Activity` or `Usage`
+    is "set" and goes out as `null` (the first cut of `usage_of` had it). Research R4 was wrong about a node
+    that calls a tool without its config (the callbacks do reach it) and is corrected by a dated note.
+    79 new tests, 2336 in all; 39 of 39 mutants died (two test holes found and filled).
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
     (spec 006), `3b26285` (its plan) and the tasks commit after it.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 under way, phase 6 of 10 done; 007 onward proposed)
+## Spec sequence (001–005 built; 006 under way, phase 7 of 10 done; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -234,7 +243,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–6 done) —
+6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–7 done) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply

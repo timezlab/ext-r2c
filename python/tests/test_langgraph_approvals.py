@@ -105,17 +105,19 @@ def world(
     saver: Any = None,
     runs: Counter[str] | None = None,
     calls: Calls | None = None,
+    **options: Any,
 ) -> World:
     """A graph whose tools `gate` (name → `True` or an `InterruptOnConfig`) wait for approval.
 
     `runs` and `calls` are given when two worlds must count into the same place (a restart: the
-    second process is a new graph over the same saver, and what ran is what both ran)."""
+    second process is a new graph over the same saver, and what ran is what both ran). `options` go
+    to `LangGraphAgent` (`reasoning`, `expose_tools`)."""
     runs = Counter() if runs is None else runs
     calls = Calls() if calls is None else calls
     saver = memory_saver() if saver is None else saver
     middleware = HumanInTheLoopMiddleware(interrupt_on=gate or {DEPLOY: True, NOTICE: True}, interrupt_mode=mode)  # type: ignore[arg-type]
     graph = agent(Scripted(script=script, calls=calls), list(counted_tools(runs).values()), saver, middleware=[middleware])
-    return World(wrap(graph), graph, runs, calls, saver)
+    return World(wrap(graph, **options), graph, runs, calls, saver)
 
 
 def hidden(script: Script, mode: str, gate: dict[str, Any]) -> World:

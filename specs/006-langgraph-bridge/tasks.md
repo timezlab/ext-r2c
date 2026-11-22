@@ -674,12 +674,12 @@ no more than the owner allows (SC-008).
 
 ### Tests for User Story 4 ⚠️ (write first)
 
-- [ ] T061 [P] [US4] Extend `python/tests/langgraph_models.py`, test first (its own checks go in
+- [X] T061 [P] [US4] Extend `python/tests/langgraph_models.py`, test first (its own checks go in
   `test_langgraph_timeline.py`): turns that carry **reasoning** blocks (standard `reasoning` text, plus a
   signature and an encrypted block that must never leave), **file blocks** (`image`, `file`, `audio`,
   `video` with `base64` or `url`; one with only an `id`; one invalid base64; one `non_standard`), and
   settable `model_name` and token numbers.
-- [ ] T062 [P] [US4] Write `python/tests/test_langgraph_timeline.py`, tool activity (R3, R4; FR-009,
+- [X] T062 [P] [US4] Write `python/tests/test_langgraph_timeline.py`, tool activity (R3, R4; FR-009,
   FR-013, D5):
   - a tool call is one `tool` activity: id = the tool call's id, `name`, `label`, `running` then `done`,
     with `duration_ms`; a tool that returns `status="error"` or raises ends `failed`;
@@ -696,7 +696,7 @@ no more than the owner allows (SC-008).
     `Error("failed")`; a cancel emits nothing after the driver ended the run;
   - a node that calls `tool.ainvoke(...)` without passing its config shows no activity (R4: a named
     limit, pinned).
-- [ ] T063 [P] [US4] Same file, reasoning (R6; FR-010): default off, no reasoning activity at all, even
+- [X] T063 [P] [US4] Same file, reasoning (R6; FR-010): default off, no reasoning activity at all, even
   though the model reasons; `reasoning=True`: one activity per message, id `reasoning-<message id>`, type
   `reasoning`, label `Thinking`, `delta` pieces and **no `state`**; deterministic coalescing, **no
   timers**: a buffer leaves at a sentence end or a newline once it holds 40 characters, at a space near
@@ -704,46 +704,46 @@ no more than the owner allows (SC-008).
   reply text; a whole non-streamed message's reasoning goes out the same way; a signature, an encrypted
   block and a `non_standard` block **never** leave (R2C-ACTIVITY-5). Pure units of `_reasoning` (the
   buffer, fed with deltas) beside the graph tests.
-- [ ] T064 [P] [US4] Same file, usage (R7; FR-011, SC-008): a turn with several model calls sends **one**
+- [X] T064 [P] [US4] Same file, usage (R7; FR-011, SC-008): a turn with several model calls sends **one**
   cumulative `usage` of all of them, once, after the last reply chunk and before `done`; **not** at a
   pause; `model` from `response_metadata`; no `cost` and no `duration_ms`; a field the model did not
   report is absent, not zero; a turn where no message reported tokens sends **no** `UsageEvent` (R2C-USAGE-1);
   a hidden (`nostream`) message and a structured-reply message count (the tokens were spent); **with a
   restart in the middle** (SQLite, a pause between two model calls) the total equals the sum of every
   model call of the turn (SC-008, scenario 6); the turn is the messages since the last human message.
-- [ ] T065 [P] [US4] Same file, files (R6; FR-012, D6): an AI message with a `file`, an `image`, an
+- [X] T065 [P] [US4] Same file, files (R6; FR-012, D6): an AI message with a `file`, an `image`, an
   `audio` and a `video` block with bytes becomes an `ArtifactEvent` each, `presentation="file"`, id
   `<message id>-<block index>`, `BytesContent` with the media type, `UrlContent` for a URL, `name` from
   `extras` `filename` or `name` when it is a string; a block with no data (hosted by id), invalid base64
   or `non_standard` is **skipped** and the run goes on; blocks are read from the **completed** message in
   the `updates` part, never from chunks (a streamed model gives each file once); the A2A door with a small
   file limit fails a file artifact cleanly (the door refuses, not the bridge: R15).
-- [ ] T066 [US4] Build, install, and run T061 to T065. Confirm the expected failures: no tool activity (the
+- [X] T066 [US4] Build, install, and run T061 to T065. Confirm the expected failures: no tool activity (the
   first cut's handler reports hidden ids only), no reasoning, usage only the first cut's, no artifacts.
 
 ### Implementation for User Story 4
 
-- [ ] T067 [P] [US4] `_reasoning.py` (R6): the buffer per message id and the coalescing rules; only the
+- [X] T067 [P] [US4] `_reasoning.py` (R6): the buffer per message id and the coalescing rules; only the
   standard `reasoning` field is read.
-- [ ] T068 [P] [US4] `_blocks.py`, extended (R6): completed message → `ArtifactEvent`s per the data model's
+- [X] T068 [P] [US4] `_blocks.py`, extended (R6): completed message → `ArtifactEvent`s per the data model's
   "Content block → artifact" table; skipped blocks logged at debug.
-- [ ] T069 [US4] `_usage.py` completed (R7): the model's name (the last non-empty
+- [X] T069 [US4] `_usage.py` completed (R7): the model's name (the last non-empty
   `response_metadata["model_name"]`), the restart proof, hidden and structured messages counted.
-- [ ] T070 [US4] `_handler.py` completed (R3, R4; point 2, answered A): `on_tool_start` puts a `ToolStarted`
+- [X] T070 [US4] `_handler.py` completed (R3, R4; point 2, answered A): `on_tool_start` puts a `ToolStarted`
   item (id = `tool_call_id`, or the run id for a tool a node calls itself), `on_tool_end` a `ToolEnded`
   (`failed` when the message's `status` is `error`), `on_tool_error` a `ToolFailed` **unless** the error is
   a `GraphBubbleUp`; `time.monotonic()` for the duration. `expose_tools` decides `args` and `detail`
   (2000-character cut).
-- [ ] T071 [US4] `_leg.py` and `agent.py` extended: the consumer turns the handler's items into
+- [X] T071 [US4] `_leg.py` and `agent.py` extended: the consumer turns the handler's items into
   `ActivityEvent`s; reasoning deltas go out when the option is on; completed-message blocks become
   artifacts; on an exception each still-`running` activity is closed `failed` before the exception goes on.
-- [ ] T072 [US4] Run T062 to T065 until green; the A2A file-limit test too.
-- [ ] T073 [US4] Mutation check, recorded under R17: each of these must make a test fail: `GraphBubbleUp`
+- [X] T072 [US4] Run T062 to T065 until green; the A2A file-limit test too.
+- [X] T073 [US4] Mutation check, recorded under R17: each of these must make a test fail: `GraphBubbleUp`
   treated as a failure; `running` emitted at the model's request; `args` shown for an unexposed tool; the
   reasoning option ignored; a signature block sent; the coalescing threshold changed by one; `usage`
   sent at a pause; usage taken from the handler instead of the checkpoint (the restart test); a skipped
   block raising; files read from chunks (a duplicate).
-- [ ] T074 [US4] Verify, then commit `feat(006): tool activity, reasoning, usage and files`.
+- [X] T074 [US4] Verify, then commit `feat(006): tool activity, reasoning, usage and files`.
 
 **Checkpoint**: SC-008 holds; US4's scenarios 1 to 6 pass.
 
@@ -1172,3 +1172,39 @@ criterion is checked on the three Pythons.
   no hole found.
 - **T060**: 2257 tests pass on Python 3.13 (2244 before); `ruff --select F` is clean. Scenario 6 (usage
   across a restart) closes in phase 7 (T064), as planned.
+
+### Phase 7 (2026-11-22)
+
+- **T062, last bullet, was wrong, and the research behind it too (R4)**: "a node that calls
+  `tool.ainvoke(...)` without passing its config shows no activity" does not hold, on Python 3.11 or
+  3.13. LangChain's callbacks travel in a context variable, so the handler in the call's `config` reaches
+  a tool a node calls on its own. Only a caller that passes `callbacks` of its own (a node that hands
+  `config={"callbacks": [...]}` to the tool) hides the call. `test_a_tool_called_with_callbacks_of_its_own_shows_nothing`
+  pins the real limit, and `test_a_tool_a_node_calls_without_a_tool_call_is_shown_under_its_run_id` pins
+  that the plain call is seen (its activity id is the run id: there is no tool call id).
+- **T061 and T066**: 79 tests in `test_langgraph_timeline.py`; the failing run (module `_reasoning` absent)
+  was read through a stubbed scratch copy: 56 failed and 17 passed, each for the expected reason.
+- **A latent defect the new tests found, in the first cut of phase 3**: the core's `to_json` uses
+  `exclude_unset=True`, so a field passed as `None` counts as set and goes out as `null`, which the schema
+  refuses. `usage_of` did this for a missing model name, and the first draft of the tool activity did it
+  for `detail` and `duration_ms`. Both now pass only the fields that have a value, and the tests compare
+  the exact wire dict, not the object.
+- **`args` is repeated on the terminal update** of an exposed tool (`running` and then `done` or `failed`
+  both carry it), because a caller that shows only the last update of an activity still has the input. Not
+  in the tasks; pinned by a test. `args` is sent only when the call's input is plain JSON (`_json_args`):
+  injected state is not.
+- **Hidden messages** (`nostream`, the structured reply): their reasoning and their files are skipped, as
+  their text is; their tokens still count in the usage (T064).
+- **T069, files across a pause**: in `batched` mode the middleware gives the same AI message again once an
+  approval is answered, so a file artifact went out twice. The resumed leg now starts with the ids of the
+  turn's AI messages the checkpoint holds (`sent_before`), and the timeline sends a message's files once.
+- **T065, the A2A limit**: the door checks an outgoing message's content against `Limits.message_bytes`;
+  `file_bytes` is the client's limit for what it reads, so the test sets `message_bytes`.
+- **T073 mutation check** (R17, "Mutation check of the timeline"): 39 mutants, 37 died on the first run;
+  the two survivors (M25, M26) were holes in the tests, not equivalent mutants: "when does a message's
+  reasoning end" needed a reply of several words and a reasoning-only message that calls a tool. Two
+  ordering tests were added and 39 of 39 died.
+- **T074**: 2336 tests pass on Python 3.13 (2257 before); `ruff --select F` is clean. The three-version
+  run is at the end of phase 10.
+- **Not planned and not done**: the model's name is the last non-empty `model_name` of the turn, so a turn
+  that changes model reports the last one; a message with only a `model_provider` has none.

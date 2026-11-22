@@ -174,6 +174,16 @@ file layout (R18). Five points were not in the approved spec and are listed in
     already ended the run and drops what follows.
 - **Alternatives**: one activity per graph node (`step`): out of scope (spec). `label` from the
   tool's description: too long for a timeline, and it can hold text the owner did not mean to show.
+- **Correction after the phase 7 tests (2026-11-22; the finding above is kept as written)**: the claim that
+  a node calling `tool.ainvoke(...)` without its config "does not propagate callbacks" is false, on
+  Python 3.11 and 3.13. LangChain carries the callbacks in a context variable, so the per-run handler
+  reaches that call too, and its activity is shown under the run id (there is no tool call id). The only
+  way to hide a call is to pass `callbacks` of its own to the tool, which replaces the inherited ones;
+  that is the named limit, and `test_langgraph_timeline.py` pins both cases.
+- **Added by the same tests**: `args` is repeated on the terminal update of an exposed tool, so a
+  caller that shows only the last update still has the input; and `args` is sent only when the call's
+  input is plain JSON (`json.loads(json.dumps(input))` works). Injected state, which is not, is left
+  out, never forced to a string.
 
 ## R5. The reply: chunks, the final `last`, paragraph breaks, `nostream`, structured JSON
 
@@ -672,6 +682,30 @@ file layout (R18). Five points were not in the approved spec and are listed in
   the first input again instead of the answer (R6, so a tool body would run twice); `resume` is sent with
   no interrupt id (R7); a lost pause ends `failed`, not `lost` (R8); no usage at the end of the turn (R9);
   the answer to a hand-written question is not carried into the graph (R10).
+
+### Mutation check of the timeline (phase 7, 2026-11-22)
+
+- **How**: as above; the file run is `test_langgraph_timeline.py` (79 tests), baseline green first.
+- **Result: 39 of 39 mutants died, after two test holes were filled.** 37 died on the first run. The two
+  survivors were not equivalent mutants:
+  - "the thoughts do not end when the reply's words start" and "the thoughts do not end with the message's
+    update" both lived, because no test said *when* a message's reasoning is over. Two ordering tests were
+    added: a reply of several words after the reasoning (the buffer leaves before the first word) and a
+    reasoning-only message that calls a tool (the buffer leaves at the message's update, before the tool's
+    `running`). Both mutants died after.
+- **What the 39 cover**: a pause in a tool's body treated as a failure; the activity id; a tool message
+  with `status="error"` read as done; an input that is not JSON sent as it is; a tool end or start never
+  queued; `running` sent at the model's request; `args` and `detail` shown for an unexposed tool; `detail`
+  cut one character late; no duration; a failed call ending `done`; a graph that raises leaving its tools
+  `running`; the reasoning option ignored; a provider's signature read as reasoning text; the 40 and 400
+  limits moved by one, each way; a full stop with no space after it counted as a sentence end; a newline
+  not counted; the buffer not drained at a pause or at the turn's end; the thoughts of a hidden call sent;
+  usage at a pause; usage of the last message only (what a leg-local sum would give after a restart,
+  killed by the SQLite test); the model name taken from the last message even when empty; an absent count
+  sent as `null`; a bad base64 block raising; the artifact id counting the files sent, not the position;
+  a file with no media type given `text/plain`; a name read from `filename` only; a message seen again
+  sending its files again; the files of a hidden call sent; files read from chunks too; and an earlier
+  leg's messages not known to the resumed leg.
 
 ## R18. Layout, imports and packaging
 
