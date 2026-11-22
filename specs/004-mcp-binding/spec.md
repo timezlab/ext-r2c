@@ -54,6 +54,11 @@ MCP Skills (SEP-2640), first planned here, is its own spec, `005-mcp-skills` (de
 2026-11-20, Q1 A): it is a separate MCP extension, not R2C, and the SDK does not ship it. The
 specs after it move up one number.
 
+> **Note, 2026-11-22.** Spec 005 is built (locally): `SkillsExtension` and `SkillsClient` in
+> `ext_r2c.mcp`. This spec's `mcp_server` gained one keyword, `extensions=`, to serve other MCP
+> extensions after R2C's; without it the behaviour is exactly as written here, and the R2C wire on
+> `tools/call` is unchanged beside a skills extension (005's `test_skills_compose.py`).
+
 `Remote` (007) will offer this door beside the A2A door, as `tools=`, `approve=` and
 `mcp_tool=True`; this spec does not build `Remote`. The LangGraph bridge (006) will be one
 `AgentSource`; this spec tests with the fake sources of 002 and sources written in the tests.

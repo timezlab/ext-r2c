@@ -412,5 +412,8 @@ class TestAServerThatPagesForever:
             return await SkillsClient(client, origin="docs").list()
 
         listing = run(talk(ext, body))
-        assert len(listing.skills) == 4  # the same entry four times, as that server said: it is its doing
-        assert ext.asked == [None, "a", "b", "c"]
+        assert ext.asked == [None, "a", "b", "c"]  # every page was asked for, and no page after the last
+        # This server says the same skill on every page. One skill is one URI (outside review, R17): it is
+        # returned once and each repeat is refused, so a server cannot fill a list by repeating itself.
+        assert [item.uri for item in listing.skills] == ["skill://docs/SKILL.md"]
+        assert [(r.check, r.uri) for r in listing.refused] == [("entry", "skill://docs/SKILL.md")] * 3

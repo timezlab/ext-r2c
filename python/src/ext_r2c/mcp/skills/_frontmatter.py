@@ -11,9 +11,11 @@ reading it expensive or ambiguous:
 - an anchor, an alias or a merge key (so no document can grow when it is read);
 - a tag it does not know (so no document can build a Python object);
 - a duplicate key (PyYAML keeps the last one without a word);
-- a number or boolean written in the dialects of YAML 1.1. Only JSON-like numbers are numbers
-  (`3`, `-4`, `1.5`, `2.5e3`) and only `true` and `false` are booleans, so `yes`, `no`, `on`,
-  `off`, `12:30`, `0755`, `1_000` and a date such as `2026-01-02` stay the text the author wrote;
+- a number or boolean written in the dialects of YAML 1.1. A plain scalar is a number only if it is
+  JSON-like (`3`, `-4`, `1.5`, `2.5e3`) and a boolean only if it is `true` or `false`, so `yes`,
+  `no`, `on`, `off`, `12:30`, `0755`, `0x1f`, `1_000` and a date such as `2026-01-02` stay the text
+  the author wrote (a quoted scalar is always text, and an explicit core tag such as `!!int` is
+  accepted for what it says); `.inf` and `.nan` are refused;
 - a header over 64 KiB or nested deeper than `MAX_DEPTH`.
 
 A failure is a `FrontmatterError` whose `reason` comes from the fixed set `REASONS`. The message

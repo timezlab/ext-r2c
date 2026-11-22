@@ -45,6 +45,24 @@ class FileChanged(Exception):
         return (type(self), ())
 
 
+class FileUnreadable(Exception):
+    """The file could not be read for a reason that says nothing about the file: a failing disk, no
+    permission, too many open files. `code` is the `errno`; the message holds nothing else, so no path
+    of this host is in it."""
+
+    def __init__(self, code: int) -> None:
+        super().__init__(f"The file could not be read: {os.strerror(code)}")
+        self.code = code
+
+    def __reduce__(self) -> tuple[type[FileUnreadable], tuple[int]]:
+        return (type(self), (self.code,))
+
+
+# What the system says when the file is not what the scan saw: gone, replaced by a folder or a pipe, a
+# link on the way. Every other error is the system's, not the file's.
+_CHANGED = frozenset({errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENXIO, errno.EISDIR, errno.EINVAL})
+
+
 def _open_below_the_top(folder: str, parts: Sequence[str]) -> int:
     """A descriptor for `parts` below `folder`, found by opening each name from `/` down."""
     names = [name for name in os.path.abspath(folder).split(os.sep) if name] + list(parts)
@@ -103,11 +121,14 @@ def read_bytes(folder: str, parts: Sequence[str], limit: int | None = None) -> b
 
 def read_file(record: FileRecord) -> bytes:
     """The bytes of a served file, if they are still what the scan saw; else `FileChanged`. At most one
-    byte more than the entry's size is read, which is enough to see that a file has grown."""
+    byte more than the entry's size is read, which is enough to see that a file has grown. An `OSError`
+    that does not say the file is gone or swapped (`_CHANGED`) is `FileUnreadable`, not a change."""
     try:
         data = read_bytes(record.folder, record.parts, record.size + 1)
-    except OSError:
-        raise FileChanged from None
+    except OSError as error:
+        if error.errno in _CHANGED:
+            raise FileChanged from None
+        raise FileUnreadable(error.errno or errno.EIO) from None
     if len(data) != record.size or "sha256:" + hashlib.sha256(data).hexdigest() != record.digest:
         raise FileChanged
     return data

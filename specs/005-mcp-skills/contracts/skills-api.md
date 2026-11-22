@@ -39,6 +39,7 @@ class SkillsExtension(Extension):
 class SkillInfo:  name: str; uri: str; description: str; files: int; size: int
 @dataclass(frozen=True)
 class LeftOut:    path: str; reason: str   # "hidden" | "symbolic link" | "not a regular file" | "undecodable name"
+                                           # | "unsafe name"; path has such characters escaped (see Rules)
 
 class SkillsError(ValueError):
     folder: str          # a root: as the owner gave it (made absolute); a skill or a folder below a
@@ -87,6 +88,30 @@ class SkillsError(ValueError):
 - **v1 limits**: a `name` must match `^[a-z0-9]+(-[a-z0-9]+)*$` (≤ 64) — ASCII only; a nested
   `SKILL.md` is an ordinary file of the outer skill and is not served as a skill (R6); a file is
   sent whole; the frontmatter text is at most 64 KiB.
+- **Scan bounds** (R17), whatever the tree: a folder is searched at most 32 folders below its root;
+  a skill holds no folder more than 32 below its own and at most 1024 folders (an empty one
+  counts); a root searches at most 1024 folders that are not skills (the root counts, a skill does
+  not, and the number of skills is not limited). Past a bound the scan is a `SkillsError` naming the
+  folder, before the folder is read.
+- **Names that are not safe to print.** A file or folder whose name has a control character (a
+  line feed, an escape, `U+0085`), a line or paragraph separator (`U+2028`, `U+2029`), a
+  bidirectional control (`U+061C`, `U+200E`, `U+200F`, `U+202A`–`U+202E`, `U+2066`–`U+2069`) or a
+  backslash is **left out** as `"unsafe name"` (a folder with what is in it), like a name that is
+  not text. Text in any script, a combining mark and a zero-width joiner are not unsafe. In
+  `left_out` and in the log, a path is shown with such a character as `\xNN` (up to `U+00FF`) or
+  `\uNNNN`, and a byte that is not text as `\xNN`, so a name cannot forge a log line or reorder one.
+- **A file that cannot be read** is told apart from one that changed. The system errors that say
+  the file is not what the scan saw (`ENOENT`, `ENOTDIR`, `ELOOP`, `ENXIO`, `EISDIR`, `EINVAL`) are
+  `-32603` with the fixed "The skills changed on disk since they were scanned; refresh them." Any
+  other (`EIO`, `EACCES`, `EMFILE`, …) is `-32603` with the fixed "The server could not read the
+  file."; the log has one `WARNING` with the URI and the system's words, never a path of this host.
+- **A hard link is not a link.** A file with more than one hard link is an ordinary file: the scan
+  does not follow names that point elsewhere (symbolic links), and cannot tell a hard link to a
+  file outside the folder from a file inside it. Do not make hard links to files that must not be
+  served inside a served folder (a package manager's store does, and its files are served).
+- **One extension serves one `MCPServer`**: what the SDK has been given a resource for is kept in
+  the extension, so a file that a refresh adds is added to the one server `refresh(server)` is
+  given.
 
 ### Using it
 
@@ -135,6 +160,18 @@ class SkillsClient:
   makes an entry invalid). A `nextCursor` the client has already received in this listing (an
   empty string too) is a loop: `SkillRefused(check="response")`, and no further request.
   `get` raises `SkillRefused(check="entry" | "resources" | "limit")`.
+- **An entry is valid** (R13, R17) when all of this holds, and refused otherwise (`entry` for the entry
+  itself, `resources` for its file list, `limit` for a limit): it is an object with a string `uri` and a
+  `frontmatter` object; the `name` is 1 to 64 printable characters with no space, `/` or `\`; the
+  `description` is 1 to 1024 characters; the `uri` is `<scheme>://…/<name>/SKILL.md` for that name,
+  with **any** scheme (the extension privileges none; `skill://` is what this package serves); it
+  lists its files (not `"dynamic"`, not missing), at most 512 and 16 MiB in all, each with a `uri`
+  **strictly inside** the skill's folder (`<folder>/` and then segments, each non-empty, not `.` or
+  `..`, free of `/`, a backslash and control, line-break or bidi characters after one
+  percent-decoding; a neighbour such as `<folder>-old/…` or another skill's file is not inside), a
+  `sha256:<64 lowercase hex>` digest and a whole-number size, none twice, its own `SKILL.md`
+  among them. A skill listed twice in one listing (same `uri`) is returned once and the second is
+  refused (`entry`).
 - `load` and `read` send `resources/read` **only when called**, and `read` only for a URI listed
   in `item.files` (`check="unlisted"` otherwise, without a request). They verify, in this order:
   one content with the same URI (`response`); raw length against `size` (`size`; a `blob` or
@@ -155,8 +192,11 @@ class SkillsClient:
 - Nothing is cached across connections and nothing is written to disk. Content is untrusted: no
   frontmatter field is interpreted. `SkillContent.text()` decodes strictly and raises on invalid
   UTF-8.
-- **Known limit**: the frontmatter comparison uses this package's reader; an entry from another
-  server whose rendering of a YAML timestamp differs from the author's text is refused (R7).
+- **Known limit**: the frontmatter comparison uses this package's reader, which keeps a plain
+  scalar that YAML 1.1 would type (`yes`, `off`, `0755`, `0x1f`, `1_000`, `12:30`, a timestamp) as the
+  text the author wrote. An entry from another server that typed such a value (a boolean, a number, a
+  rendered timestamp) differs from what this client reads in `SKILL.md`, and is refused
+  (`check="frontmatter"`) although the server is honest by its own reader (R7, R17).
 
 ### Types
 

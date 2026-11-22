@@ -16,9 +16,7 @@ from types import MappingProxyType
 from typing import Any, NamedTuple
 
 from ._content import DIRECTORY
-from ._uris import SCHEME, encode_uri
-
-_PREFIX = f"{SCHEME}://"
+from ._uris import encode_uri, fold_authority
 
 
 class SkillsError(ValueError):
@@ -36,8 +34,10 @@ class SkillsError(ValueError):
 
 @dataclass(frozen=True)
 class LeftOut:
-    """Something a scan did not serve: its path under the folder, and why (hidden, a symbolic link,
-    not a regular file, a name that is not text)."""
+    """Something a scan did not serve: its path below the folder it was found in (a character that is not
+    safe to print is escaped as `\\xNN` or `\\uNNNN`), and why: `hidden`, `symbolic link`,
+    `not a regular file`, `undecodable name` (not text) or `unsafe name` (a control character, a line
+    or paragraph separator, a bidirectional control or a backslash)."""
 
     path: str
     reason: str
@@ -148,16 +148,10 @@ def _with_sorted_files(skill: SkillRecord) -> SkillRecord:
     )
 
 
-def _fold(uri: str) -> str:
-    """The URI with the ASCII letters of its first segment lowered (the authority, R3)."""
-    authority, slash, rest = uri.removeprefix(_PREFIX).partition("/")
-    return f"{_PREFIX}{authority.lower()}{slash}{rest}"
-
-
 def _claim(claimed: dict[str, tuple[str, str]], uri: str, kind: str, folder: str) -> None:
     """Note that `uri` is taken by a `kind` ("file" or "directory") of the skill in `folder`; a second
     claim is an error that names both folders."""
-    key = _fold(uri)
+    key = fold_authority(uri)
     earlier = claimed.get(key)
     if earlier is None:
         claimed[key] = (kind, folder)

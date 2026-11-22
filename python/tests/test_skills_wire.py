@@ -15,7 +15,17 @@ import pytest
 from ext_r2c.mcp.skills import _wire
 from ext_r2c.mcp.skills._content import as_text_or_bytes, mime_for
 from ext_r2c.mcp.skills._cursor import MAX_CURSOR_LENGTH, CursorError, decode_cursor, encode_cursor
-from ext_r2c.mcp.skills._uris import SCHEME, SKILL_FILE, authority_key, encode_uri, last_segments, skill_name_ok
+from ext_r2c.mcp.skills._uris import (
+    SCHEME,
+    SKILL_FILE,
+    char_unsafe,
+    encode_uri,
+    fold_authority,
+    last_segments,
+    name_unsafe,
+    segment_ok,
+    skill_name_ok,
+)
 from ext_r2c.mcp.skills._wire import (
     GetSkillParams,
     GetSkillRequest,
@@ -118,17 +128,48 @@ def test_an_empty_or_dotted_file_part_is_refused() -> None:
             encode_uri(("x",), file=bad)
 
 
-def test_the_authority_key_ignores_case_in_the_first_segment_only() -> None:
-    assert authority_key(("Team", "x")) == authority_key(("team", "y"))
-    assert authority_key(("TEAM",)) == authority_key(("team",))
-    assert authority_key(("team",)) != authority_key(("teams",))
-    assert authority_key(("team", "A")) == authority_key(("team", "b"))  # only the first segment counts
+def test_the_folded_uri_ignores_case_in_the_first_segment_only() -> None:
+    assert fold_authority("skill://Team/x") == fold_authority("skill://team/x")
+    assert fold_authority("skill://TEAM") == fold_authority("skill://team")
+    assert fold_authority("skill://team/x") != fold_authority("skill://teams/x")
+    assert fold_authority("skill://team/A") != fold_authority("skill://team/b")  # only the first segment counts
+    assert fold_authority("skill://team/A") == "skill://team/A"  # and the rest is kept as it is
 
 
-def test_the_authority_key_folds_ascii_only() -> None:
+def test_the_folded_uri_folds_ascii_only() -> None:
     # An authority is compared as the host of a URI: RFC 3986 lowers ASCII letters, nothing else.
-    assert authority_key(("É",)) != authority_key(("é",))
-    assert authority_key(("É",)) == authority_key(("É",))
+    assert fold_authority(encode_uri(("É",))) != fold_authority(encode_uri(("é",)))
+    assert fold_authority(encode_uri(("É",))) == fold_authority(encode_uri(("É",)))
+
+
+@pytest.mark.parametrize("segment", ["a", "caf%C3%A9", "a%20b", "50%25", "x+y", "SKILL.md", "...", ".hidden"])
+def test_a_segment_that_decodes_to_a_name_is_ok(segment: str) -> None:
+    assert segment_ok(segment)
+
+
+@pytest.mark.parametrize(
+    "segment",
+    ["", ".", "..", "%2e", "%2E%2E", "a%2Fb", "a%5Cb", "a\\b", "a%0Ab", "a\nb", "%1b", "%7f", "a%E2%80%AEb", "a%E2%80%A8b", "a%C2%85b"],
+    ids=["empty", "dot", "dot-dot", "encoded-dot", "encoded-dot-dot", "encoded-slash", "encoded-backslash", "backslash", "encoded-line-feed",
+         "line-feed", "escape", "delete", "bidi-override", "line-separator", "next-line"],
+)
+def test_a_segment_that_is_not_a_name_is_not_ok(segment: str) -> None:
+    assert not segment_ok(segment)
+
+
+@pytest.mark.parametrize("name", ["a", "café", "日本語", "x y", "a" + chr(0x301), chr(0x1F468) + chr(0x200D) + chr(0x1F4BB)])
+def test_a_name_that_is_text_in_any_script_is_not_unsafe(name: str) -> None:
+    assert not name_unsafe(name)
+
+
+@pytest.mark.parametrize("code", [0x00, 0x0A, 0x1B, 0x7F, 0x85, 0x5C, 0x061C, 0x200E, 0x200F, 0x2028, 0x2029, 0x202A, 0x202E, 0x2066, 0x2069])
+def test_a_control_a_line_break_a_bidi_control_and_a_backslash_are_unsafe(code: int) -> None:
+    assert char_unsafe(chr(code)) and name_unsafe("a" + chr(code) + "b")
+
+
+@pytest.mark.parametrize("code", [0x20, 0x2F, 0x2E, 0x2027, 0x202F, 0x2065, 0x206A, 0x200D, 0x0301])
+def test_the_neighbours_of_those_are_not_unsafe(code: int) -> None:
+    assert not char_unsafe(chr(code))
 
 
 @pytest.mark.parametrize(
@@ -147,9 +188,24 @@ def test_last_segments_returns_what_there_is() -> None:
     assert last_segments("skill://a/b/SKILL.md", 0) == ()
 
 
-@pytest.mark.parametrize("uri", ["", "http://a/b/SKILL.md", "skill:/a/SKILL.md", "SKILL.md", "file:///x/SKILL.md"])
-def test_last_segments_of_a_uri_that_is_not_a_skill_uri(uri: str) -> None:
+@pytest.mark.parametrize(
+    "uri", ["", "skill:/a/SKILL.md", "skill:a/SKILL.md", "SKILL.md", "a/SKILL.md", "://a/SKILL.md", "1x://a/SKILL.md", "a b://a/SKILL.md"]
+)
+def test_last_segments_of_a_uri_that_does_not_begin_with_a_scheme_and_two_slashes(uri: str) -> None:
     assert last_segments(uri, 2) == ()
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("http://a/b/SKILL.md", ("b", "SKILL.md")),
+        ("docs://x/SKILL.md", ("x", "SKILL.md")),
+        ("file:///x/SKILL.md", ("x", "SKILL.md")),
+        ("X-Skill+v1.2://a/SKILL.md", ("a", "SKILL.md")),
+    ],
+)
+def test_last_segments_reads_any_scheme_because_the_extension_privileges_none(uri: str, expected: tuple[str, ...]) -> None:
+    assert last_segments(uri, 2) == expected
 
 
 def test_last_segments_decodes_percent_escapes() -> None:

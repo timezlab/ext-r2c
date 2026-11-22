@@ -67,7 +67,20 @@ Last updated 2026-11-22. Read this first in a new session.
     against the door (`tests/mcp_replay_kit.py`);
   - the standard records O3 (MCP side), O4, O5, O6 and O7 (R2C-ASK-5, R2C-MCP-1, -6, -7, -8),
     with five new examples and five corrected (46 valid in all: 32 A2A, 14 MCP).
-- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (898 tests, run against
+- **Spec `005-mcp-skills`, closed** (2026-11-22, `specs/005-mcp-skills/`, local, not pushed):
+  `ext_r2c.mcp.skills` (extra `[mcp]`, brings PyYAML): `SkillsExtension` and `SkillsClient`, a
+  second MCP extension that is not R2C; `mcp_server(..., extensions=[...])`. Public names in
+  `specs/005-mcp-skills/contracts/skills-api.md`; ADR
+  `docs/design-docs/skills-frontmatter-and-nesting.md`:
+  - the server scans folders for `SKILL.md` (include / exclude, 512 files and 16 MiB per skill, a
+    bounded walk, what is left out reported) and serves `skills/list`, `skills/get`, every file as
+    an ordinary resource and `resources/directory/read`; nothing outside the folder is served;
+  - the client lists, gets and reads on demand, verifies each file's size, digest and frontmatter
+    against the entry, and refuses what it cannot verify;
+  - it works beside R2C, or alone, on any `MCPServer`;
+  - its outside review is in `specs/005-mcp-skills/research.md` (R17), with what was left on
+    purpose.
+- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (2034 tests, run against
   the installed wheel; the core alone runs `tests/core_only.py`, the wheel with `[a2a]` alone
   runs `tests/a2a_only.py` and the wheel with `[mcp]` alone runs `tests/mcp_only.py`, all with
   no dev group). CI in `.github/workflows/python.yml` does
@@ -98,9 +111,12 @@ Last updated 2026-11-22. Read this first in a new session.
   Skills split out to 005; Q2 A: usage beside `input_requests` while waiting). Where it
   differed from its plan is at the end of `specs/004-mcp-binding/tasks.md`; its outside review
   is in `specs/004-mcp-binding/research.md` ("Outside review").
-- **In progress: `005-mcp-skills`.** The maintainer approved `spec.md` on 2026-11-21 (D1–D6 as
-  written) and told us to implement on 2026-11-22; `plan.md`, research, data model, contracts,
-  quickstart and `tasks.md` (80 tasks in 9 phases) are in `specs/005-mcp-skills/`.
+- **Spec 005 is closed** (2026-11-22). The maintainer approved `spec.md` on 2026-11-21 (D1–D6 as
+  written) and told us to implement on 2026-11-22 ("implement hết spec": all nine phases in one
+  run); `plan.md`, research, data model, contracts, quickstart and `tasks.md` (80 tasks in 9
+  phases, all done) are in `specs/005-mcp-skills/`. Where each phase differed from its plan is at
+  the end of `tasks.md` ("Notes: where reality differed"); the outside review is R17 in
+  `research.md`. **Nothing is pushed**: 001–005 are local commits on `main`. The phases, as built:
   **Phase 1 (T001–T010) is done**: PyYAML `>=6.0.3,<7` in `[mcp]` and the dev group (T001
   re-vetted it, nothing found), the empty `ext_r2c/mcp/skills/` package, the fixture trees and
   ten SDK-fact tests. **Phase 2 (T011–T022, the foundation) is done** (2026-11-22): the
@@ -129,12 +145,24 @@ Last updated 2026-11-22. Read this first in a new session.
   page by an opaque cursor that is good for one listing of one catalogue, `resources/directory/read`
   answers from the catalogue (empty folders included) and is not bound when `directory_read=False`,
   `SkillsClient.list_directory` refuses a URI outside the skill before sending anything, and the client
-  stops on a repeated cursor; 170 new tests (1888 in all), 46 of 46 mutants died. The
-  maintainer then asked for the whole spec in one run ("implement hết spec"), so
-  phase 9 follows without a stop; where each phase differed from its plan is kept in
-  "Notes: where reality differed" at the end of `specs/005-mcp-skills/tasks.md`. Nothing is pushed.
+  stops on a repeated cursor; 170 new tests (1888 in all), 46 of 46 mutants died. **Phase 9
+  (T072–T080, docs, the outside review, the final gate) is done** (2026-11-22): a code reviewer and a
+  security reviewer with no memory of the work read phases 1 to 8, and the findings acted on are
+  fixed test-first: the scan is bounded (32 folders deep, 1024 folders in a skill, 1024 searched
+  per root), a name with a control, separator, bidi control or backslash is left out as `unsafe
+  name`, a failing disk is `FileUnreadable` and not "changed on disk", and the client refuses an
+  entry no server could have served and no longer requires the `skill://` scheme; 146 new tests
+  (2034 in all, green on 3.11, 3.12 and 3.13), 70 of 70 mutants of the fixes died.
+- **Waiting for the maintainer** (nothing is blocked on these):
+  - **Push.** 001–005 are local commits; nothing goes to `origin` until the maintainer says so.
+  - **Names.** Whether to rename the generic `Refused`, `LeftOut` and `DirectoryEntry` (in the
+    approved contract, exported from `ext_r2c.mcp`).
+  - **A descriptor-based walk** (`scandir(fd)`) of the skills folders, which closes a race that can
+    show a folder's names (no file outside is served either way); a refactor of `_scan.py` and
+    `_read.py`.
+  - **Spec 006** (`006-langgraph-bridge`): proposed, not yet specified.
 
-## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)
+## Spec sequence (001–005 built; 006 onward proposed, awaiting approval)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -161,9 +189,10 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    elicitation from forms and approvals (tool approval through MRTR), answer mapping,
    `activity` through `notifications/progress`, `usage` and artifacts on tool results,
    `RequestStateBoundary`, the caller-side client. Success criterion 6. Settles O4–O7.
-5. **`005-mcp-skills`** — MCP Skills (SEP-2640, `io.modelcontextprotocol/skills`) in
-   `ext_r2c.mcp`, read from folders with include / exclude, on the SDK's `Extension`. Split out
-   of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C.
+5. **`005-mcp-skills`** (closed 2026-11-22) — MCP Skills (SEP-2640, `io.modelcontextprotocol/skills`)
+   in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
+   out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
+   is spec 007.
 6. **`006-langgraph-bridge`** — `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain
    tools → `ToolSpec`), passing the shared bridge conformance suite: graph → run events;
    `HumanInTheLoopMiddleware` in `batched` and `per_call` modes, hand-written `interrupt()`,

@@ -33,6 +33,7 @@ from ext_r2c.mcp.skills import (
     SkillsExtension,
 )
 from ext_r2c.mcp.skills._wire import EXTENSION_ID, ListSkillsResult, RawGetSkillResult, RawListSkillsResult
+from ext_r2c.mcp.skills.client import parse_entry
 from mcp.client import Client
 from mcp.client.caching import CacheConfig
 from mcp.client.streamable_http import streamable_http_client
@@ -456,8 +457,24 @@ BAD_ENTRIES: list[tuple[str, Callable[[Any], Any], str]] = [
     ("the description is not a string", front(description=["a"]), "entry"),
     ("the uri ends in another file", put(uri="skill://pdf-notes/OTHER.md"), "entry"),
     ("the uri is that of another skill", put(uri="skill://other/SKILL.md"), "entry"),
-    ("the uri is not a skill uri", put(uri="https://pdf-notes/SKILL.md"), "entry"),
+    ("the uri has no scheme", put(uri="pdf-notes/SKILL.md"), "entry"),
+    ("the uri has one slash after the scheme", put(uri="skill:/pdf-notes/SKILL.md"), "entry"),
+    ("the uri is of another scheme and the files are not under it", put(uri="https://pdf-notes/SKILL.md"), "resources"),
     ("the uri has a query", put(uri="skill://pdf-notes/SKILL.md?x=1"), "entry"),
+    ("the uri spells SKILL.md with an encoded character", put(uri="skill://pdf-notes/SKILL%2Emd"), "entry"),
+    ("the name is empty", lambda e: {**e, "uri": "skill:///SKILL.md", "frontmatter": {**e["frontmatter"], "name": ""}}, "entry"),
+    ("a file of another skill is listed", edit(LOGO, uri="skill://other/x.txt"), "resources"),
+    ("a file of a neighbour that starts like the skill is listed", edit(LOGO, uri="skill://pdf-notes-evil/x.txt"), "resources"),
+    ("the skill folder itself is listed as a file", edit(LOGO, uri="skill://pdf-notes"), "resources"),
+    ("a file of another scheme is listed", edit(LOGO, uri="docs://pdf-notes/x.txt"), "resources"),
+    ("a listed file has an empty segment", edit(LOGO, uri="skill://pdf-notes//x.txt"), "resources"),
+    ("a listed file ends in a slash", edit(LOGO, uri="skill://pdf-notes/x/"), "resources"),
+    ("a listed file has a dot segment", edit(LOGO, uri="skill://pdf-notes/./x.txt"), "resources"),
+    ("a listed file climbs out", edit(LOGO, uri="skill://pdf-notes/../other/x.txt"), "resources"),
+    ("a listed file climbs out, encoded", edit(LOGO, uri="skill://pdf-notes/%2e%2e/x.txt"), "resources"),
+    ("a listed file has an encoded slash", edit(LOGO, uri="skill://pdf-notes/a%2Fb.txt"), "resources"),
+    ("a listed file has an encoded backslash", edit(LOGO, uri="skill://pdf-notes/a%5Cb.txt"), "resources"),
+    ("a listed file has an encoded line feed", edit(LOGO, uri="skill://pdf-notes/a%0Ab.txt"), "resources"),
     ("the uri is SKILL.md alone", put(uri="skill://SKILL.md"), "entry"),
     ("the name is not the folder's", front(name="pdf"), "entry"),
     ("resources is missing", drop("resources"), "resources"),
@@ -589,6 +606,153 @@ class TestAnEntryThatIsNotValid:
 
         refusal = run(body())
         assert refusal.check == "response" and refusal.uri == GREETINGS
+
+    def test_an_entry_listed_twice_is_returned_once_and_the_second_is_refused(self, tmp_path: Path) -> None:
+        class Twice(Lying):
+            async def _list(self, ctx: Any, params: Any) -> Any:
+                skills = self.catalogue.skills
+                return RawListSkillsResult(
+                    skills=[self.wire(s) for s in (*skills, skills[0])], ttl_ms=0, cache_scope="private"
+                )
+
+        async def body() -> SkillListing:
+            async with connected(Twice(standard_tree(tmp_path).root)) as skills:
+                return await skills.list()
+
+        listing = run(body())
+        assert [item.uri for item in listing.skills] == [GREETINGS, PDF, REFUNDS]
+        (refused,) = listing.refused
+        assert (refused.check, refused.uri) == ("entry", GREETINGS) and "more than once" in refused.reason
+
+
+def raw_entry(
+    *, root: str = "skill://pdf-notes", name: str = "pdf-notes", description: str = "Takes notes.", files: tuple[str, ...] = ()
+) -> dict[str, Any]:
+    """A valid wire entry, written by hand: `SKILL.md` and `files` under `root`, each one byte."""
+    uris = [f"{root}/SKILL.md", *files]
+    return {
+        "uri": f"{root}/SKILL.md",
+        "frontmatter": {"name": name, "description": description},
+        "resources": [{"uri": uri, "digest": "sha256:" + "0" * 64, "size": 1} for uri in uris],
+    }
+
+
+def refusal_of(raw: Any) -> SkillRefused:
+    with pytest.raises(SkillRefused) as caught:
+        parse_entry("docs", raw)
+    return caught.value
+
+
+class TestWhatAnEntryMustBe:
+    """The rules `parse_entry` holds an entry to, checked on an entry written by hand."""
+
+    @pytest.mark.parametrize(
+        ("root", "name"),
+        [
+            ("skill://x", "x"),
+            ("skill://" + "a" * 64, "a" * 64),
+            ("skill://caf%C3%A9", "café"),
+            ("skill://team/Docs_v2", "Docs_v2"),
+            ("docs://pdf-notes", "pdf-notes"),
+            ("HTTPS://host/pdf-notes", "pdf-notes"),
+            ("x-skill+v1.2://pdf-notes", "pdf-notes"),
+        ],
+        ids=["one-letter", "64-characters", "non-ascii", "upper-case-and-underscore", "docs-scheme", "https-scheme", "odd-scheme"],
+    )
+    def test_a_name_and_a_scheme_that_are_fine_pass_and_so_do_files_inside(self, root: str, name: str) -> None:
+        """No scheme is privileged (the extension's own text); the files are inside the skill's folder."""
+        files = (f"{root}/a/b/c.txt", f"{root}/caf%C3%A9.md", f"{root}/x.txt?y=1")
+        item = parse_entry("docs", raw_entry(root=root, name=name, files=files))
+        assert (item.name, item.uri) == (name, f"{root}/SKILL.md")
+        assert [f.uri for f in item.files][1:] == list(files)
+
+    @pytest.mark.parametrize(
+        ("root", "name"),
+        [
+            ("skill://", ""),
+            ("skill://" + "a" * 65, "a" * 65),
+            ("skill://pdf%20notes", "pdf notes"),
+            ("skill://a%5Cb", "a\\b"),
+            ("skill://a%2Fb", "a/b"),
+            ("skill://a%0Ab", "a\nb"),
+            ("skill://a%09b", "a\tb"),
+            ("skill://a%E2%80%AEb", "a" + chr(0x202E) + "b"),  # a right-to-left override
+            ("skill://a%C2%A0b", "a" + chr(0xA0) + "b"),  # a no-break space
+        ],
+        ids=["empty", "65-characters", "a-space", "a-backslash", "a-slash", "a-line-feed", "a-tab", "a-bidi-override", "a-no-break-space"],
+    )
+    def test_a_name_that_is_not_one_to_64_printable_characters_without_a_space_or_a_slash_is_refused(
+        self, root: str, name: str
+    ) -> None:
+        refused = refusal_of(raw_entry(root=root, name=name))
+        assert refused.check == "entry" and "name" in refused.reason
+        assert name == "" or name not in refused.reason  # a reason is fixed text: it never quotes what the server sent
+
+    @pytest.mark.parametrize("length", [1, 1024])
+    def test_a_description_of_1_to_1024_characters_passes(self, length: int) -> None:
+        assert len(parse_entry("docs", raw_entry(description="d" * length)).description) == length
+
+    @pytest.mark.parametrize("length", [0, 1025])
+    def test_a_description_that_is_empty_or_over_1024_characters_is_refused(self, length: int) -> None:
+        refused = refusal_of(raw_entry(description="d" * length))
+        assert refused.check == "entry" and "description" in refused.reason
+
+    @pytest.mark.parametrize(
+        "root",
+        ["pdf-notes", "skill:/pdf-notes", "skill:pdf-notes", "://pdf-notes", "1skill://pdf-notes", "sk ill://pdf-notes", "skill//pdf-notes"],
+        ids=["no-scheme", "one-slash", "no-slash", "empty-scheme", "digit-first", "a-space", "no-colon"],
+    )
+    def test_a_uri_that_does_not_begin_with_a_scheme_and_two_slashes_is_refused(self, root: str) -> None:
+        assert refusal_of(raw_entry(root=root)).check == "entry"
+
+
+class TestAKnownLimit:
+    """The client compares the entry's frontmatter with what this package's reader makes of `SKILL.md`,
+    and that reader leaves a plain scalar as text unless it is a JSON number, boolean or null. A server
+    that reads YAML 1.1 sends `true` for `yes`: that entry does not match its own file, and is refused."""
+
+    @pytest.mark.parametrize(
+        ("text", "typed"),
+        [
+            ("yes", True),
+            ("off", False),
+            ("0755", 493),
+            ("0x1f", 31),
+            ("1_000", 1000),
+            ("12:30", 750),
+            ("2026-01-02 10:00:00", "2026-01-02T10:00:00"),
+        ],
+        ids=["yes", "off", "octal", "hex", "underscore", "sexagesimal", "timestamp"],
+    )
+    def test_an_entry_that_types_what_the_reader_leaves_as_text_is_refused(
+        self, tmp_path: Path, text: str, typed: Any
+    ) -> None:
+        folder = tmp_path / "skills"
+        write_skill(folder, "typed", extra=f"setting: {text}\n")
+        uri = "skill://typed/SKILL.md"
+
+        async def body() -> tuple[Any, SkillRefused]:
+            async with connected(Lying(folder, entry={uri: front(setting=typed)})) as skills:
+                (item,) = (await skills.list()).skills
+                with pytest.raises(SkillRefused) as caught:
+                    await skills.load(item)
+                return item.frontmatter["setting"], caught.value
+
+        sent_value, refusal = run(body())
+        assert sent_value == typed
+        assert refusal.check == "frontmatter" and "differs" in refusal.reason
+
+    def test_the_same_file_served_honestly_loads_and_the_text_stays_text(self, tmp_path: Path) -> None:
+        folder = tmp_path / "skills"
+        write_skill(folder, "typed", extra="setting: yes\n")
+
+        async def body() -> Any:
+            async with connected(SkillsExtension(folder)) as skills:
+                (item,) = (await skills.list()).skills
+                await skills.load(item)
+                return item.frontmatter["setting"]
+
+        assert run(body()) == "yes"
 
 
 class TestAFileThatDoesNotVerify:

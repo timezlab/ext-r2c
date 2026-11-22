@@ -66,6 +66,11 @@ def mcp_server(name: str, extension: R2CExtension, *,
     #           policy (a restart then invalidates every paused call)
 ```
 
+> **Note, 2026-11-22 (spec 005).** The signature now has one more keyword, after `extension`:
+> `extensions: Sequence[Extension] = ()`, served after R2C's (`MCPServer(extensions=[extension,
+> *extensions])`). Two extensions with one identifier fail with the SDK's own `ValueError`. Without
+> it, everything above holds. See `specs/005-mcp-skills/contracts/skills-api.md`.
+
 - `approve=` may name a tool registered elsewhere on the same server. Such a tool gets `allow`
   and `deny` only (research R2). It must not ask through multi-round-trip results itself.
 - A ToolSpec's call may return:

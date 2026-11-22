@@ -590,6 +590,14 @@ myapp/skills/
   drafts-forecast/           (excluded by "drafts-*")
 ```
 
+> **Note, 2026-11-22 (spec `005-mcp-skills`, built).** The MCP half is built as `SkillsExtension` and
+> `SkillsClient` in `ext_r2c.mcp` (`Remote(skills=...)` is still spec 007). Three details above
+> differ and are kept as written: the URI is `skill://<skill-path>/<file>` (the folder's path
+> below its root, whose last segment is the `name`); there is no `exclude_files` (every regular file
+> is served; hidden files, links and non-regular files are left out and reported); and no symbolic
+> link is ever followed. See the ADR
+> [skills-frontmatter-and-nesting](design-docs/skills-frontmatter-and-nesting.md).
+
 ### 10.3 Inside
 
 ```mermaid
@@ -758,7 +766,7 @@ Breaking changes move to a new URI (`…/standard/v2`) and an MCP `revision` bum
 | `002-python-core` | models, form → schema generation, validation, text fallback, neutral run events, `AgentSource` (both pause styles) and `ToolSpec`, extras |
 | `003-a2a-binding` | A2A door and client: streamed reply, activity, usage, ask/answer/re-ask/expiry, artifacts, threads |
 | `004-mcp-binding` | MCP door and client: elicitation, tool approval, progress, artifacts, usage, sealed `requestState`, threads |
-| `005-mcp-skills` | MCP Skills (SEP-2640) served from folders, with include and exclude |
+| `005-mcp-skills` | MCP Skills (SEP-2640) served from folders, with include and exclude (built 2026-11-22, local) |
 | `006-langgraph-bridge` | `LangGraphAgent`, passing the bridge conformance suite: HITL in both modes, `interrupt()`, tokens, tool activity, reasoning, usage, files |
 | `007-remote` | `Remote`: one app, A2A / MCP / both, agent / tools / approvals / skills (include, exclude) passed in, agent as MCP tool on request |
 | later | a sample remote; bridges for Google ADK, the OpenAI Agents SDK and the Claude Agent SDK; MCP Tasks for long runs; PyPI release; TypeScript SDK |

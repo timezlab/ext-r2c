@@ -616,19 +616,19 @@ the client can read both.
 **Goal**: the docs say what exists, the diff is reviewed by someone who did not write it, and
 every environment passes.
 
-- [ ] T072 [P] `python/README.md`: a Skills section: serve a folder (the example of
+- [X] T072 [P] `python/README.md`: a Skills section: serve a folder (the example of
   `quickstart.md`), `include` / `exclude`, `refresh`, beside R2C with `mcp_server(extensions=)`,
   the client; the v1 limits (ASCII names, nearest `SKILL.md`, a file is sent whole, the refresh
   limits), the Beta note, and that `[mcp]` now brings PyYAML. Invented names only.
-- [ ] T073 [P] `ARCHITECTURE.md`: the `mcp/skills/` rows, and the rule that it imports nothing of
+- [X] T073 [P] `ARCHITECTURE.md`: the `mcp/skills/` rows, and the rule that it imports nothing of
   `ext_r2c`.
-- [ ] T074 [P] `CHANGELOG.md`: Added (the skills extension, the client, `mcp_server(extensions=)`,
+- [X] T074 [P] `CHANGELOG.md`: Added (the skills extension, the client, `mcp_server(extensions=)`,
   PyYAML in `[mcp]`). No Changed entry: the standard does not change.
-- [ ] T075 [P] The ADR `docs/design-docs/skills-frontmatter-and-nesting.md` (Context, Decision,
+- [X] T075 [P] The ADR `docs/design-docs/skills-frontmatter-and-nesting.md` (Context, Decision,
   Alternatives, Consequences: Better / Worse / Must now be true) for D1 (a YAML reader in
   `[mcp]`) and the nearest-`SKILL.md` rule; a row for it in the `AGENTS.md` Docs table (the file
   stays under 150 lines).
-- [ ] T076 [P] Reconcile older docs, grepping `skill` / `Skills` over `README.md`,
+- [X] T076 [P] Reconcile older docs, grepping `skill` / `Skills` over `README.md`,
   `ARCHITECTURE.md`, `AGENTS.md`, `docs/`, `python/README.md` and `specs/001`–`004`:
   - in `docs/design-docs/one-remote-two-doors.md` and `docs/whitepaper.md`, add a dated note
     (2026-11-21, never a rewrite of the body) for the three differences of the plan: the URI form
@@ -636,9 +636,9 @@ every environment passes.
   - in completed specs, annotate with a dated note any "left open for Skills" statement that 005
     settles;
   - fix any current-tense statement that says skills are unbuilt.
-- [ ] T077 `WORKSTATE.md`: spec 5 done (counts, commit), the "Next" bullet moved on, and the
+- [X] T077 `WORKSTATE.md`: spec 5 done (counts, commit), the "Next" bullet moved on, and the
   waiting-for-approval list updated.
-- [ ] T078 Outside review of the diff `4bc6c9d..HEAD` (the 005 phases): launch the
+- [X] T078 Outside review of the diff `4bc6c9d..HEAD` (the 005 phases): launch the
   `code-reviewer` and the `security-reviewer` agents **in one message**, each with a
   self-contained brief (the diff range, what the feature does, the output contract: findings
   ranked by severity with file and line). Focus the security reviewer on path handling, the
@@ -646,10 +646,10 @@ every environment passes.
   reviewer on correctness, the first-cut-to-final replacement of phase 5, and the tests'
   strength. For each finding that holds: write a failing test, fix, and record it under "Outside
   review" in `research.md`. State what was left on purpose.
-- [ ] T079 Final verification, `quickstart.md` sections 1–4, on **Python 3.11, 3.12 and 3.13**
+- [X] T079 Final verification, `quickstart.md` sections 1–4, on **Python 3.11, 3.12 and 3.13**
   (**SC-008**): build; the whole suite on each; the core-only, A2A-only and MCP-only runs;
   `uvx ruff check --select F src tests`; the leak scan. Record the test counts.
-- [ ] T080 Fill "Notes: where reality differed" below, tick `checklists/requirements.md`, then
+- [X] T080 Fill "Notes: where reality differed" below, tick `checklists/requirements.md`, then
   commit `chore(005): close MCP Skills`. Do not push: that is the maintainer's go.
 
 ---
@@ -1040,3 +1040,48 @@ Kept as a running list while the phases are built; T080 closes it.
   its own timeout. Both go to the outside review of phase 9.
 - **Numbers.** `test_skills_pages.py` and `test_skills_directory.py` are new; the suite is 1888 passed (was
   1718) on Python 3.11. `verify.sh` is green on core only, a2a only and mcp only; ruff is clean.
+
+**Phase 9 (2026-11-22)**
+
+- **Docs (T072–T076).** `python/README.md` (a Skills section: serve, read, limits, what is left out),
+  `ARCHITECTURE.md` (the `mcp/skills/` layout and its import rule), `CHANGELOG.md`, the ADR
+  `docs/design-docs/skills-frontmatter-and-nesting.md` (decisions 1–5), and dated notes in the older docs
+  that said Skills was "in 004" (`one-remote-two-doors.md`, `whitepaper.md`, the 002 and 004 specs and the
+  004 contract). `AGENTS.md` got one Docs row and stays at 67 lines.
+- **The outside review (T078).** A code reviewer and a security reviewer, both with no memory of the work,
+  read phases 1 to 8. Each finding was checked against the code; the ones acted on each got a test that
+  failed first. The record, with what was **left on purpose** and why, is `research.md` R17. In short:
+  - the scan is bounded (32 deep; 1024 folders in a skill; 1024 searched per root), refused before the
+    folder is read;
+  - a name with a control character, a line or paragraph separator, a bidirectional control or a backslash
+    is left out as `"unsafe name"`, and shown escaped in `left_out` and in the log;
+  - only the errors that mean "the file is not what the scan saw" answer "changed on disk"; any other read
+    error is `FileUnreadable`, answered `-32603` with a fixed message and one logged warning;
+  - the client refuses an entry no server could have served (name and description lengths, a file not
+    strictly inside the folder, an odd path segment, the same skill listed twice) and no longer requires
+    the `skill://` scheme.
+- **Deviations from the triage** (also in R17): the reason is `"unsafe name"` and a backslash is unsafe on
+  both sides; a `searched` counter was added to `_search` because depth alone does not bound a flat folder
+  of empty folders; the `\U` branch of `_escape` was removed as dead code (no unsafe character is above
+  `U+FFFF`).
+- **A phase-8 test went red and was updated, not weakened.** `test_distinct_cursors_that_end_are_not_a_loop`
+  encoded "the same entry four times, all returned". Refusing a skill listed twice in one listing is a
+  deliberate review fix; the test now asserts one returned skill and three refusals with `check="entry"`,
+  and still proves the cursors are not mistaken for a loop.
+- **One false kill, found and fixed.** The first run of the review mutants had a red baseline (the test
+  above), so the mutant that replaced `endswith("/SKILL.md")` with a looser check was "killed" by the red
+  test, not by a test of it. On a green baseline it survived: both branches refuse the entry, but with
+  different `check` values (`resources`, not `entry`). A `SKILL%2Emd` row was added to the entry table; the
+  mutant is now killed for the right reason. Lesson: confirm the baseline is green before a mutation run.
+  One mutant of mine was also wrong (`errno.ELOOP, ` occurs twice in `_read.py`); it was rewritten to
+  name the line it means.
+- **Mutation: 70 mutants of the review fixes, 70 killed** (every limit one step either way, every
+  character class, every errno of the read, every client rule).
+- **Numbers (T079).** The suite is **2034 passed** (was 1888) on Python 3.11, 3.12 and 3.13, run against the
+  installed wheel; core only, a2a only and mcp only are ok; `ruff check --select F` is clean (CI's own
+  rule; there is no other ruff config). The replays are unchanged: R2C examples 46 valid, 20 invalid, 1
+  unknown kind ignored, 102 objects round-tripped; A2A 31/29/3; MCP 14/13/1.
+- **Open for the maintainer, not done here.** (1) Whether to rename the generic `Refused`, `LeftOut` and
+  `DirectoryEntry` (approved contract, exported names). (2) Whether to walk the tree by descriptor
+  (`scandir(fd)`), which closes the race that can show a folder's names; a refactor of `_scan.py` and
+  `_read.py`. (3) Whether a 16 MiB blob over HTTP is refused by the SDK's event reader; unverified.

@@ -438,3 +438,7 @@ dependencies, import the package and the core; inspect the wheel's metadata for 
   outside this repository needs it.
 - **Out of scope**: any wire translation (003, 004), MCP Skills (004), the LangGraph bridge
   (005), `Remote` (006), a caller's presentation of requests, remembered-consent storage.
+
+> **Note, 2026-11-22.** The numbers above are the sequence of 2026-11-20. MCP Skills became its own
+> spec, `005-mcp-skills` (built, locally); the LangGraph bridge is 006 and `Remote` is 007
+> (`WORKSTATE.md`). Nothing in this spec changed.

@@ -12,8 +12,16 @@ files with their `stat` sizes and refuses the skill at the first file past 512 f
 nothing but `SKILL.md` has been read when it does; only then is every file read, each read bounded by
 what is left of the 16 MiB, and hashed.
 
-Hidden entries, symbolic links, anything that is not a regular file and names that are not text are
-never served, and each is reported as a `LeftOut` with its path below the root and its reason.
+Hidden entries, symbolic links, anything that is not a regular file, names that are not text and names
+that are not safe to print (a control character, a line or paragraph separator, a bidirectional
+control or a backslash) are never served, and each is reported as a `LeftOut` with its path below the
+root and its reason. The path is shown with such a character escaped, so a name cannot break or
+reorder the line it is printed in.
+
+A scan is bounded whatever the tree: a folder is searched no more than 32 folders below its root, a
+skill holds no folder more than 32 below its own, a skill holds at most 1024 folders, and a root
+searches at most 1024 folders that are not skills (the root counts; a skill does not, and the number
+of skills is not limited). Past a bound it is a `SkillsError` before the folder is read.
 
 Every problem with the folders is a `SkillsError(folder, reason)`. The reason names what is wrong and
 never quotes a file's text or the host path of anything above the folder it names; an `OSError`
@@ -24,8 +32,8 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
+import itertools
 import os
-import re
 import stat
 from collections.abc import Iterator, Sequence
 from typing import Any, NamedTuple
@@ -33,13 +41,16 @@ from typing import Any, NamedTuple
 from ._catalogue import Catalogue, FileRecord, LeftOut, SkillRecord, SkillsError
 from ._content import mime_for
 from ._frontmatter import FrontmatterError, read_frontmatter
-from ._limits import MAX_BYTES, MAX_FILES
+from ._limits import (
+    MAX_BYTES,
+    MAX_DEPTH,
+    MAX_DESCRIPTION_LENGTH,
+    MAX_DIRECTORIES,
+    MAX_FILES,
+    MAX_NAME_LENGTH,
+)
 from ._read import read_bytes
-from ._uris import SKILL_FILE, encode_uri
-
-_NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
-_NAME_LENGTH = 64
-_DESCRIPTION_LENGTH = 1024
+from ._uris import SKILL_FILE, char_unsafe, encode_uri, name_unsafe, skill_name_ok
 
 
 class _Root(NamedTuple):
@@ -72,7 +83,7 @@ def scan_roots(
     for folder in folders:
         root = _Root(os.fspath(folder), os.path.realpath(folder))
         _check_root(root)
-        for found in _search(root, (), left_out):
+        for found in _search(root, (), left_out, itertools.count(1)):
             found_any = True
             if _allowed(found.path[-1], include, exclude):
                 skills.append(_describe(root, found, left_out))
@@ -123,15 +134,34 @@ def _reason(entry: os.DirEntry[str]) -> str | None:
         entry.name.encode("utf-8")
     except UnicodeEncodeError:  # a name that is not text has no URI
         return "undecodable name"
+    if name_unsafe(entry.name):  # a control character, a line break, a bidi control or a backslash
+        return "unsafe name"
     if not (entry.is_dir(follow_symlinks=False) or entry.is_file(follow_symlinks=False)):
         return "not a regular file"
     return None
 
 
+def _escape(char: str) -> str:
+    """An unsafe character as `\\xNN` (up to U+00FF) or `\\uNNNN`. None is above U+FFFF, so there is no
+    `\\UNNNNNNNN`."""
+    code = ord(char)
+    return f"\\x{code:02x}" if code <= 0xFF else f"\\u{code:04x}"
+
+
 def _shown(path: tuple[str, ...]) -> str:
-    """A path below the root for a report: `/` between names, and a byte that is not text as `\\xNN`,
-    so the line can be printed."""
-    return "/".join(path).encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
+    """A path below the root for a report: `/` between names, a byte that is not text as `\\xNN`, and an
+    unsafe character as `\\xNN`, `\\uNNNN` or `\\UNNNNNNNN`, so that the line can be printed and a name
+    cannot break it or reorder it."""
+    shown = []
+    for char in "/".join(path):
+        code = ord(char)
+        if 0xDC80 <= code <= 0xDCFF:  # a byte that is not text, as the file system gave it
+            shown.append(f"\\x{code - 0xDC00:02x}")
+        elif char_unsafe(char):
+            shown.append(_escape(char))
+        else:
+            shown.append(char)
+    return "".join(shown)
 
 
 def _entries(folder: str, shown: tuple[str, ...], left_out: list[LeftOut]) -> list[os.DirEntry[str]]:
@@ -148,10 +178,16 @@ def _entries(folder: str, shown: tuple[str, ...], left_out: list[LeftOut]) -> li
     return kept
 
 
-def _search(root: _Root, below: tuple[str, ...], left_out: list[LeftOut]) -> Iterator[_Found]:
+def _search(
+    root: _Root, below: tuple[str, ...], left_out: list[LeftOut], searched: Iterator[int]
+) -> Iterator[_Found]:
     """Every skill folder at or under `below`, in order. A folder with a `SKILL.md` is one and is
     not searched further (`_files` reports what it leaves out); a root that is one is named by its
-    own folder name."""
+    own folder name. At most `MAX_DEPTH` folders deep, and at most `MAX_DIRECTORIES` folders that are
+    not skills (`searched` counts them from 1, one count for the root), or it is a `SkillsError`: a
+    root that is a whole disk cannot make the scan walk it."""
+    if len(below) > MAX_DEPTH:
+        raise SkillsError(root.named(below), f"is more than {MAX_DEPTH} folders deep, the most a scan searches")
     skipped: list[LeftOut] = []
     try:
         entries = _entries(os.path.join(root.real, *below), below, skipped)
@@ -160,10 +196,12 @@ def _search(root: _Root, below: tuple[str, ...], left_out: list[LeftOut]) -> Ite
     if any(entry.name == SKILL_FILE and entry.is_file(follow_symlinks=False) for entry in entries):
         yield _Found(below or (os.path.basename(root.real),), below)
         return
+    if next(searched) > MAX_DIRECTORIES:
+        raise SkillsError(root.named(below), f"is past {MAX_DIRECTORIES} folders that are not skills, the most a scan searches")
     left_out.extend(skipped)
     for entry in entries:
         if entry.is_dir(follow_symlinks=False):
-            yield from _search(root, (*below, entry.name), left_out)
+            yield from _search(root, (*below, entry.name), left_out, searched)
 
 
 def _files(
@@ -176,13 +214,18 @@ def _files(
     """Every regular file under `folder`, depth first and by name, as its path from `folder` down and
     its size now. `shown` is where `folder` is below the root, for the report. Every folder the walk
     enters is added to `dirs` (an empty one too) before what is in it, so `dirs` is in pre-order. Lazy,
-    so a caller that has seen enough stops the walk."""
+    so a caller that has seen enough stops the walk. A folder more than `MAX_DEPTH` deep, or one past
+    `MAX_DIRECTORIES` folders, is a `SkillsError` before it is read."""
+    if len(below) > MAX_DEPTH:
+        raise SkillsError(folder, f"holds a folder more than {MAX_DEPTH} folders deep, the most a skill may hold")
     try:
         entries = _entries(os.path.join(folder, *below), (*shown, *below), left_out)
     except OSError as error:
         raise SkillsError(folder, _cannot_read(below, error)) from None
     for entry in entries:
         if entry.is_dir(follow_symlinks=False):
+            if len(dirs) == MAX_DIRECTORIES:
+                raise SkillsError(folder, f"has more than {MAX_DIRECTORIES} folders, the most a skill may hold")
             dirs.append((*below, entry.name))
             yield from _files(folder, shown, left_out, dirs, (*below, entry.name))
         elif entry.is_file(follow_symlinks=False):
@@ -214,15 +257,15 @@ def _check_fields(frontmatter: dict[str, Any], folder: str, folder_name: str) ->
     """The skill's name, once the name and the description are known to be allowed. The reason never
     quotes the value: it is file text."""
     name = _text_field(frontmatter, "name", folder)
-    if len(name) > _NAME_LENGTH or not _NAME.fullmatch(name):
+    if not skill_name_ok(name):
         raise SkillsError(
-            folder, f"name must be 1 to {_NAME_LENGTH} lower-case letters, digits and single hyphens, such as my-skill"
+            folder, f"name must be 1 to {MAX_NAME_LENGTH} lower-case letters, digits and single hyphens, such as my-skill"
         )
     if name != folder_name:
         raise SkillsError(folder, "name must be the same as the name of the folder")
     description = _text_field(frontmatter, "description", folder)
-    if not 1 <= len(description) <= _DESCRIPTION_LENGTH:
-        raise SkillsError(folder, f"description must be 1 to {_DESCRIPTION_LENGTH} characters")
+    if not 1 <= len(description) <= MAX_DESCRIPTION_LENGTH:
+        raise SkillsError(folder, f"description must be 1 to {MAX_DESCRIPTION_LENGTH} characters")
     return name
 
 

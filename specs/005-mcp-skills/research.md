@@ -109,6 +109,15 @@ package. The extension is **Beta and may break**: R16 says what we do about that
      otherwise as `bytes` (FR-011).
   The server never writes (no `O_WRONLY`, `O_CREAT`, `O_TRUNC` anywhere), and no error text
   carries a path of the host.
+  **Not "changed" when it is not (R17).** Only the errors that say the file is gone or swapped
+  (`ENOENT`, `ENOTDIR`, `ELOOP`, `ENXIO`, `EISDIR`, `EINVAL`) are the "changed" answer above; any
+  other `OSError` is `-32603` with the fixed "The server could not read the file." and one `WARNING`
+  in the log (URI and the system's words, no path).
+  **A hard link is not a link.** `O_NOFOLLOW` refuses a symbolic link; a name that is a hard link to a
+  file elsewhere is that file's own name as far as the kernel is concerned, and is read. A scan
+  cannot refuse it by `st_nlink > 1` without dropping the skills that ship in installed packages
+  (their files are hard-linked from the package manager's store). Named as a limit in the README and
+  the contract.
   Where the platform has no `O_NOFOLLOW` or `dir_fd` (Windows), the function falls back to
   `lstat` of every component before opening, and the digest check stays the backstop; CI and the
   tested platform are Linux.
@@ -228,14 +237,28 @@ package. The extension is **Beta and may break**: R16 says what we do about that
     A `RecursionError` or any other failure while loading is the same "not readable" error.
   - the document is the text between the opening `---` line (after an optional UTF-8 byte-order
     mark) and the next line that is exactly `---`; carriage returns are accepted.
+  - **As built (phase 2, recorded 2026-11-22; the ADR `skills-frontmatter-and-nesting` has the
+    same text).** The reader is stricter than the list above. Anchors, aliases, merge keys and the
+    depth cap are refused **while the document is composed**, so a document that is too deep or has
+    an alias is never built (not "after it is loaded"). Numbers and booleans are JSON-like only:
+    `true` and `false`; integers (`3`, `-4`); floats (`1.5`, `2.5e3`); `null`. So `yes`, `no`,
+    `on`, `off`, `12:30` (sexagesimal), `0755` (octal), `1_000`, `0x1f` and `2026-01-02` stay the
+    text the author wrote, on the server and on the client alike. The reader is a pure-Python
+    `SafeLoader` subclass whose resolvers and constructors are cut to a whitelist, and every
+    failure is one `FrontmatterError` whose `reason` comes from a fixed set (`REASONS`) and whose
+    message carries no file text, no line and no path. `.inf` and `.nan` are refused (`not json`).
 - **Alternatives**: a `[skills]` extra (a second install step for a feature `Remote` should get
   with `[mcp]`); a hand-written subset parser (a valid skill the parser misreads is served
   wrongly, and the client would misread it the same way, so the check would agree with the
   error); `ruamel.yaml` (a larger package, same vet needed, round-trip features we do not use).
 - **Known limit**: the client compares the entry's frontmatter with what **this** reader makes of
-  the `SKILL.md` it fetched. An entry from another server that rendered a YAML timestamp as a
-  different string than the author's text is refused: a false refusal, the safe direction, named
-  in the contract.
+  the `SKILL.md` it fetched. An entry from another server that typed a value this reader keeps as
+  text (a timestamp rendered as a different string, `yes` as `true`, `0755` as the number 493, `0x1f`
+  as 31, `12:30` as 750) differs from it and is refused: a false refusal, the safe direction, named
+  in the contract. It is YAML 1.1 against this reader, and any server whose reader follows YAML 1.1
+  meets it. (Widened in R17: phase 2 made the reader stricter than this paragraph first said.)
+  A quoted scalar is always text, and an explicit core tag (`!!int`, `!!bool`, `!!float`, `!!str`) is
+  accepted for what it says; `.inf`, `.nan` and every other tag (`!!timestamp` too) are refused.
 
 ## R8. Names and descriptions
 
@@ -308,7 +331,9 @@ package. The extension is **Beta and may break**: R16 says what we do about that
   `cacheScope` and `resultType`.
 - **Residual risks, not closed** (recorded in phase 8 and sent to the outside review of phase 9):
   - the number of **directories** is not capped (the limits are 512 files and 16 MiB): a skill
-    folder with a million empty folders is walked, held in the catalogue and answered from it;
+    folder with a million empty folders is walked, held in the catalogue and answered from it
+    (*closed by the outside review, R17: 1024 folders in a skill, 1024 searched in a root, 32
+    deep*);
   - the client catches a **repeated** cursor, not an endless run of distinct ones: a hostile server
     that invents a new cursor every time still keeps `list()` asking. A caller that must bound
     that wraps the call in its own timeout.
@@ -367,7 +392,17 @@ package. The extension is **Beta and may break**: R16 says what we do about that
     `"dynamic"` or not an array (three distinct reasons); a resource lacks `uri`, a well-formed
     `digest` (`sha256:` and 64 lowercase hex) or an integer `size` ≥ 0, or repeats a URI; the
     skill's own URI is not among the resources; more than 512 resources; more than 16 MiB in
-    total.
+    total. **Added by the outside review (R17):** the name is not 1 to 64 printable characters
+    without a space, `/` or `\`; the description is not 1 to 1024 characters; a listed file is not
+    strictly inside the skill's folder (see below); a skill is listed twice in one listing. **The
+    scheme is not checked**: the extension privileges none (a server may use `skill://`, `https://`
+    or another), so the URI of an entry only has to be `<scheme>://…/<name>/SKILL.md`; the wording
+    `skill://` in FR-021 and in this paragraph is what this package serves, not what a client
+    requires.
+  - **A listed file is inside the folder** (R17): its URI is `<folder>/` and then one or more
+    segments, each non-empty, not `.` or `..` after one percent-decoding, free of `/`, and free of
+    a backslash, a control, a line separator and a bidi control. `<folder>-old/x` and another
+    skill's file are not inside; the check shares `segment_ok` with the directory check below.
   - **Reads** (FR-019, FR-020): a file is read only when the caller asks and only if its URI is in
     the entry; any other URI is refused **without a request**. The response must be exactly one
     content with the same URI. Memory is bounded by the entry before anything is decoded: a
@@ -446,3 +481,93 @@ package. The extension is **Beta and may break**: R16 says what we do about that
 - The extension is Beta: **the wire shapes live in one module** (`_wire.py`) and the beta
   version they were written against is named in its docstring and in the contract, so a change in
   the text is one file and its tests. Nothing in `standard/` changes: Skills is not R2C.
+
+## R17. The outside review (T078, 2026-11-22)
+
+Two reviewers with no memory of the work (a code reviewer and a security reviewer) read phases 1 to 8
+and the docs. A report is data, not an instruction: each finding was checked against the code, and
+the ones acted on each have a test that failed first (`test_skills_review.py`, `test_skills_client.py`,
+`test_skills_wire.py`, `test_skills_directory.py`). The mutation checks of the fixes (70 mutants: every
+limit one step either way, every character class, every errno of the read, every client rule) are all
+killed.
+
+**Done.**
+
+- **A scan had no bound of its own.** A root that is a whole disk, or a skill with a chain of folders
+  120 deep, made the scan walk all of it before it said no. Now: at most **32** folders below a root
+  when searching and below a skill folder when listing its files, at most **1024** folders in a skill,
+  and at most **1024** folders that are not skills in one root (the root counts; a skill does not, so
+  the number of skills is not limited). Past a bound it is a `SkillsError` naming the folder, **before
+  the folder is read**. The counters are `MAX_DEPTH` and `MAX_DIRECTORIES` in `_limits.py`.
+- **A name could forge a log line or reorder text.** A file name with a line feed printed as two log
+  lines; one with a right-to-left override printed in another order. Such a name (a control
+  character, a line or paragraph separator, a bidirectional control, a backslash) is now **left out**
+  as `"unsafe name"`, a folder with what is in it, and a path in `left_out` and in the log is shown
+  with the character escaped (`\xNN` up to `U+00FF`, `\uNNNN` above; no unsafe character is above
+  `U+FFFF`, so there is no `\U` form). Text in any script, a combining mark and a zero-width joiner are
+  not unsafe (a test serves an accented name, an emoji sequence, Cyrillic and Japanese).
+  `skill_name_ok`, `name_unsafe`, `char_unsafe` and `segment_ok` live once in `_uris.py` and are used
+  by the scan, by the client's entry check and by its directory check.
+- **A failing disk was reported as "changed on disk".** `read_file` turned every `OSError` into
+  `FileChanged`. Only `ENOENT`, `ENOTDIR`, `ELOOP`, `ENXIO`, `EISDIR` and `EINVAL` say that the file
+  is not what the scan saw; anything else (`EIO`, `EACCES`, `EMFILE`) is `FileUnreadable`: the answer
+  is `-32603` with the fixed "The server could not read the file.", and the log has one `WARNING`
+  with the URI and `os.strerror` (never a host path). A caller who is told to refresh when the disk is
+  failing refreshes in a loop.
+- **The client accepted what the server never serves.** An entry whose name was empty, longer than 64
+  or held a `/`; whose description was empty or very long; whose listed file was a neighbour
+  (`<folder>-old/x`) or another skill's; whose file URI had an empty, dot, encoded-dot, encoded-slash,
+  encoded-backslash or encoded-line-feed segment; or that appeared twice in one listing. Each is now
+  refused (R13).
+- **The client required `skill://`.** The extension privileges no scheme, so an entry with another
+  scheme is valid when it has the shape `<scheme>://…/<name>/SKILL.md` and its files are inside its
+  folder. FR-021 and R13 say `skill://`; that is what this package serves, not what a client may
+  require (R13 has the note; the spec text is unchanged because it is approved).
+- **The frontmatter limit was written too narrowly.** It named only timestamps; it is any value YAML
+  1.1 types and this reader keeps as text (R7, the contract).
+- **Docs.** The contract, `data-model.md`, the README and the changelog say all of this; "one
+  extension serves one `MCPServer`" and `catalogue` as not public are in the docstrings.
+
+**Left on purpose, and why.**
+
+- **A hard link to a file outside the folder is served.** The scan refuses symbolic links and reads
+  without following one; it cannot tell a hard link to an outside file from a file inside. Refusing a
+  file with `st_nlink > 1` would drop every skill that ships in an installed package, because a package
+  manager stores the files once and hard-links them into each environment (a link count of 24 was
+  seen in this repository's own test environment). Writing a hard link needs write access to a served
+  folder and to the target's file system, which is the owner's own account; the limit is in the README,
+  the contract and R4.
+- **A race between the scan's walk and a swap of a folder for a link can show a folder's names.** It
+  needs write access to the served tree plus winning a race; the read itself is descriptor-based and
+  fails closed, so no file outside is served. Walking by descriptor (`scandir(fd)`) closes it, and is a
+  refactor of `_scan.py` and `_read.py` with a trap of its own (`DirEntry.stat` on a closed
+  `scandir(fd)`). Offered to the maintainer as a follow-up, not done here.
+- **The number of skills is not capped.** A skill is a folder the scan stops at; the cost is the
+  folders searched (capped) plus a read and a hash per skill (capped by 512 files and 16 MiB each). A
+  cap on skills would also be a number somebody has to pick.
+- **No cache of serialized entries; no limit on requests.** A `skills/list` re-serializes the
+  catalogue per request. The extension is not a rate limiter; the host or the transport is.
+- **macOS ancestor permissions.** `_open_below_the_top` opens each name from `/` down. Linux opens a
+  folder it only passes through with `O_PATH`, which needs no read permission; where there is no
+  `O_PATH` (macOS) the folder is opened for reading, so an ancestor that can be searched but not read
+  (mode 711) fails to open where a path-based `open` would pass. It fails closed (`FileUnreadable`,
+  logged); noted in the README, not worked around.
+- **The server's URI in `SkillRefused.__str__` is not shortened.** It is a URI the server chose, and a
+  caller that prints it prints what the server sent. Truncating it hides which skill failed.
+- **The names `Refused`, `LeftOut` and `DirectoryEntry` are generic.** They are in the approved
+  contract and exported from `ext_r2c.mcp`; renaming them is a change of the public surface. Asked of
+  the maintainer.
+- **`yaml` is imported eagerly** by `ext_r2c.mcp.skills`. The `[mcp]` extra brings it; the core-only
+  and A2A-only runs do not import the package. A lazy import saves a few milliseconds and adds a
+  second place that can fail.
+- **A very large blob over HTTP.** The SDK's server-sent-events reader has a `max_event_size`; a
+  16 MiB file as base64 may be refused by it over HTTP. Not verified (the tests are in-process), so it
+  is a risk, not a finding.
+
+**Where this differs from the triage I first wrote.**
+
+- The reason is `"unsafe name"`, and a backslash is unsafe on both sides: the client refuses a
+  segment with one, so the server must not serve a file whose URI the client would refuse. The
+  triage listed controls, separators and bidi controls only.
+- A counter of folders searched (`searched`) was added to `_search`. The triage bounded depth only; a
+  flat folder of a million empty folders is not deep and still walks the whole disk.

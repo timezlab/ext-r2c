@@ -9,6 +9,15 @@ The settings are checked first (a bad one is a `ValueError`), then the folders a
 with them is a `SkillsError`); `refresh()` scans again and swaps the new catalogue in whole.
 `skills/list` and a directory answer `page_size` entries at a time; a cursor is good for the one
 listing and the one catalogue it came from (R9).
+
+One extension serves one `MCPServer`: which files the SDK has been given a resource for is kept in the
+extension, so a second server built from the same extension would not be given the files a refresh adds.
+
+A file is read when it is asked for, and only then. If the bytes are no longer the ones the scan saw (the
+file is gone, is another kind of thing, or has other bytes) the answer is `-32603` with `CHANGED`; if the
+system cannot read it for any other reason (a failing disk, no permission, too many open files) the answer
+is `-32603` with `UNREADABLE` and the log has one `WARNING` with the URI and the system's words, never a
+path of this host.
 """
 
 from __future__ import annotations
@@ -29,7 +38,7 @@ from pydantic import Field
 from ._catalogue import Catalogue, Child, FileRecord, LeftOut, SkillInfo, SkillRecord, SkillsError
 from ._content import DIRECTORY, as_text_or_bytes
 from ._cursor import CursorError, decode_cursor, encode_cursor
-from ._read import FileChanged, read_file
+from ._read import FileChanged, FileUnreadable, read_file
 from ._scan import scan_roots
 from ._settings import cache_scope_of, directory_read_of, folders_of, page_size_of, patterns_of, ttl_ms_of
 from ._wire import (
@@ -50,6 +59,7 @@ if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
 
 CHANGED = "The skills changed on disk since they were scanned; refresh them."
+UNREADABLE = "The server could not read the file."
 log = logging.getLogger("ext_r2c.mcp.skills")
 
 
@@ -119,13 +129,15 @@ class SkillsExtension(Extension):
 
     @property
     def catalogue(self) -> Catalogue:
-        """What is served now."""
+        """What is served now, whole. For this package and its tests: it is not part of the public
+        surface (`skills` and `left_out` are), and its shape may change."""
         return self._catalogue
 
     @property
     def left_out(self) -> tuple[LeftOut, ...]:
         """What the scan did not serve, and why: hidden entries, symbolic links, anything that is
-        not a regular file, names that are not text. Sorted by path below the folder given."""
+        not a regular file, names that are not text and names that are not safe to print. Sorted by
+        path below the folder given, each path with such a character escaped."""
         return self._catalogue.left_out
 
     @property
@@ -275,6 +287,11 @@ class SkillsExtension(Extension):
             data = await anyio.to_thread.run_sync(self._read_bytes, record)
         except FileChanged:
             raise MCPError(code=types.INTERNAL_ERROR, message=CHANGED) from None
+        except FileUnreadable as error:
+            # The owner's to fix, and a caller can do nothing about it: the log has the system's words
+            # and the URI (never a host path), the answer has neither.
+            log.warning("Cannot read %s: %s", uri, os.strerror(error.code))
+            raise MCPError(code=types.INTERNAL_ERROR, message=UNREADABLE) from None
         return as_text_or_bytes(data)
 
     def _resource(self, skill: SkillRecord, record: FileRecord) -> SkillFile:

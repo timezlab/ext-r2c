@@ -44,6 +44,16 @@ python/src/ext_r2c/
     extension.py     R2CExtension: the MCP SDK Extension (tools, approve=, the interceptor)
     server.py        mcp_server: an MCPServer with the extension wired in
     client.py        R2CClient and its typed items, for the caller
+    skills/          MCP Skills (SEP-2640), a second Extension that is NOT R2C  extra: [mcp], PyYAML
+      extension.py   SkillsExtension: skills/list, skills/get, resources/directory/read, every
+                     file as a resource; refresh()
+      client.py      SkillsClient: list, get, load, read, list_directory; verifies size, digest
+                     and frontmatter, refuses what it cannot verify
+      _scan.py       the folder walk: filters, limits, what is left out, every directory
+      _catalogue.py  the immutable snapshot a handler answers from (URI-keyed dictionaries)
+      _read.py       the safe read: each name opened from "/" with O_NOFOLLOW, regular files
+                     only, never past the entry's size   (_content.py: the bytes to the wire)
+      _frontmatter.py, _uris.py, _cursor.py, _settings.py, _limits.py, _wire.py
   bridges/langgraph/ LangGraphAgent (graph → run events: HITL interrupts, reply tokens, tool
                      activity, reasoning opt-in, usage); LangChain tools → ToolSpec  [langgraph]
   bridges/<other>/   later: one bridge and one extra per agent framework
@@ -57,10 +67,13 @@ A new framework adds a bridge; `Remote` and the doors do not change.
 
 `__init__.py`, `core/`, `a2a/` and `mcp/` exist today; the rest is the planned shape from the
 design brief and the ADR [one remote, two doors](docs/design-docs/one-remote-two-doors.md). MCP
-Skills (SEP-2640) is its own spec, `005-mcp-skills`. The public names of `core` are in
+Skills (SEP-2640) is its own spec, `005-mcp-skills`, built under `mcp/skills/`. The public names of
+`core` are in
 [specs/002-python-core/contracts/core-api.md](specs/002-python-core/contracts/core-api.md), those
 of `a2a` in [specs/003-a2a-binding/contracts/a2a-api.md](specs/003-a2a-binding/contracts/a2a-api.md),
-and those of `mcp` in [specs/004-mcp-binding/contracts/mcp-api.md](specs/004-mcp-binding/contracts/mcp-api.md).
+those of `mcp` in [specs/004-mcp-binding/contracts/mcp-api.md](specs/004-mcp-binding/contracts/mcp-api.md),
+and those of `mcp/skills` in
+[specs/005-mcp-skills/contracts/skills-api.md](specs/005-mcp-skills/contracts/skills-api.md).
 
 ## Import direction
 
@@ -72,7 +85,12 @@ core  ←  remote   (loads a2a or mcp only when that door is enabled; imports no
 ```
 
 `core` imports no door, no bridge and no protocol SDK. `a2a`, `mcp` and the bridges never import
-each other. Importing `ext_r2c` or `ext_r2c.core` must work with no extra installed; opening a door
+each other. `mcp/skills/` is not R2C: it imports nothing of `ext_r2c` at all (not even `core`), so
+it can be lifted out whole; `mcp/__init__.py` re-exports its names and `mcp/server.py` only takes
+any `Extension` beside R2C's. `test_packaging.py::test_mcp_skills_imports_no_ext_r2c` enforces the
+rule on the installed wheel, and `test_skills_compose.py` shows R2C's wire is unchanged beside it.
+
+Importing `ext_r2c` or `ext_r2c.core` must work with no extra installed; opening a door
 whose extra is missing fails with a message naming the extra. `test_packaging.py` enforces the
 core's side (an `ast` scan of its imports, and a subprocess that imports it and loads no protocol
 SDK), and a CI step installs the wheel alone and runs `tests/core_only.py`.

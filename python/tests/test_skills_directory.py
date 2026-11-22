@@ -657,6 +657,11 @@ class TestRefusedWithoutARequest:
         "an encoded slash that climbs": f"{REFUNDS}/..%2F..%2Fpdf-notes",
         "a trailing slash": f"{REFUNDS}/",
         "a doubled slash": f"{REFUNDS}//templates",
+        "an encoded backslash": f"{REFUNDS}/a%5Cb",
+        "a backslash that climbs": f"{REFUNDS}/..%5C..%5Cpdf-notes",
+        "an encoded line feed": f"{REFUNDS}/a%0Ab",
+        "an encoded escape": f"{REFUNDS}/%1b",
+        "a raw backslash": f"{REFUNDS}/a\\b",
     }
 
     @pytest.mark.parametrize("uri", list(URIS.values()), ids=list(URIS))

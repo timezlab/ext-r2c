@@ -69,6 +69,29 @@ All notable changes to this project are recorded here. The format follows
 - Examples: `mcp/elicitation-two-rounds.json`, `mcp/elicitation-reask.json`,
   `mcp/elicitation-no-response.json`, `mcp/tool-result-inline-image.json` and
   `mcp/approval-tool-call.json`.
+- MCP Skills (SEP-2640, Beta, extension `io.modelcontextprotocol/skills`) in
+  `ext_r2c.mcp`, a second MCP SDK `Extension` that is not R2C: `SkillsExtension`
+  serves folders of `SKILL.md` as `skills/list` (paged by an opaque cursor),
+  `skills/get`, every file as an ordinary resource, and `resources/directory/read`
+  (on by default, `directory_read=False` turns it off); `include` / `exclude`,
+  the 512-file and 16 MiB limits, `refresh()`, and what is left out reported
+  (`left_out`). A file outside the skill's folder, or a link, is never served,
+  and a file changed on disk since the scan is refused. A scan is bounded
+  whatever the tree (32 folders deep, 1024 folders in a skill, 1024 folders
+  that are not skills under a root); a name with a control character, a line
+  break, a bidi control or a backslash is left out (`unsafe name`) and shown
+  escaped; a file the system cannot read is `-32603` "The server could not read
+  the file.", not "changed on disk".
+- `SkillsClient`, the caller's Skills client: `list`, `get`, `load`, `read` and
+  `list_directory`, which verify each file's size, digest and frontmatter against
+  the entry and refuse what they cannot verify, read nothing ahead of need, and
+  stop on a repeated cursor. An entry is refused unless its name and description
+  have the allowed lengths, its URI (of any scheme) is `…/<name>/SKILL.md`, every
+  listed file is strictly inside the skill's folder, and it is listed once.
+- `mcp_server(name, extension, extensions=[...])` serves other MCP extensions
+  after R2C's.
+- `[mcp]` brings PyYAML (`>=6.0.3,<7`), which reads the frontmatter. The core
+  and the `[a2a]` extra do not need it.
 
 ### Changed
 

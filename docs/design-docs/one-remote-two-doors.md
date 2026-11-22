@@ -113,6 +113,21 @@ Card skills (`card_skills=` on the agent source) and MCP skills are never derive
 other: an A2A caller cannot fetch a `SKILL.md`, so listing it on the card would advertise
 something the agent does not do.
 
+> **Note, 2026-11-22 (spec `005-mcp-skills`, built).** The MCP half of this decision is built as
+> `SkillsExtension` and `SkillsClient` in `ext_r2c.mcp`; `Remote(skills=...)` is still spec 007.
+> Three things differ from the text above, which is kept as written:
+> - the URI is `skill://<skill-path>/<file>`, where the skill path is the folder's path below its
+>   root (several segments are allowed) and its last segment equals the frontmatter `name`, not
+>   `skill://<name>/<path>`;
+> - there is no `exclude_files`: every regular file of the skill folder is served, and hidden
+>   files and folders, symbolic links and anything that is not a regular file are left out and
+>   reported (`left_out`);
+> - no symbolic link is ever followed (not "no link leaving the root"), and a `SKILL.md` below
+>   another one is an ordinary file of the outer skill, not a skill of its own.
+>
+> The reasons are in [specs/005-mcp-skills/research.md](../../specs/005-mcp-skills/research.md) and
+> the ADR [skills-frontmatter-and-nesting](skills-frontmatter-and-nesting.md).
+
 ### 4. Three extension points, so new frameworks need no change to `Remote`
 
 | Extension point | Interface in `core` | v1 ships | Later |

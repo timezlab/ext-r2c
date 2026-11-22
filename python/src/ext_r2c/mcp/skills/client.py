@@ -25,7 +25,6 @@ import re
 from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar
-from urllib.parse import unquote
 
 import mcp_types as types
 from mcp.client import Client
@@ -33,8 +32,8 @@ from pydantic import ValidationError
 
 from ._content import DIRECTORY
 from ._frontmatter import FrontmatterError, read_frontmatter
-from ._limits import MAX_BYTES, MAX_FILES
-from ._uris import SKILL_FILE, last_segments
+from ._limits import MAX_BYTES, MAX_DESCRIPTION_LENGTH, MAX_FILES, MAX_NAME_LENGTH
+from ._uris import SKILL_FILE, last_segments, segment_ok
 from ._wire import (
     EXTENSION_ID,
     GetSkillParams,
@@ -165,6 +164,19 @@ class DirectoryEntry:
 # --- An entry: one raw JSON value in, a SkillItem or a refusal out ----------------------------------
 
 
+def _name_ok(name: str) -> bool:
+    """A skill name this client accepts: 1 to 64 printable characters, none of them a space, a slash
+    or a backslash. Looser than what the server serves (any script, any case): a name only has to be
+    something a person can read, and a URI segment."""
+    return 1 <= len(name) <= MAX_NAME_LENGTH and name.isprintable() and not any(c in name for c in " /\\")
+
+
+def _inside(root: str, uri: str) -> bool:
+    """`uri` is strictly below the folder `root`: `root/` and then one or more segments, each one a
+    name (`segment_ok`). A neighbour whose name only starts like the folder's is not inside it."""
+    return uri.startswith(root + "/") and all(segment_ok(segment) for segment in uri[len(root) + 1 :].split("/"))
+
+
 def parse_entry(origin: str, raw: object) -> SkillItem:
     """Validate one entry of `skills/list` or `skills/get`. The refusal carries the entry's own URI
     when it has one that is a string."""
@@ -185,8 +197,13 @@ def parse_entry(origin: str, raw: object) -> SkillItem:
         raise refuse("entry", "the frontmatter has no name that is a string")
     if not isinstance(description, str):
         raise refuse("entry", "the frontmatter has no description that is a string")
-    if last_segments(uri, 2) != (name, SKILL_FILE):
-        raise refuse("entry", "the uri is not skill://<path>/<name>/SKILL.md for the name of the frontmatter")
+    if not _name_ok(name):
+        raise refuse("entry", f"the name is not 1 to {MAX_NAME_LENGTH} printable characters without a space, a slash or a backslash")
+    if not 1 <= len(description) <= MAX_DESCRIPTION_LENGTH:
+        raise refuse("entry", f"the description is not 1 to {MAX_DESCRIPTION_LENGTH} characters")
+    if not uri.endswith("/" + SKILL_FILE) or last_segments(uri, 2) != (name, SKILL_FILE):
+        raise refuse("entry", "the uri is not <scheme>://<path>/<name>/SKILL.md for the name of the frontmatter")
+    root = uri.removesuffix("/" + SKILL_FILE)
 
     listed = raw.get("resources", _MISSING)
     if listed is _MISSING:
@@ -207,6 +224,8 @@ def parse_entry(origin: str, raw: object) -> SkillItem:
         file_uri, digest, size = resource.get("uri"), resource.get("digest"), resource.get("size")
         if not isinstance(file_uri, str):
             raise refuse("resources", "a listed file has no uri that is a string")
+        if not _inside(root, file_uri):
+            raise refuse("resources", "a listed file is not inside the folder of the skill")
         if not isinstance(digest, str) or _DIGEST.fullmatch(digest) is None:
             raise refuse("resources", "a listed file has no digest of the form sha256:<64 lowercase hex>")
         if type(size) is not int or size < 0:  # a boolean is not a size, and nor is 1.5
@@ -274,13 +293,8 @@ def _check_inside(item: SkillItem, uri: str) -> None:
     segment, no `.` or `..` and no `/` once a segment is percent-decoded once. A neighbour whose name
     only starts like the skill's is not inside it. Nothing is sent for a URI that is not."""
     root = item.uri.removesuffix("/" + SKILL_FILE)
-    if uri != root:
-        inside = uri.startswith(root + "/") and all(
-            segment and unquote(segment) not in (".", "..") and "/" not in unquote(segment)
-            for segment in uri[len(root) + 1 :].split("/")
-        )
-        if not inside:
-            raise SkillRefused("directory", "the URI is not a folder of the skill", uri)
+    if uri != root and not _inside(root, uri):
+        raise SkillRefused("directory", "the URI is not a folder of the skill", uri)
 
 
 # --- The client -------------------------------------------------------------------------------------
@@ -360,10 +374,15 @@ class SkillsClient:
                 return ListSkillsRequest()
             return ListSkillsRequest(params=types.PaginatedRequestParams(cursor=cursor))
 
+        listed: set[str] = set()  # one skill is one URI: a server that lists it again is not believed twice
         async for page in self._pages(request_for, RawListSkillsResult):
             for raw in page.skills:
                 try:
-                    skills.append(parse_entry(self._origin, raw))
+                    item = parse_entry(self._origin, raw)
+                    if item.uri in listed:
+                        raise SkillRefused("entry", "the server listed this skill more than once", item.uri)
+                    listed.add(item.uri)
+                    skills.append(item)
                 except SkillRefused as refusal:
                     refused.append(Refused(refusal.uri, refusal.check, refusal.reason))
         return SkillListing(tuple(skills), tuple(refused))
