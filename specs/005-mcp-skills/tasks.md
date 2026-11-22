@@ -252,7 +252,7 @@ byte equals the disk's.
 (phase 5 reports); the read opens the recorded path and checks size and digest (phase 5 hardens
 it). `settings()` returns `{"directoryRead": False}` until phase 8 serves the method.
 
-- [ ] T023 [P] [US1] Write `python/tests/test_skills_scan.py`, the finding and describing part,
+- [X] T023 [P] [US1] Write `python/tests/test_skills_scan.py`, the finding and describing part,
   with `scan_roots(folders, include, exclude)` returning a `Catalogue`:
   - the fixture tree gives three skills with paths `pdf-notes`, `greetings`,
     `team/billing/refunds`, sorted by URI, each `name` equal to the last segment;
@@ -267,7 +267,7 @@ it). `settings()` returns `{"directoryRead": False}` until phase 8 serves the me
   - frontmatter passes through unchanged (`license`, nested `metadata`);
   - the file with a non-ASCII name gets an ASCII URI with `%C3%A9`;
   - hidden entries, links and non-regular files are absent from the served files (no report yet).
-- [ ] T024 [P] [US1] Write `python/tests/test_skills_serve.py`, round trips over the harness with
+- [X] T024 [P] [US1] Write `python/tests/test_skills_serve.py`, round trips over the harness with
   `SkillsExtension` on a plain `MCPServer` and the fixture tree, using the package's typed
   requests for `skills/*`:
   1. `server/discover` declares `resources` and `extensions[SKILLS_ID]` with a boolean
@@ -284,18 +284,18 @@ it). `settings()` returns `{"directoryRead": False}` until phase 8 serves the me
      ordinary resource; `SKILL.md` has the frontmatter's `name` and `description` (scenario 5).
   6. `ttl_ms=1000` and `cache_scope="public"` appear on both `skills/list` and `skills/get`.
   7. No result carries a `_meta` key of this package (FR-015).
-- [ ] T025 [US1] Build, install, and run T023–T024. Confirm the expected failures: `scan_roots`
+- [X] T025 [US1] Build, install, and run T023–T024. Confirm the expected failures: `scan_roots`
   and `SkillsExtension` do not exist.
-- [ ] T026 [US1] Create `python/src/ext_r2c/mcp/skills/_scan.py`, first cut: resolve each root once
+- [X] T026 [US1] Create `python/src/ext_r2c/mcp/skills/_scan.py`, first cut: resolve each root once
   with `os.path.realpath`; walk in sorted order without following links; the nearest `SKILL.md`
   makes a skill folder; read `SKILL.md` with `_frontmatter`; require `name` (string) and
   `description` (string); build the skill path, URIs, sizes, digests and MIME; build the
   `Catalogue`. Entries that are hidden, links or not regular are skipped. Errors raise
   `SkillsError` with a plain reason; the full list of build errors is phase 6.
-- [ ] T027 [US1] Create `python/src/ext_r2c/mcp/skills/_read.py`, first cut: `read_file(record)`
+- [X] T027 [US1] Create `python/src/ext_r2c/mcp/skills/_read.py`, first cut: `read_file(record)`
   opens the recorded path, reads it, compares size and SHA-256, and returns the bytes, or raises
   `FileChanged` when anything differs.
-- [ ] T028 [US1] Create `python/src/ext_r2c/mcp/skills/extension.py`:
+- [X] T028 [US1] Create `python/src/ext_r2c/mcp/skills/extension.py`:
   - `SkillFile`, a `Resource` whose `async read()` looks the URI up in the **current**
     catalogue and calls the extension's `_read_bytes(record)` in a worker thread
     (`anyio.to_thread.run_sync`); `FileChanged` becomes `MCPError(-32603, "The skills changed on
@@ -309,11 +309,11 @@ it). `settings()` returns `{"directoryRead": False}` until phase 8 serves the me
   - Two private override points the tests use to make a server lie: `_entry(skill)` builds the
     wire `Skill` of one skill, and `_read_bytes(record)` produces a file's bytes.
   - Each handler reads `self._catalogue` once.
-- [ ] T029 [US1] Export `SkillsExtension` and `SkillInfo` from
+- [X] T029 [US1] Export `SkillsExtension` and `SkillInfo` from
   `python/src/ext_r2c/mcp/skills/__init__.py` and `python/src/ext_r2c/mcp/__init__.py`.
-- [ ] T030 [US1] Run T023–T024 on the wheel until green. Run the by-hand example of
+- [X] T030 [US1] Run T023–T024 on the wheel until green. Run the by-hand example of
   `quickstart.md` section 5 (server side) and see `skill://refunds/SKILL.md` listed.
-- [ ] T031 [US1] Verify, then commit `feat(005): serve skills from folders`.
+- [X] T031 [US1] Verify, then commit `feat(005): serve skills from folders`.
 
 ---
 
@@ -747,3 +747,42 @@ Kept as a running list while the phases are built; T080 closes it.
   not the exit code. The scratch harness is not committed.
 - Mutation result: 109 mutants of the six modules, 108 killed; the survivor is the no-change
   control.
+
+**Phase 3 (2026-11-22)**
+
+- **The include / exclude filters are in the scan already.** T026 did not ask for them (phase 6
+  does), but `scan_roots(folders, include, exclude)` takes them from the first cut because T023
+  names that signature. They match the last segment of the skill path with `fnmatch.fnmatchcase`,
+  exclude wins, an empty `include` means all, and a skill the filters drop is never read, so a broken
+  `SKILL.md` that is filtered out is not an error. `TestFilters` covers them. What phase 6 still
+  owes: the constructor arguments, their validation, and the "nothing left after the filters" error.
+- **The constructor is `SkillsExtension(folders, *, ttl_ms, cache_scope)` for now.** `include` and
+  `exclude` arrive with phase 6, `directory_read` and `page_size` with phase 8; none is accepted
+  before its behaviour exists, so no argument is silently ignored. The settings are not validated
+  yet (phase 6).
+- **`settings()` says `{"directoryRead": False}`**, as decided; the two declaration tests assert
+  `False` and phase 8 flips them. `SkillFile.read()` has no branch yet for a URI that has left the
+  catalogue (phase 6 adds it with `refresh`); today the lookup is a plain key access.
+- **Most tests passed on their first run once the code existed**: 59 of 60. The exception was a
+  miscount in my own test (12 files, not 13). Because the tests were written before the code and the
+  first run was green, each was proven by mutation, not by the green: 75 mutants over `_scan.py`,
+  `_read.py` and `extension.py`, 68 killed. A mutant that makes the read of a pipe hang was killed by
+  the 240 s timeout of the harness, which is how a hang shows up there.
+- **The seven survivors are the control and six equivalents, kept and not killed.**
+  - `fnmatch.fnmatch` for `fnmatchcase`: the two differ only where the platform folds case, which
+    POSIX does not. The tests pin case-sensitivity (`test_patterns_are_case_sensitive`).
+  - Dropping the `is_symlink()` test in `_entries`: the later `is_file/is_dir(follow_symlinks=False)`
+    tests refuse links too. It stays because phase 5 reports each link as left out, and the report
+    needs the first test.
+  - `sorted` in `_entries`: the catalogue sorts skills and files again. It stays so that which build
+    error is raised first does not depend on the order the file system returns names in.
+  - Reading `SKILL.md` a second time instead of reusing the bytes already read: same bytes.
+  - The skill's name taken from its folder instead of the frontmatter: the same until phase 6, which
+    makes a mismatch an error.
+  - Dropping the size comparison in `read_file`: the digest covers it. The comparison stays as the
+    cheap first refusal and as the home of the phase 5 `size + 1` bound.
+- **By hand (T030).** Quickstart section 5, server side, on the installed wheel: `skills/list` shows
+  `skill://refunds/SKILL.md` with `ttlMs` 300000 and `cacheScope` private, `resources/read` returns it
+  as `text/markdown`, and after the file is edited the next read is `-32603` with the "refresh them"
+  message. The fixture's own nested skill is `skill://team/billing/refunds/SKILL.md`, not the
+  quickstart's flat one. `refresh()` is phase 6.

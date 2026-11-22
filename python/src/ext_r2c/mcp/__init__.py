@@ -26,6 +26,7 @@ from .client import (
 )
 from .extension import R2CExtension
 from .server import mcp_server
+from .skills import SkillInfo, SkillsExtension
 from .source_tool import SourceTool
 from .tools import Approve, ToolOutput
 
@@ -44,6 +45,8 @@ __all__ = [
     "RequestItem",
     "ResultItem",
     "RoundLedger",
+    "SkillInfo",
+    "SkillsExtension",
     "SourceTool",
     "TooLarge",
     "ToolOutput",

@@ -105,8 +105,11 @@ Last updated 2026-11-22. Read this first in a new session.
   re-vetted it, nothing found), the empty `ext_r2c/mcp/skills/` package, the fixture trees and
   ten SDK-fact tests. **Phase 2 (T011–T022, the foundation) is done** (2026-11-22): the
   frontmatter reader, URIs, MIME table, page cursor, immutable catalogue and wire models, with
-  347 new unit tests (1257 in all) and a mutation run in which 108 of 108 real mutants died. The
-  maintainer then asked for the whole spec in one run ("implement hết spec"), so phases 3–9 follow
+  347 new unit tests (1257 in all) and a mutation run in which 108 of 108 real mutants died.
+  **Phase 3 (T023–T031, serve skills from folders) is done** (2026-11-22): `SkillsExtension` scans
+  folders and serves `skills/list`, `skills/get` and every file as an ordinary resource, a real SDK
+  client reads every byte back (SC-001); 61 new tests (1318 in all), 67 of 73 real mutants died and
+  the six that did not are equivalent (listed in the notes). The maintainer then asked for the whole spec in one run ("implement hết spec"), so phases 3–9 follow
   without a stop between them; where each phase differed from its plan is kept in "Notes: where
   reality differed" at the end of `specs/005-mcp-skills/tasks.md`. Nothing is pushed.
 

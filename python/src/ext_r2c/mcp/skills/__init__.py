@@ -11,4 +11,7 @@ Install with the ``[mcp]`` extra.
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from ._catalogue import SkillInfo
+from .extension import SkillsExtension
+
+__all__ = ["SkillInfo", "SkillsExtension"]
