@@ -635,7 +635,7 @@ once, the request ids are equal, a lost pause ends `lost` (SC-003).
 
 **Independent test**: `test_langgraph_restart.py`.
 
-- [ ] T056 [P] [US3] Write `python/tests/test_langgraph_restart.py` on a real SQLite file in `tmp_path`
+- [X] T056 [P] [US3] Write `python/tests/test_langgraph_restart.py` on a real SQLite file in `tmp_path`
   (`sqlite_saver`, `restart`): "process A" runs to the ask and is dropped (its saver closed); "process B"
   builds a new saver, graph and agent over the same file and resumes with `Driver.resume(thread, request,
   answer)` using the request saved from process A. Counters are shared:
@@ -650,16 +650,16 @@ once, the request ids are equal, a lost pause ends `lost` (SC-003).
     pause was lost, and the model's counter did not move (scenario 4);
   - **an answer already applied** (delivered twice, the second through a new `Driver.resume`) and **a
     thread pruned** (`adelete_thread`): `lost`, the graph not started (scenario 5).
-- [ ] T057 [US3] Build, install, and run T056. Most should pass on their first run (phases 3 and 5 built the
+- [X] T057 [US3] Build, install, and run T056. Most should pass on their first run (phases 3 and 5 built the
   pieces). Say so in the report; for each, the mutation check of T059 proves it is not vacuous. A failure
   is a gap in the bridge: test first, then fix in `bridges/langgraph/`.
-- [ ] T058 [US3] Fix what T057 shows, if anything (for example a request id that depends on something that does
+- [X] T058 [US3] Fix what T057 shows, if anything (for example a request id that depends on something that does
   not survive a restart), test first.
-- [ ] T059 [US3] Mutation check, recorded under R17: each of these must make a test fail: the request id built
+- [X] T059 [US3] Mutation check, recorded under R17: each of these must make a test fail: the request id built
   from a counter or a `uuid` instead of the interrupt id; the batch record read from outside the leg; the
   pause match skipped; `PauseLost` swallowed and the graph started anyway; a tool body run twice because
   `resume` re-sends the input.
-- [ ] T060 [US3] Verify, then commit `test(006): a paused graph survives a restart`.
+- [X] T060 [US3] Verify, then commit `test(006): a paused graph survives a restart`.
 
 **Checkpoint**: SC-003 holds (scenario 6, usage across a restart, closes in phase 7, T064).
 
@@ -1150,3 +1150,25 @@ criterion is checked on the three Pythons.
   after.
 - **T055**: 2244 tests pass on Python 3.13 (2173 before); `ruff --select F` is clean. The three-version
   run is at the end of phase 10.
+
+### Phase 6 (2026-11-22)
+
+- **T056 and T057**: 13 tests in `test_langgraph_restart.py` on a real SQLite file, and **all 13 passed on
+  their first run**, as T057 expected (phases 3 and 5 built the pieces: the interrupt id is the request
+  id, and a pause is read from the checkpointer, never from the process). That is not proof of anything by
+  itself, so T059 is what shows the tests are not vacuous.
+- **T058**: nothing to fix. No test showed a gap in the bridge, and no request id depends on something that
+  does not survive a restart.
+- **One helper changed**: `world()` in `test_langgraph_approvals.py` takes optional `runs` and `calls`
+  counters, so "process B" counts into the same place as "process A" (a new graph over the same file has
+  its own tools, and a test must still see how many times a body ran in all).
+- **What the tests pin that the tasks only implied**: after a restart the asks come in the same order and
+  with the same ids for both modes; a `per_call` answer for the *second* call, given first, resumes only
+  that call's interrupt; a half-answered batch is asked again from its first call (its decision lived in
+  the first process's memory) and nothing ran in between; an in-memory saver, an answer applied twice and
+  a thread pruned with `adelete_thread` each end `lost` with the graph not started (the model's counter and
+  the tools' counters do not move).
+- **T059 mutation check** (R17, "Mutation check of the restart"): 10 of 10 mutants died on the first run,
+  no hole found.
+- **T060**: 2257 tests pass on Python 3.13 (2244 before); `ruff --select F` is clean. Scenario 6 (usage
+  across a restart) closes in phase 7 (T064), as planned.

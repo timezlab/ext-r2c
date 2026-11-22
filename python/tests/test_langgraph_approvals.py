@@ -97,10 +97,21 @@ class World:
         return list((await self.state()).values["messages"])
 
 
-def world(script: Script, mode: str, gate: dict[str, Any] | None = None, *, saver: Any = None) -> World:
-    """A graph whose tools `gate` (name → `True` or an `InterruptOnConfig`) wait for approval."""
-    runs: Counter[str] = Counter()
-    calls = Calls()
+def world(
+    script: Script,
+    mode: str,
+    gate: dict[str, Any] | None = None,
+    *,
+    saver: Any = None,
+    runs: Counter[str] | None = None,
+    calls: Calls | None = None,
+) -> World:
+    """A graph whose tools `gate` (name → `True` or an `InterruptOnConfig`) wait for approval.
+
+    `runs` and `calls` are given when two worlds must count into the same place (a restart: the
+    second process is a new graph over the same saver, and what ran is what both ran)."""
+    runs = Counter() if runs is None else runs
+    calls = Calls() if calls is None else calls
     saver = memory_saver() if saver is None else saver
     middleware = HumanInTheLoopMiddleware(interrupt_on=gate or {DEPLOY: True, NOTICE: True}, interrupt_mode=mode)  # type: ignore[arg-type]
     graph = agent(Scripted(script=script, calls=calls), list(counted_tools(runs).values()), saver, middleware=[middleware])

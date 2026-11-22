@@ -192,13 +192,18 @@ Last updated 2026-11-22. Read this first in a new session.
     and the thread then goes on with a right one; a batch's decisions wait in a bounded map in memory and
     go in one resume in position order (71 new tests, 2244 in all); 24 of 24 mutants died (two test holes
     found and filled).
+    **Phase 6 (T056–T060) is done** (2026-11-22): a pause made by one process is answered by another over
+    the same SQLite file (each tool ran once, the ids and the order of the asks are equal; a half-answered
+    batch is asked again from its first call; an in-memory saver, an answer applied twice and a pruned
+    thread end `lost` with the graph not started); 13 new tests, all green on the first run, 2257 in all;
+    10 of 10 mutants died. No change to the bridge was needed.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
     (spec 006), `3b26285` (its plan) and the tasks commit after it.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 under way, phase 5 of 10 done; 007 onward proposed)
+## Spec sequence (001–005 built; 006 under way, phase 6 of 10 done; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -229,7 +234,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–5 done) —
+6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–6 done) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply

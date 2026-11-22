@@ -661,6 +661,18 @@ file layout (R18). Five points were not in the approved spec and are listed in
   approval cannot say `caller` (`ApproverBy` is `person` or `approver`), so the only way to break SC-006
   here is the role the bridge picks, which M15 covers. The closing walk over every path is T075.
 
+### Mutation check of the restart (phase 6, 2026-11-22)
+
+- **How**: as for the bridge (R17 above); the file run is `test_langgraph_restart.py` (13 tests), baseline
+  green first. All 13 tests had passed on their first run, so the check is what shows they are not vacuous.
+- **Result: 10 of 10 mutants died**, none needed a new test. The request id of a `per_call` pause (R1) or of
+  a batched call (R2) is a `uuid`, not the interrupt id; the batch records are shared by every agent of the
+  process (R3, killed by the half-answered batch: a "restart" that still remembers is not a restart); the
+  pause match is skipped (R4); a lost pause is swallowed and the graph started anyway (R5); `resume` sends
+  the first input again instead of the answer (R6, so a tool body would run twice); `resume` is sent with
+  no interrupt id (R7); a lost pause ends `failed`, not `lost` (R8); no usage at the end of the turn (R9);
+  the answer to a hand-written question is not carried into the graph (R10).
+
 ## R18. Layout, imports and packaging
 
 - **Decision**
