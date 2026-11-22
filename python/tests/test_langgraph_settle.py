@@ -10,16 +10,18 @@ real `Driver`.
 
 from __future__ import annotations
 
+import asyncio
+from collections import Counter
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
 from ext_r2c.bridges.langgraph._settle import settle
-from ext_r2c.core import Approval, Ask, Done, Driver, Error, RunInput
+from ext_r2c.core import ActivityEvent, Approval, Ask, Done, Driver, Error, RunInput
 
 from agent_source_suite import reply_text, rest, until_pause
 from langgraph_graphs import DEPLOY, NOTICE, agent, memory_saver, run, wrap
@@ -186,12 +188,16 @@ def test_a_batch_in_progress_is_dropped_when_the_pause_is_withdrawn() -> None:
     run(go())
 
 
-# --- 3. other kinds of pause are left as LangGraph leaves them --------------------------------------------
+# --- 3. a call nothing answers is settled, whatever left it so (outside review, R19 F1) -------------------
+#
+# FR-007 as approved settled only a middleware approval and left "other kinds of pause as LangGraph leaves
+# them". The reason for the settle (the model must never see a call with no answer) holds for any way a call
+# is left without a result: a tool body that asked and was abandoned, a tool that raised, a run cancelled
+# in the middle of a tool. The model here is `strict`, which the first version of this test was not, so it
+# did not see that a hand-written pause left the thread unusable.
 
 
-def test_a_hand_written_interrupt_is_not_settled() -> None:
-    """Only a middleware approval is withdrawn (FR-007): nothing is written for any other pause."""
-
+def test_a_hand_written_interrupt_in_a_tool_body_is_settled_too() -> None:
     @tool("ask_it")
     def ask_it() -> str:
         """Ask the caller something."""
@@ -200,7 +206,7 @@ def test_a_hand_written_interrupt_is_not_settled() -> None:
     def script(messages: list[BaseMessage]) -> Turn:
         return Call(("ask_it", {})) if humans(messages) == 1 and not tool_results(messages) else Say("ok")
 
-    graph = agent(Scripted(script=script), [ask_it], memory_saver())
+    graph = agent(Scripted(script=script, strict=True), [ask_it], memory_saver())
     source = wrap(graph)
 
     async def go() -> None:
@@ -212,12 +218,155 @@ def test_a_hand_written_interrupt_is_not_settled() -> None:
         events = [e async for e in Driver(source).start(THREAD, RunInput("again"))]
         assert isinstance(events[-1], Done) and not [e for e in events if isinstance(e, (Ask, Error))], events
         messages = (await graph.aget_state(CONFIG)).values["messages"]
-        assert [type(m).__name__ for m in messages[before:]] == ["HumanMessage", "AIMessage"], (
-            "the new message and the reply: no message was written for the call that waited"
+        assert [type(m).__name__ for m in messages[before:]] == ["ToolMessage", "HumanMessage", "AIMessage"], (
+            "the call that waited is answered, then the new message and the reply"
         )
-        assert not [m for m in messages if isinstance(m, ToolMessage)]
+        answer = messages[before]
+        assert answer.status == "error" and "did not finish" in answer.content, answer
 
     run(go())
+
+
+def test_a_new_message_after_a_failed_tool_reaches_a_normal_reply() -> None:
+    """A tool that raises ends the run `failed` and leaves its call with no result; the next message must still
+    work, and the model, seeing the call as failed, may try it again."""
+    attempts = Counter[str]()
+
+    @tool("flaky")
+    def flaky() -> str:
+        """Fails the first time."""
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError("upstream timeout")
+        return "fine"
+
+    def script(messages: list[BaseMessage]) -> Turn:
+        told = tool_results(messages)
+        return Say(f"done: {told[-1].content}") if told and told[-1].status != "error" else Call(("flaky", {}))
+
+    graph = agent(Scripted(script=script, strict=True), [flaky], memory_saver())
+    source = wrap(graph)
+
+    async def go() -> None:
+        first = [e async for e in Driver(source).start(THREAD, RunInput("go"))]
+        assert isinstance(first[-1], Error) and first[-1].code == "failed", first
+        second = [e async for e in Driver(source).start(THREAD, RunInput("try again"))]
+        assert isinstance(second[-1], Done), second
+        assert reply_text(second) == "done: fine"
+        first_result = next(m for m in (await graph.aget_state(CONFIG)).values["messages"] if isinstance(m, ToolMessage))
+        assert first_result.status == "error" and "did not finish" in first_result.content
+
+    run(go())
+
+
+def test_a_new_message_after_a_cancel_in_a_running_tool_reaches_a_normal_reply() -> None:
+    @tool("slow")
+    async def slow() -> str:
+        """Takes long."""
+        await asyncio.sleep(60)
+        return "late"
+
+    def script(messages: list[BaseMessage]) -> Turn:
+        return Call(("slow", {})) if humans(messages) == 1 and not tool_results(messages) else Say("ok")
+
+    graph = agent(Scripted(script=script, strict=True), [slow], memory_saver())
+    source = wrap(graph)
+
+    async def go() -> None:
+        live = Driver(source).start(THREAD, RunInput("go"))
+        async for event in live:
+            if isinstance(event, ActivityEvent):
+                break
+        await live.cancel()
+        events = [e async for e in Driver(source).start(THREAD, RunInput("again"))]
+        assert isinstance(events[-1], Done), events
+        assert reply_text(events) == "ok"
+
+    run(go())
+
+
+def _state(*messages: BaseMessage, next: tuple[str, ...] = ("tools",)) -> Any:
+    """The snapshot of a thread whose last step did not finish: the tools step is still to run."""
+    return SimpleNamespace(interrupts=[], values={"messages": list(messages)}, tasks=[], next=next)
+
+
+def _call(call_id: str = "c1") -> AIMessage:
+    return AIMessage("", tool_calls=[{"name": "t", "args": {}, "id": call_id}])
+
+
+def test_an_unanswered_call_is_answered_when_no_pause_is_left() -> None:
+    graph = _Graph()
+
+    assert run(settle(graph, THREAD, _state(HumanMessage("go"), _call()))) is True
+
+    (written,) = graph.writes
+    (answer,) = written["messages"]
+    assert isinstance(answer, ToolMessage) and answer.tool_call_id == "c1" and answer.status == "error"
+    assert "did not finish" in answer.content and "withdrawn" not in answer.content
+    assert graph.as_nodes == ["tools"], "written as the step that did not finish, or LangGraph routes from the model"
+
+
+def test_a_graph_that_ended_keeps_the_state_it_ended_with() -> None:
+    """Nothing is left to run: a final message with a call is the graph's own business, and a write there would
+    route on from the node that wrote last."""
+    graph = _Graph()
+
+    assert run(settle(graph, THREAD, _state(HumanMessage("go"), _call(), next=()))) is False
+    assert graph.writes == []
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        pytest.param([HumanMessage("go"), AIMessage("done")], id="a reply with no call"),
+        pytest.param([HumanMessage("go"), _call(), ToolMessage("r", tool_call_id="c1")], id="the call has its result"),
+        pytest.param([HumanMessage("go"), _call(), HumanMessage("more")], id="a thread already broken is not healed"),
+        pytest.param([HumanMessage("go")], id="a human message only"),
+        pytest.param([], id="no messages"),
+    ],
+)
+def test_nothing_is_written_when_no_call_waits(messages: list[BaseMessage]) -> None:
+    graph = _Graph()
+
+    assert run(settle(graph, THREAD, _state(*messages))) is False
+    assert graph.writes == []
+
+
+@pytest.mark.parametrize(
+    ("steps", "writer"),
+    [
+        pytest.param(("tools",), "tools", id="one step"),
+        pytest.param(("tools", "tools"), "tools", id="one step in two tasks (a call each)"),
+        pytest.param(("a", "b"), None, id="two different steps: LangGraph names the writer"),
+    ],
+)
+def test_the_writer_is_named_only_when_one_step_did_not_finish(steps: tuple[str, ...], writer: str | None) -> None:
+    """Two different steps left unfinished in one superstep give no single step to write as, so none is named and
+    LangGraph takes the one that wrote last (checked on a graph where two parallel steps both failed: the call is
+    answered and nothing raises). Naming the first would silently drop the other."""
+    graph = _Graph()
+
+    assert run(settle(graph, THREAD, _state(HumanMessage("go"), _call(), next=steps))) is True
+    assert graph.as_nodes == [writer]
+
+
+@pytest.mark.parametrize("approval", [True, False], ids=["an approval waits", "a step did not finish"])
+def test_what_a_finished_task_made_is_written_again_though_no_call_is_open(approval: bool) -> None:
+    """The write starts from the saved checkpoint, which does not hold a finished task's tool message yet. When
+    that message answers every call there is nothing else to write, and it must still be written or the call
+    reads as unanswered after the fork."""
+    answer = ToolMessage("done", tool_call_id="c1", name="t")
+    pending = [SimpleNamespace(value={"tool_call_id": "c2", "name": DEPLOY, "args": {}, "description": "d"})]
+    state = SimpleNamespace(
+        interrupts=pending if approval else [],
+        values={"messages": [HumanMessage("go"), _call()]},
+        tasks=[SimpleNamespace(result={"messages": [answer]})],
+        next=("tools",),
+    )
+    graph = _Graph()
+
+    assert run(settle(graph, THREAD, state)) is True
+    assert graph.writes == [{"messages": [answer]}]
 
 
 # --- 4. the write itself ---------------------------------------------------------------------------------
@@ -247,9 +396,11 @@ class _Graph:
 
     def __init__(self) -> None:
         self.writes: list[Any] = []
+        self.as_nodes: list[Any] = []
 
     async def aupdate_state(self, config: Any, values: Any, *args: Any, **kwargs: Any) -> None:
         self.writes.append(values)
+        self.as_nodes.append(kwargs.get("as_node"))
 
 
 def test_nothing_is_written_when_the_calls_are_not_in_the_graphs_own_messages() -> None:

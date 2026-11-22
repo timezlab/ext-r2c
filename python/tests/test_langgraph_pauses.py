@@ -208,7 +208,11 @@ def test_the_description_of_a_large_value_is_cut_at_2000_characters() -> None:
     run(go())
 
 
-@pytest.mark.parametrize("payload", ["Which region?", QUESTION, ["a"]], ids=["fallback", "own question", "other value"])
+@pytest.mark.parametrize(
+    "payload",
+    ["Which region?", QUESTION, ["a"], approval({"role": "caller"})],
+    ids=["fallback", "own question", "other value", "approval for the caller, asked as a question"],
+)
 def test_a_declined_question_resumes_the_graph_with_none(payload: Any) -> None:
     source, seen = asker(payload)
 
@@ -218,6 +222,31 @@ def test_a_declined_question_resumes_the_graph_with_none(payload: Any) -> None:
         tail = await rest(live)
         assert isinstance(tail[-1], Done)
         assert seen == {0: None}, "declined: the graph's own `no answer`"
+
+    run(go())
+
+
+@pytest.mark.parametrize("role", [{"role": "person"}, {"role": "approver", "approver_role": "release-manager"}])
+@pytest.mark.parametrize(
+    ("note", "expected"),
+    [(None, {"decision": "deny"}), ("not today", {"decision": "deny", "reason": "not today"})],
+    ids=["no note", "a note is the reason"],
+)
+def test_a_declined_hand_written_approval_is_a_deny_for_the_graph(
+    role: dict[str, str], note: str | None, expected: dict[str, str]
+) -> None:
+    """R2C-ANSWER-3: a declined approval counts as `deny`, the action does not happen. A graph that wrote an
+    approval reads a decision mapping back, so `None` would be a crash or, worse, a quiet allow (outside review,
+    R19 S6)."""
+    source, seen = asker(approval(role))
+
+    async def go() -> None:
+        live, asked = await ask(source)
+        assert isinstance(asked, Approval)
+        await live.deliver(declined(asked, note))
+        tail = await rest(live)
+        assert isinstance(tail[-1], Done)
+        assert seen == {0: expected}
 
     run(go())
 

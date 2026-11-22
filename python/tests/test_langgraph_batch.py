@@ -60,11 +60,12 @@ def test_a_position_outside_the_batch_is_refused() -> None:
             batch.decide(bad, APPROVE)
 
 
-def test_a_second_decision_for_a_position_replaces_the_first() -> None:
+def test_a_second_decision_for_a_position_is_refused_and_the_first_stands() -> None:
     batch = Batch(size=1)
     batch.decide(0, {"type": "reject"})
-    batch.decide(0, APPROVE)
-    assert batch.ordered() == [APPROVE]
+    with pytest.raises(ValueError, match="already"):
+        batch.decide(0, APPROVE)
+    assert batch.ordered() == [{"type": "reject"}]
 
 
 def test_the_map_is_keyed_by_thread_and_interrupt() -> None:
@@ -229,6 +230,35 @@ def test_an_answer_for_a_call_the_agent_has_no_record_of_is_kept_and_the_batch_s
         tail = await rest(resumed)
         assert isinstance(tail[-1], Done)
         assert new.runs == Counter({NOTICE: 1, DEPLOY: 1}) and not len(new.source._batches)
+
+    run(go())
+
+
+def test_a_second_answer_for_a_call_already_decided_is_refused_and_the_first_decision_stands() -> None:
+    """A replayed or changed answer must not turn an approval into a denial or back (outside review, R19 S4).
+    With `per_call` an answered request is gone from the thread; here it stays in the checkpoint until the
+    batch is complete, so the agent is the one that refuses it."""
+    w = world(notice_then_deploy, "batched")
+
+    async def go() -> None:
+        live, first = await pause_at(w)
+        assert isinstance(first, Approval)
+        _, second = await _both(w, first)
+        await live.deliver(allow(first))
+        await until_pause(live)  # the second call is asked now
+        (pending,) = (await w.state()).interrupts
+        sent = Sent(w)
+
+        out = [e async for e in Driver(w.source).resume(THREAD, first, deny(first, "changed my mind"))]
+        assert isinstance(out[-1], Error) and out[-1].code == "lost", out
+        kept = w.source._batches.get(THREAD, pending.id)
+        assert kept is not None and kept.decisions == {0: APPROVE}, "the first decision stands"
+        assert not sent.inputs, "and the graph was not called"
+
+        await live.deliver(allow(second))
+        tail = await rest(live)
+        assert isinstance(tail[-1], Done)
+        assert [list(r.values()) for r in sent.resumes] == [[{"decisions": [APPROVE, APPROVE]}]]
 
     run(go())
 

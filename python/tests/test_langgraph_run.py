@@ -105,6 +105,28 @@ def test_a_tool_message_is_never_reply_text() -> None:
     assert "sent: hi" not in reply_text(events), "the tool's result is not the model's reply"
 
 
+def test_a_human_message_a_node_writes_is_never_reply_text() -> None:
+    """Only what a model said is the reply (pause-mapping table, the row for messages of other kinds): a message
+    the graph adds in the person's name, a hint or a routed question, is state, not an answer."""
+
+    def hint(state: MessagesState) -> dict[str, Any]:
+        return {"messages": [HumanMessage("a hint the graph wrote in the person's name")]}
+
+    def speak(state: MessagesState) -> dict[str, Any]:
+        return {"messages": [AIMessage("The reply.")]}
+
+    builder = StateGraph(MessagesState)
+    builder.add_node("hint", hint)
+    builder.add_node("speak", speak)
+    builder.add_edge(START, "hint")
+    builder.add_edge("hint", "speak")
+    builder.add_edge("speak", END)
+
+    events = run(events_of(wrap(builder.compile(checkpointer=memory_saver()))))
+
+    assert reply_text(events) == "The reply." and isinstance(events[-1], Done)
+
+
 # --- 2. SC-007: the first chunk before the model's last token ----------------------------------
 
 

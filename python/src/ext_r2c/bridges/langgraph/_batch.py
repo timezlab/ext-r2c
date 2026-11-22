@@ -26,8 +26,11 @@ class Batch:
     decisions: dict[int, dict[str, Any]] = field(default_factory=dict)
 
     def decide(self, position: int, decision: dict[str, Any]) -> None:
+        """A call is decided once: a second answer for it, replayed or changed, never replaces the first."""
         if not 0 <= position < self.size:
             raise ValueError(f"The batch has {self.size} calls: there is no position {position}.")
+        if position in self.decisions:
+            raise ValueError(f"Position {position} of the batch is already decided.")
         self.decisions[position] = decision
 
     def complete(self) -> bool:

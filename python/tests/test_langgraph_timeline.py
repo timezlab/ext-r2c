@@ -11,6 +11,10 @@ callback of the tool's end).
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
+import sys
+import threading
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
@@ -458,6 +462,75 @@ def test_a_tool_called_with_callbacks_of_its_own_shows_nothing() -> None:
         await t.ainvoke({"text": "b"}, {"callbacks": []})
 
     assert not tool_activities(run(events_of(wrap(_node_graph(body))))), "nothing reached the handler"
+
+
+# --- 1e. a plain `def` node and a sync tool (outside review, R19 F2) -----------------------------------
+#
+# LangChain runs an async callback of a sync call on a private loop in the worker thread that runs the node.
+# What the handler puts on the leg's queue from there must reach the leg's own loop, or the caller sees the
+# activity only when the node has ended, and under asyncio's debug mode the leg is never woken at all.
+
+
+def _sync_node_graph(after_tool: Callable[[], str]) -> Any:
+    @tool("notice_sync")
+    def notice_sync(text: str) -> str:
+        """A sync tool."""
+        return f"noted {text}"
+
+    def act(state: MessagesState, config: RunnableConfig) -> dict[str, Any]:
+        notice_sync.invoke({"text": "b"}, config)  # the callbacks run on a loop of this worker thread
+        return {"messages": [AIMessage(after_tool())]}
+
+    builder = StateGraph(MessagesState)
+    builder.add_node("act", act)
+    builder.add_edge(START, "act")
+    builder.add_edge("act", END)
+    return builder.compile(checkpointer=memory_saver())
+
+
+def test_the_activity_of_a_tool_in_a_sync_node_is_seen_while_the_node_goes_on() -> None:
+    seen = threading.Event()
+
+    def after_tool() -> str:
+        return "live" if seen.wait(5) else "late"  # the node waits for the caller to have seen the activity
+
+    async def go() -> list[RunEvent]:
+        out: list[RunEvent] = []
+        async for event in Driver(wrap(_sync_node_graph(after_tool))).start(THREAD, RunInput("go")):
+            out.append(event)
+            if isinstance(event, ActivityEvent):
+                seen.set()
+        return out
+
+    events = run(go())
+    assert [a.state for a in tool_activities(events)] == ["running", "done"]
+    assert reply_text(events) == "live", "the activity came only when the node had ended"
+
+
+_DEBUG_CHILD = """
+import asyncio
+import test_langgraph_timeline as t
+from ext_r2c.core import Driver, RunInput
+
+async def go():
+    source = t.wrap(t._sync_node_graph(lambda: "ok"))
+    return [e async for e in Driver(source).start(t.THREAD, RunInput("go"))]
+
+events = asyncio.run(go(), debug=True)
+print("last:", type(events[-1]).__name__)
+"""
+
+
+def test_a_sync_node_does_not_leave_the_run_waiting_in_asyncio_debug_mode() -> None:
+    """In debug mode a call into the loop from another thread is refused, and the leg that waits on its queue is
+    never woken: the run hangs with no event. It cannot be caught in this process (a cancel never reaches the
+    waiting task either), so the scenario runs in a child that is killed when it does not end."""
+    here = Path(__file__).parent
+    done = subprocess.run(
+        [sys.executable, "-c", _DEBUG_CHILD],
+        capture_output=True, text=True, timeout=30, cwd=here, env={**os.environ, "PYTHONPATH": str(here)},
+    )
+    assert done.returncode == 0 and "last: Done" in done.stdout, (done.stdout, done.stderr[-1500:])
 
 
 # --- 2. reasoning: the buffer, apart from any graph ---------------------------------------------------

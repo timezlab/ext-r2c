@@ -14,7 +14,7 @@ from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Literal, TypedDict
+from typing import Annotated, Any, Literal
 
 import pytest
 from langchain.agents.structured_output import ProviderStrategy, ToolStrategy
@@ -25,6 +25,7 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.types import interrupt
 from pydantic import BaseModel
+from typing_extensions import TypedDict  # LangChain and pydantic refuse `typing.TypedDict` before Python 3.12
 
 from ext_r2c.bridges.langgraph._reply import Reply
 from ext_r2c.core import AnswerEvent, Ask, Done, Driver, Error, Question, ReplyChunk, RunInput, UsageEvent

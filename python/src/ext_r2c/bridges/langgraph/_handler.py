@@ -70,14 +70,30 @@ def _json_args(inputs: Any) -> dict[str, Any] | None:
 
 
 class Handler(AsyncCallbackHandler):
-    """Puts what it sees on the leg's queue, in the order it happens."""
+    """Puts what it sees on the leg's queue, in the order it happens. Built inside the leg's loop.
+
+    A plain `def` node (or a sync tool) that calls a tool with the run's config has its callbacks run by
+    LangChain on a private loop of the worker thread that runs the node. An `asyncio.Queue` is not safe to
+    touch from there (the leg that waits on it is never woken, and in debug mode the run hangs), so an item
+    from any other loop goes through the leg's own loop, which keeps the order of what was put."""
 
     run_inline = True  # awaited in order, in the run's own task: a hidden id is queued before the node ends
 
     def __init__(self, queue: asyncio.Queue[Any]) -> None:
         self._queue = queue
+        self._loop = asyncio.get_running_loop()
         self._tags: dict[UUID, list[str]] = {}
         self._calls: dict[UUID, str] = {}  # the tools in their body: run id -> the id their activity has
+
+    def _put(self, item: Any) -> None:
+        try:
+            here: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
+        except RuntimeError:
+            here = None
+        if here is self._loop:
+            self._queue.put_nowait(item)
+        else:
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, item)
 
     async def on_chat_model_start(
         self,
@@ -101,7 +117,7 @@ class Handler(AsyncCallbackHandler):
             for generation in generations:
                 message_id = generation.message.id if isinstance(generation, ChatGeneration) else None
                 if message_id:
-                    self._queue.put_nowait(Hidden(message_id))
+                    self._put(Hidden(message_id))
 
     async def on_llm_error(
         self, error: BaseException, *, run_id: UUID, parent_run_id: UUID | None = None, **kwargs: Any
@@ -122,7 +138,7 @@ class Handler(AsyncCallbackHandler):
         call_id = call_id if isinstance(call_id, str) and call_id else str(run_id)
         name = (serialized or {}).get("name") or kwargs.get("name") or "tool"
         self._calls[run_id] = call_id
-        self._queue.put_nowait(ToolStarted(call_id, str(name), _json_args(inputs), time.monotonic()))
+        self._put(ToolStarted(call_id, str(name), _json_args(inputs), time.monotonic()))
 
     async def on_tool_end(self, output: Any, *, run_id: UUID, parent_run_id: UUID | None = None, **kwargs: Any) -> None:
         call_id = self._calls.pop(run_id, None)
@@ -130,7 +146,7 @@ class Handler(AsyncCallbackHandler):
             return
         failed = isinstance(output, ToolMessage) and output.status == "error"
         text = str(output.text) if isinstance(output, ToolMessage) else str(output)
-        self._queue.put_nowait(ToolEnded(call_id, failed, text, time.monotonic()))
+        self._put(ToolEnded(call_id, failed, text, time.monotonic()))
 
     async def on_tool_error(
         self, error: BaseException, *, run_id: UUID, parent_run_id: UUID | None = None, **kwargs: Any
@@ -138,4 +154,4 @@ class Handler(AsyncCallbackHandler):
         call_id = self._calls.pop(run_id, None)
         if call_id is None or isinstance(error, GraphBubbleUp):
             return  # a pause inside the tool's body is not a failure: the call goes on when it is answered
-        self._queue.put_nowait(ToolEnded(call_id, True, str(error), time.monotonic()))
+        self._put(ToolEnded(call_id, True, str(error), time.monotonic()))

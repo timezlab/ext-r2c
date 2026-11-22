@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
+from itertools import chain
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -56,12 +57,18 @@ def tools_by_name(graph: Any) -> Mapping[str, Any] | None:
 def _injected(tool: BaseTool) -> list[str]:
     """The arguments a running graph fills in (`InjectedState`, `InjectedStore`, `ToolRuntime`,
     `InjectedToolCallId`, `InjectedToolArg`): in the tool's input model, not in what the model sees.
-    A plain JSON Schema has none. Both sides are field names of a model: `tool.args` is not used, for a
-    legacy `Tool` with no `args_schema` reports one made-up argument that is not in its input model."""
-    if isinstance(tool.args_schema, dict):
-        return []
-    shown = tool.tool_call_schema.model_fields
-    return [name for name in tool.get_input_schema().model_fields if name not in shown]
+    Two readings, because neither sees everything. The fields of the input model against the fields shown
+    to the model: `tool.args` is not used, for a legacy `Tool` with no `args_schema` reports one made-up
+    argument that is not in its input model. And the tool's own list of the keys it fills in from the call
+    (`_injected_args_keys`, read from its signature): with an explicit `args_schema` the input model *is* that
+    schema, so a parameter it does not list is in neither model above, and LangChain would still copy a key of
+    that name from the call into the tool (R19 S2). A plain JSON Schema has no model, and only the second
+    reading applies."""
+    names: list[str] = []
+    if not isinstance(tool.args_schema, dict):
+        shown = tool.tool_call_schema.model_fields
+        names = [name for name in tool.get_input_schema().model_fields if name not in shown]
+    return names + sorted(set(getattr(tool, "_injected_args_keys", ())) - set(names))
 
 
 def _keyed(check: Draft202012Validator, args: dict[str, Any]) -> Iterator[tuple[str | None, str]]:
@@ -117,10 +124,15 @@ def tool_from_langchain(tool: BaseTool) -> ToolSpec:
         )
     check = Draft202012Validator(schema)
     model = tool.args_schema if isinstance(tool.args_schema, type) and issubclass(tool.args_schema, BaseModel) else None
+    # Without a word of its own on other keys the schema shown would let anything through (that is JSON Schema's
+    # default, and the model LangChain shows leaves out `extra="forbid"`). A function tool of the core forbids
+    # them, and so does this: only what the schema offered reaches the tool (R19 S1, S2).
+    closed = "additionalProperties" not in schema and "patternProperties" not in schema
 
     async def call(args: Mapping[str, Any]) -> Any:
         given = dict(args)
-        problems = _problems(_keyed(check, given), order)
+        undeclared = ((key, "This argument is not accepted.") for key in given if closed and key not in order)
+        problems = _problems(chain(_keyed(check, given), undeclared), order)
         if not problems and model is not None:
             try:
                 model.model_validate(given)
@@ -131,7 +143,9 @@ def tool_from_langchain(tool: BaseTool) -> ToolSpec:
                 )
         if problems:
             raise InvalidArguments(problems)
-        return await tool.ainvoke(given)
+        # `arun`, not `ainvoke`: `ainvoke` reads a dict with `type == "tool_call"` as an envelope and runs its own
+        # `args` in place of the keys beside it, so what was checked would not be what runs (R19 S1).
+        return await tool.arun(given)
 
     return ToolSpec(tool.name, tool.description, schema, call)
 

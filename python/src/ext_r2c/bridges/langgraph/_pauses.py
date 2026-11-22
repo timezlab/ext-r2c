@@ -243,10 +243,15 @@ def read_pauses(state: Any, tools: Mapping[str, Any] | None = None) -> list[Paus
     return approvals + others
 
 
-def resume_value(answer: Answer, kind: str = "own_request") -> Any:
+def resume_value(answer: Answer, pause: Pause) -> Any:
     """What `interrupt()` returns inside the graph for a request it wrote itself: the answer's value
-    mapping for a valid R2C request, the answered text for the fallback question, and `None` when declined."""
+    mapping for a valid R2C request, the answered text for the fallback question, and, when declined,
+    `None` for a question (the graph's own "no answer") but a deny for an approval the graph wrote as
+    R2C: a declined approval counts as `deny` (R2C-ANSWER-3), and a graph that asked for a decision reads a
+    decision back. The note, when there is one, is the reason."""
     if answer.outcome == "declined":
+        if isinstance(pause.request, Approval) and pause.kind == "own_request":
+            return {"decision": "deny", **({"reason": answer.note} if answer.note else {})}
         return None
     value = dict(answer.value or {})
-    return value.get("answer") if kind == "fallback" else value
+    return value.get("answer") if pause.kind == "fallback" else value

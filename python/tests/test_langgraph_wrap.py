@@ -7,13 +7,18 @@ graph except the FR-001 test, which compares the graph before and after a run.
 
 from __future__ import annotations
 
+import typing
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import pytest
+from langchain_core.messages import AnyMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.graph.message import add_messages
+from pydantic import BaseModel, ConfigDict, PydanticUserError
 from typing_extensions import TypedDict  # pydantic refuses `typing.TypedDict` before Python 3.12
 
 from ext_r2c.bridges.langgraph import LangGraphAgent
@@ -96,6 +101,108 @@ def test_the_checks_run_in_order() -> None:
     # No checkpointer *and* no messages: the checkpointer is named first.
     with pytest.raises(ValueError, match="checkpointer"):
         LangGraphAgent(_plain_graph(None))
+
+
+# A state can hold a field pydantic cannot describe (a client, a connection: LangGraph never asks it to),
+# and before Python 3.12 pydantic refuses `typing.TypedDict`, which LangGraph's own documents use. The
+# graph runs all the same, so wrapping it must not depend on a schema pydantic builds (principle III).
+
+
+class _Handle:
+    """A thing a node keeps in the state that no JSON schema can describe."""
+
+
+Messages = Annotated[list[AnyMessage], add_messages]
+
+
+class _TypedWithHandle(TypedDict):
+    messages: Messages
+    handle: _Handle
+
+
+class _TypedWithHandleNoMessages(TypedDict):
+    note: str
+    handle: _Handle
+
+
+class _TypedBase(TypedDict):
+    messages: Messages
+
+
+class _TypedInherits(_TypedBase):
+    handle: _Handle
+
+
+class _FromTyping(typing.TypedDict):
+    messages: Messages
+
+
+@dataclass
+class _DataBase:
+    messages: Messages
+
+
+@dataclass
+class _DataInherits(_DataBase):
+    handle: _Handle | None = None
+
+
+class _ModelWithHandle(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    messages: Messages
+    handle: _Handle | None = None
+
+
+class _ModelWithHandleNoMessages(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    note: str = ""
+    handle: _Handle | None = None
+
+
+def _graph_with_state(state: Any, saver: Any) -> Any:
+    builder = StateGraph(state)
+    builder.add_node("step", lambda s: {})
+    builder.add_edge(START, "step")
+    builder.add_edge("step", END)
+    return builder.compile(checkpointer=saver)
+
+
+@pytest.mark.parametrize(
+    "state",
+    [_TypedWithHandle, _TypedInherits, _FromTyping, _ModelWithHandle, _DataInherits],
+    ids=[
+        "typed dict with a handle",
+        "typed dict that inherits messages",
+        "typing.TypedDict",
+        "model with a handle",
+        "dataclass that inherits messages",
+    ],
+)
+def test_a_state_pydantic_cannot_describe_is_still_wrapped(state: Any) -> None:
+    assert wrap(_graph_with_state(state, memory_saver())).pause == "checkpoint"
+
+
+@pytest.mark.parametrize(
+    "state",
+    [_TypedWithHandleNoMessages, _ModelWithHandleNoMessages],
+    ids=["typed dict with a handle", "model with a handle"],
+)
+def test_such_a_state_with_no_messages_is_still_refused_for_that_reason(state: Any) -> None:
+    with pytest.raises(ValueError, match="messages"):
+        LangGraphAgent(_graph_with_state(state, memory_saver()))
+
+
+def test_a_graph_with_no_state_class_to_read_keeps_the_error_pydantic_raised() -> None:
+    """The keys are read only where a state class exists; for anything else the error is not hidden."""
+    from types import SimpleNamespace
+
+    from ext_r2c.bridges.langgraph.agent import _accepts_messages
+
+    def refuse() -> Any:
+        raise PydanticUserError("no schema", code=None)
+
+    with pytest.raises(PydanticUserError, match="no schema"):
+        _accepts_messages(SimpleNamespace(get_input_jsonschema=refuse))  # type: ignore[arg-type]
 
 
 # --- 4. the options ----------------------------------------------------------------------------

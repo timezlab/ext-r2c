@@ -18,6 +18,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import StateGraph
 from langgraph.pregel import Pregel
 from langgraph.types import Command
+from pydantic import BaseModel, PydanticUserError
 
 from ext_r2c.core import (
     Answer,
@@ -47,9 +48,29 @@ __all__ = ["LangGraphAgent"]
 _DEFAULT_DESCRIPTION = "A LangGraph agent served through R2C."
 
 
+def _input_keys(graph: Pregel) -> set[str] | None:
+    """The keys of the state class the graph takes as input, read from the class itself; `None` when the
+    graph holds no such class (it is not a state graph)."""
+    typ = getattr(getattr(graph, "builder", None), "input_schema", None)
+    if not isinstance(typ, type):
+        return None
+    if issubclass(typ, BaseModel):
+        return set(typ.model_fields)
+    return {key for base in typ.__mro__ for key in getattr(base, "__annotations__", ())}
+
+
 def _accepts_messages(graph: Pregel) -> bool:
     """Whether the graph's input has a `messages` key (D1): the caller's text goes in as a human message."""
-    schema: Any = graph.get_input_jsonschema()
+    try:
+        schema: Any = graph.get_input_jsonschema()
+    except PydanticUserError:
+        # Pydantic cannot describe every state a graph runs on: one that keeps a client or a connection, or,
+        # before Python 3.12, a `typing.TypedDict`. LangGraph never asks it to, so the graph runs, and wrapping
+        # must not depend on it (principle III): the keys are read from the state class instead.
+        keys = _input_keys(graph)
+        if keys is None:
+            raise
+        return "messages" in keys
     ref = schema.get("$ref") if isinstance(schema, dict) else None
     if isinstance(ref, str) and ref.startswith("#/"):  # a state class that is described by reference
         node: Any = schema
@@ -131,8 +152,9 @@ class LangGraphAgent:
     async def run(self, input: RunInput, ctx: RunContext) -> AsyncIterator[RunEvent]:
         """One turn on the context's thread: the input as one human message.
 
-        An approval still waiting on the thread is settled first (D9), so the model never sees a tool
-        call nothing answered; a batch in progress goes with it.
+        A tool call nothing answered is settled first (D9, R19), so the model never sees it: an approval
+        still waiting on the thread, a tool body that asked and was abandoned, a tool that failed. A batch
+        in progress goes with it.
         """
         thread = ctx.thread_id
         await settle(self._graph, thread, await self._graph.aget_state({"configurable": {"thread_id": thread}}))
@@ -172,6 +194,9 @@ class LangGraphAgent:
         value: Any
         if pause.kind == "batch_call":
             assert pause.position is not None and pause.batch_size is not None
+            decided = self._batches.get(thread, pause.interrupt_id)
+            if decided is not None and pause.position in decided.decisions:
+                raise PauseLost(f"The paused run was lost: request {answer.id!r} was already answered. Ask again.")
             batch = self._batches.record(
                 thread, pause.interrupt_id, size=pause.batch_size, position=pause.position,
                 decision=to_graph(answer, pause),
@@ -184,7 +209,7 @@ class LangGraphAgent:
         elif pause.kind == "tool_call":
             value = to_graph(answer, pause)
         else:
-            value = resume_value(answer, pause.kind)
+            value = resume_value(answer, pause)
 
         values = state.values
         earlier = values.get("messages") or () if isinstance(values, dict) else ()
