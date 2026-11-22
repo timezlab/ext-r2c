@@ -144,7 +144,7 @@ specs/006-langgraph-bridge/
 │   │                            #   stream and callback → run events
 │   └── suite-changes.md         # D3: the shared suite, before and after
 ├── checklists/requirements.md
-└── tasks.md                     # from /speckit-tasks (not written yet; waits for the maintainer)
+└── tasks.md                     # from /speckit-tasks (104 tasks in 10 phases, written 2026-11-22)
 ```
 
 ### Source code
@@ -282,21 +282,22 @@ The full reasoning is in [research.md](research.md).
 |---|---|---|
 | 1. Packaging, vet and spike | OSV vet and lowest-direct check re-run (T001); the extra and dev group; constitution PATCH 1.1.2; the empty `bridges/langgraph/` with its `ImportError`; `test_packaging.py` (bounds, import rule, no `a2a` or `mcp` loaded); the scripted model and graph builders; `test_langgraph_spike.py` pinning the library facts of R3, R5, R9, R11, R12 and R14 | tests on the wheel pass; every pinned fact holds, or the plan is updated first |
 | 2. The core piece and the suite (D2, D3a) | `PauseLost` test first, then the code; the suite's structural sequence checks; both fakes pass the changed suite; the mutation check on the suite (scratch run) | core-only green; the fakes pass; every mutant of the suite dies |
-| 3. Wrap, run, reply (US1, P1) 🎯 MVP | `agent.py`, `_leg.py`, `_handler.py` (first cut: hidden ids), `_reply.py`, `_blocks.py` (input), `_pauses.py` (first cut: a hand-written valid R2C request), the wrap checks and the in-memory warning; `langgraph_suite_source.py` | SC-001 (the suite S1–S10 on a real graph), SC-007 |
-| 4. Both doors (US1) | real in-process A2A and MCP round trips with a pause and an answer, a reply across the pause, `PauseLost` shown as `lost` by each door, a door refusing a large file | SC-002 |
+| 3. Wrap, run, reply (US1, P1) 🎯 MVP | `agent.py`, `_leg.py`, `_handler.py` (first cut: hidden ids), `_reply.py`, `_blocks.py` (input), `_pauses.py` (first cut: a hand-written valid R2C request), `_usage.py` (first cut: tokens summed from the checkpoint), the wrap checks and the in-memory warning; `langgraph_suite_source.py` | SC-001 (the suite S1–S10 on a real graph), SC-007 |
+| 4. Both doors (US1) | real in-process A2A and MCP round trips with a pause and an answer, a reply across the pause, `PauseLost` shown as `lost` by each door, a door refusing a large reply (a large file block is added in phase 7) | SC-002 |
 | 5. Approvals (US2, P1) | `_decisions.py`, `_batch.py`, the middleware payloads in `_pauses.py`, the tool schema lookup for `edit`; both modes, every answer, every refusal | SC-004, SC-005, SC-006 |
 | 6. A pause survives a restart (US3, P1) | the SQLite restart tests for `per_call`, `batched` and a hand-written interrupt; equal ids; an in-memory saver ends `lost`; an answer applied twice | SC-003 (scenario 6, usage across a restart, closes in phase 7) |
-| 7. The timeline (US4, P2) | the handler's tool events, `_reasoning.py`, `_usage.py`, files in `_blocks.py`, the options | SC-008 |
+| 7. The timeline (US4, P2) | the handler's tool events, `_reasoning.py`, `_usage.py` completed (model name, a restart in the middle), files in `_blocks.py`, the options | SC-008 |
 | 8. Other pauses, and a new input (US5, P2) | the fallback question, sequential and parallel interrupts, `_structured.py` on a real `response_format`, `_settle.py`; the mutation check of D9 | SC-009 |
 | 9. LangChain tools (US6, P3) | `tools.py`: conversion, injected arguments refused, arguments checked, a sync tool off the loop | SC-011 |
 | 10. Docs and final gate | README, `ARCHITECTURE.md`, `CHANGELOG.md`, `WORKSTATE.md`, the ADR, the dated notes, `AGENTS.md`; the CI step; an outside review by a code reviewer and a security reviewer with no memory of the work; 3.11 / 3.12 / 3.13; core-only, a2a-only, mcp-only, langgraph-only; leak scan | SC-010, SC-012 |
 
 **Order:**
 - Phases 1 to 3 first: every later phase uses the scripted model, the builders and the leg.
-- Phase 3 is the MVP. Its `_handler.py` and `_pauses.py` are **first cuts**: the handler reports
-  only the hidden message ids, and `_pauses.py` asks only a hand-written valid R2C request (what
-  the suite's graph writes). Phases 5, 7 and 8 extend them, each starting with tests that fail on
-  the first cut.
+- Phase 3 is the MVP. Its `_handler.py`, `_pauses.py` and `_usage.py` are **first cuts**: the
+  handler reports only the hidden message ids, `_pauses.py` asks only a hand-written valid R2C
+  request (what the suite's graph writes), and `_usage.py` sums the tokens (the suite's shape needs
+  a `usage` event from the first run). Phases 5, 7 and 8 extend them, each starting with tests that
+  fail on the first cut.
 - Phase 4 needs phase 3 and `PauseLost` from phase 2.
 - Phases 5 and 7 are independent of each other; both need phase 3.
 - Phase 6 needs phase 5 (it restarts approvals) and, for scenario 6, phase 7.
@@ -305,6 +306,9 @@ The full reasoning is in [research.md](research.md).
 - Phase 10 is last because it covers everything at once.
 
 ## Needs the maintainer
+
+**Answered 2026-11-22: the maintainer took the recommendation (A) on all five points.** The text
+below is kept as the record of the question. `tasks.md` carries each answer into a task.
 
 Five points the approved spec did not settle. Each has a default the plan already follows; none
 blocks `/speckit-tasks`, and any of them can be reversed before its phase.
@@ -387,4 +391,12 @@ None.
   The older records keep their numbers; WORKSTATE.md has the current sequence.
 - Phase 3's first cuts are a deliberate order of work, not a design change: the end state is the
   design of research R3, R5 and R8.
-- `tasks.md` is not written. It waits for the maintainer's go on this plan and on the five points.
+- 2026-11-22: `tasks.md` is written (104 tasks, 10 phases). Reading the code to write it changed the
+  plan in three small ways, none in the design:
+  - `_usage.py` has a first cut in phase 3, because the shared suite's shape needs a `usage` event
+    from S1 on (the plan had it in phase 7 only);
+  - no `UsageEvent` is sent when no message reported a token count: R2C-USAGE-1 requires at least
+    one of `input_tokens`, `output_tokens`, `duration_ms`, `cost`, and a `model` alone does not count;
+  - phase 4's size-limit test uses an oversized reply, because file blocks come in phase 7; the file
+    variant is added there. `tools.py` is created in phase 5 with `schema_of` (an approval's `edit`
+    needs it) and completed in phase 9.

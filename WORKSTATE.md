@@ -157,21 +157,24 @@ Last updated 2026-11-22. Read this first in a new session.
 - **Waiting for the maintainer** (nothing is blocked on these):
   - **Spec 006** (`006-langgraph-bridge`): the maintainer approved `spec.md` on 2026-11-22 (D1–D11 as
     written, D2 and D3 included). `plan.md`, `research.md` (R1–R18), `data-model.md`,
-    `contracts/` (API, pause mapping, suite changes) and `quickstart.md` are written (2026-11-22) and
-    wait for the maintainer, the gate before `/speckit-tasks`. Five points need an answer (plan,
-    "Needs the maintainer"): a `completed` structured reply under `ToolStrategy` has no reply text;
-    whether a per-run callback handler is "a hook" under FR-001; the constitution PATCH 1.1.2 for the
-    extra's bounds; a declined `input_required` question ends `done`; a `per_call` payload with no
-    schema ends `failed`. Findings that shaped it: a `batched` resume with a wrong decision leaves the
-    thread unable to continue (so the bridge validates first); the `tasks` stream cannot tell a running
-    tool from a paused one (so a callback handler does); `nostream` hides tokens only.
+    `contracts/` (API, pause mapping, suite changes) and `quickstart.md` are written (2026-11-22). The
+    maintainer took the recommendation (A) on the plan's five points the same day: a `completed`
+    structured reply under `ToolStrategy` has no reply text; a per-run callback handler is not "a hook"
+    under FR-001; the constitution goes PATCH 1.1.1 → 1.1.2 for the extra's bounds (task T009); a
+    declined `input_required` question ends `done`; a `per_call` payload with no schema ends `failed`.
+    **`tasks.md` is written** (2026-11-22): 104 tasks in 10 phases (US1 24, US2 11, US3 5, US4 14,
+    US5 12, US6 6; 32 in the setup, foundation and closing phases). **The next step is the maintainer's
+    go on `/speckit-implement`, phase 1 (T001–T012: the vet, the extra, the skeleton and the library
+    spike); one phase per go.** Findings that shaped it: a `batched` resume with a wrong decision leaves
+    the thread unable to continue (so the bridge validates first); the `tasks` stream cannot tell a
+    running tool from a paused one (so a callback handler does); `nostream` hides tokens only.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
-    (spec 006) and the plan commit after it.
+    (spec 006), `3b26285` (its plan) and the tasks commit after it.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 planned, `tasks.md` awaiting the maintainer; 007 onward proposed)
+## Spec sequence (001–005 built; 006 tasked, waiting for the go on phase 1; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -202,7 +205,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (spec approved and plan written 2026-11-22; `tasks.md` awaits the go) —
+6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; the go on phase 1 awaits) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply
