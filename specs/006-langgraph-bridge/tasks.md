@@ -541,7 +541,7 @@ by the bridge first (SC-004, SC-005, SC-006).
 
 ### Tests for User Story 2 ⚠️ (write first, watch them fail on the first cut)
 
-- [ ] T045 [P] [US2] Write `python/tests/test_langgraph_approvals.py` (R8, R9; FR-014 to FR-018, FR-020).
+- [X] T045 [P] [US2] Write `python/tests/test_langgraph_approvals.py` (R8, R9; FR-014 to FR-018, FR-020).
   Two graphs on one script, `per_call` and `batched` (parametrise every test over both unless it says
   otherwise); two gated tools `deploy_release` and `send_notice` that count their calls:
   - **SC-004**: a turn with two gated calls: the caller is asked exactly twice, one at a time, in the
@@ -575,7 +575,7 @@ by the bridge first (SC-004, SC-005, SC-006).
   - **SC-006, the paths that exist now**: `per_call`, `batched` and a hand-written valid approval for a
     person and for an approver never yield `answer_by` of `caller`, and the bridge never answers one
     (the caller's answers are the test's); the closing walk over every path is T075.
-- [ ] T046 [P] [US2] Write `python/tests/test_langgraph_batch.py` (R10, FR-019, D8). Pure units of
+- [X] T046 [P] [US2] Write `python/tests/test_langgraph_batch.py` (R10, FR-019, D8). Pure units of
   `_batch.py` (record a decision, `complete()`, `next_open()`, `drop()`; the map keeps at most 1024
   records and drops the oldest first) and behaviour:
   - a batch of two: the first answer records and asks the second, with **no graph call** (counter and
@@ -585,18 +585,18 @@ by the bridge first (SC-004, SC-005, SC-006).
     in the middle) is **kept**, and the first undecided position is asked: the batch is asked again from
     its first call;
   - the record is dropped on completion, on a lost pause, and (T080) on a settle.
-- [ ] T047 [US2] Build, install, and run T045 and T046. Confirm the expected failures: the first cut ends every
+- [X] T047 [US2] Build, install, and run T045 and T046. Confirm the expected failures: the first cut ends every
   middleware pause with "this kind of pause is not supported yet"; `_batch` and `_decisions` do not exist.
 
 ### Implementation for User Story 2
 
-- [ ] T048 [P] [US2] `python/src/ext_r2c/bridges/langgraph/tools.py`, created here with one private
+- [X] T048 [P] [US2] `python/src/ext_r2c/bridges/langgraph/tools.py`, created here with one private
   helper (adjustment 3): `schema_of(tool)` returns a copy of `tool.tool_call_schema` as JSON Schema
   without `title` (R16); `tools_by_name(graph)` finds the tools of a `create_agent` graph by looking for
   a node whose `bound` has `tools_by_name`, or `None`. The public names come in phase 9.
-- [ ] T049 [P] [US2] `_batch.py` (R10, D8): the bounded map and its operations, keyed by `(thread id,
+- [X] T049 [P] [US2] `_batch.py` (R10, D8): the bounded map and its operations, keyed by `(thread id,
   interrupt id)`, at most 1024 records.
-- [ ] T050 [US2] `_decisions.py` (R9): `allowed(pause)` reads `per_call` decisions from every
+- [X] T050 [US2] `_decisions.py` (R9): `allowed(pause)` reads `per_call` decisions from every
   `properties.type.const` of the `response_schema` (`$defs` and `oneOf` included) and `batched` ones from
   `review_configs[i].allowed_decisions`; `offered(pause)` maps to `allow`, `edit` (only with a schema),
   `deny` and drops `respond`; `to_graph(answer, pause)` makes `{"type": "approve"}`, `{"type": "reject",
@@ -604,25 +604,25 @@ by the bridge first (SC-004, SC-005, SC-006).
   "respond", "message"}`; `check(answer, pause)` raises `ValueError` with the readable problems for a
   decision not allowed, an `edit` the call cannot take, a batch decision with a wrong count, a declined
   answer when `reject` is not allowed.
-- [ ] T051 [US2] `_pauses.py`, extended (R8; pause-mapping rows 1, 2, 3): classify in this order: a
+- [X] T051 [US2] `_pauses.py`, extended (R8; pause-mapping rows 1, 2, 3): classify in this order: a
   `per_call` approval (all four keys), a `batched` interrupt (both lists), then the hand-written kinds of
   the first cut. Build the `Approval` or, for a respond-only call, the `Question`; request ids
   `lg-<interrupt id>` and `lg-<interrupt id>-<n>`; order tool approvals by the position of the call in
   the last AI message's `tool_calls`; a `per_call` payload with no readable decision, or nothing left to
   offer, ends the run `failed` before any ask (point 5).
-- [ ] T052 [US2] `agent.py`, extended: `resume` runs the checks in this order (the id is pending; the
+- [X] T052 [US2] `agent.py`, extended: `resume` runs the checks in this order (the id is pending; the
   core's `check_answer`; the graph-side rules of `_decisions.check`); a `per_call` answer resumes only
   its interrupt, by id; a `batched` answer is recorded in `_batch`, the next undecided call is asked
   with no graph call, and the complete batch is sent in one resume in position order; a refusal raises
   `ValueError` and the pause stays pending.
-- [ ] T053 [US2] Run T045 and T046 until green. Fix the bridge, not the tests; if a test is wrong, say why
+- [X] T053 [US2] Run T045 and T046 until green. Fix the bridge, not the tests; if a test is wrong, say why
   before changing it.
-- [ ] T054 [US2] Mutation check, recorded under R17: each of these must make a test fail: `allow` and `deny`
+- [X] T054 [US2] Mutation check, recorded under R17: each of these must make a test fail: `allow` and `deny`
   swapped; the reason is not sent as the message; the allowed set is ignored; the pre-graph validation is
   removed (the stuck-thread test); the batch is sent before it is complete; positions sent out of order;
   the `edit` name taken from the answer; tool approvals sorted instead of in the model's order; an
   approval built with `answer_by` of `caller` (SC-006).
-- [ ] T055 [US2] Verify, then commit `feat(006): approvals from HumanInTheLoopMiddleware, per call and batched`.
+- [X] T055 [US2] Verify, then commit `feat(006): approvals from HumanInTheLoopMiddleware, per call and batched`.
 
 **Checkpoint**: SC-004 and SC-005 hold in both modes; SC-006 holds for every path that exists.
 
@@ -1116,3 +1116,37 @@ criterion is checked on the three Pythons.
   hand-built graph (the model speaks, a plain node pauses) were added, one per door.
 - **T044**: 2173 tests pass on Python 3.13; `ruff --select F` is clean. The three-version run is at the
   end of phase 10 as planned (phase 3's run covered the same bridge code).
+
+### Phase 5 (2026-11-22)
+
+- **T045 to T047**: 56 tests in `test_langgraph_approvals.py` and 15 in `test_langgraph_batch.py` (71 in all
+  once the two mutation holes below were filled). The first run could not even collect (`_batch`,
+  `_decisions` and `tools` did not exist); the behaviour tests were then run through scratch copies that
+  shimmed those modules, and every one failed with "this kind of pause is not supported yet", as T047 said.
+- **Three things in T045 and the data model that the build showed to be different**:
+  - "An `edit` that renames the tool is refused" cannot happen: an R2C answer has no tool name, so the
+    bridge always names the call's own tool. The test pins that instead: a stray `name` in an edit answer
+    is ignored and the call's own tool runs.
+  - "A wrong count (`batched`)" cannot be reached either: the bridge builds the batch itself, so its size
+    is never wrong. Only `Batch.ordered()` guards it, and that is a unit test.
+  - The data model's `Pause.args_schema` is not stored: it is `request.subject.args_schema`, the one place
+    it is already kept.
+- **`_decisions.check` overlaps the core's `check_answer` more than the plan said**: the request the
+  bridge asks offers only what the graph allows, so the core already refuses a decision the call does not
+  accept. What only the graph-side check sees is a *declined* answer (it becomes `reject`) for a call that
+  does not allow `reject`; it stays, with the tests that need it (T045 "declined", both modes).
+- **T053, two failures on the first green run**, one in the bridge and one in the tests:
+  - `schema_of` returned the tool's own schema, not a copy: the model class LangChain makes for a tool
+    answers `model_json_schema()` with one shared dict, and a dict `args_schema` is the tool's object, so a
+    shallow copy still aliased `properties`. The test was right; the bridge now deep-copies.
+  - Two `test_langgraph_batch.py` tests timed out: they read a run to its end when it had ended on an
+    `Ask`, and a run that asked stays open until it is answered (the core's design, unchanged). The tests
+    were wrong, not the bridge: they now read to the `Ask` and answer on the same run.
+- **T054 mutation check** (R17, "Mutation check of approvals and batches"): 24 mutants, 22 died on the
+  first run and the two survivors were holes in the tests, not equivalent mutants. "Approvals are not
+  ordered at all" had looked equivalent (LangGraph lists `per_call` interrupts in the model's order), but
+  the order is `read_pauses`' own rule, so a unit test over a state whose interrupts are listed in the
+  wrong order was added; "an empty description is shown" had no test, and one was added. 24 of 24 died
+  after.
+- **T055**: 2244 tests pass on Python 3.13 (2173 before); `ruff --select F` is clean. The three-version
+  run is at the end of phase 10.

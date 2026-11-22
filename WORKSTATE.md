@@ -186,13 +186,19 @@ Last updated 2026-11-22. Read this first in a new session.
     real MCP round trip, each with a pause and an answer, a lost pause reads as `lost` on both doors, and
     the doors' size limits apply (9 tests, 2173 in all); 7 of 8 mutants died, the eighth is equivalent at
     the doors. No change to a door or to the bridge was needed.
+    **Phase 5 (T045–T055) is done** (2026-11-22): `HumanInTheLoopMiddleware` in `per_call` and `batched`
+    becomes one approval at a time in the model's order (`allow`, `edit`, `deny`, restricted to what the
+    call allows; a respond-only call is a question); every answer the graph would refuse is refused first
+    and the thread then goes on with a right one; a batch's decisions wait in a bounded map in memory and
+    go in one resume in position order (71 new tests, 2244 in all); 24 of 24 mutants died (two test holes
+    found and filled).
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
     (spec 006), `3b26285` (its plan) and the tasks commit after it.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–005 built; 006 under way, phase 4 of 10 done; 007 onward proposed)
+## Spec sequence (001–005 built; 006 under way, phase 5 of 10 done; 007 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -223,7 +229,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–4 done) —
+6. **`006-langgraph-bridge`** (spec approved, plan and 104 tasks written 2026-11-22; implementing, phases 1–5 done) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply

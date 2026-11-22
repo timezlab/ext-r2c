@@ -11,16 +11,15 @@ The leg never touches the graph: the thread and the handler travel in the `confi
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage
 
-from ext_r2c.core import Ask, RunEvent, UsageEvent
+from ext_r2c.core import Approval, Ask, Question, RunEvent, UsageEvent
 
 from ._handler import Handler, Hidden
-from ._pauses import read_pauses
 from ._reply import Reply
 from ._usage import turn_of, usage_of
 
@@ -83,8 +82,18 @@ async def _produce(graph: Any, graph_input: Any, config: dict[str, Any], queue: 
         queue.put_nowait(_END)
 
 
-async def run_leg(graph: Any, graph_input: Any, thread_id: str, reply: Reply) -> AsyncIterator[RunEvent]:
-    """The events of one call of `astream`; ends right after an `Ask`, or at the end of the turn."""
+async def run_leg(
+    graph: Any,
+    graph_input: Any,
+    thread_id: str,
+    reply: Reply,
+    pick: Callable[[Any], Question | Approval],
+) -> AsyncIterator[RunEvent]:
+    """The events of one call of `astream`; ends right after an `Ask`, or at the end of the turn.
+
+    When the graph is left with pending interrupts, `pick` chooses from the thread's state the one
+    request to ask (it may raise, and then the run ends `failed`: nothing is asked).
+    """
     queue: asyncio.Queue[Any] = asyncio.Queue()
     thread = {"configurable": {"thread_id": thread_id}}
     producer = asyncio.create_task(_produce(graph, graph_input, {**thread, "callbacks": [Handler(queue)]}, queue))
@@ -104,7 +113,7 @@ async def run_leg(graph: Any, graph_input: Any, thread_id: str, reply: Reply) ->
         if state.interrupts:  # read from the checkpointer, never from the stream
             for chunk in reply.flush():
                 yield chunk
-            yield Ask(read_pauses(state.interrupts)[0].request)
+            yield Ask(pick(state))
             return
         messages = _messages(state.values)
         had_text = any(

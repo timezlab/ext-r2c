@@ -637,6 +637,30 @@ file layout (R18). Five points were not in the approved spec and are listed in
   the `reason` of an `Error` whatever its code, so `lost` and `failed` read the same there. The difference
   is killed by the phase 3 test at the `Driver` (B7), where the code is visible.
 
+### Mutation check of approvals and batches (phase 5, 2026-11-22)
+
+- **How**: as for the bridge (R17 above); the two files run are `test_langgraph_approvals.py` and
+  `test_langgraph_batch.py`, baseline green first (67 tests, then 71 after the two tests below).
+- **Result: 24 of 24 mutants died** (22 on the first run, the other two after a test each). In the code of the
+  decisions: allow sent as reject (M1); the deny reason (M2) and the declined note (M3) not sent as the
+  message; deny (M4) or approve (M5) offered whatever the graph allows; edit offered without a schema (M6);
+  the graph-side check passing everything (M7) or not called (M8); the core's problems ignored (M9); an
+  edit taking the tool name from the answer (M12); a reply not sent as the message (M16); a per-call
+  answer sent as a hand-written one (M17). In the batch: an incomplete batch sent as it is (M10); the
+  batch leaving in the order the answers came (M11); records never pruned (M18); a decided call asked
+  again (M19); a record of another size not starting a new batch (M23); the oldest record not dropped at
+  the limit (M24). In the request: tool approvals ordered by name (M13); an approval answered by an
+  `approver`, not a person (M15, SC-006); the edit schema shown when edit is not offered (M20); the title
+  the bare tool name (M22).
+- **Two survivors, both holes in the tests**: M14, approvals not ordered at all, had looked equivalent (the
+  graph already lists `per_call` interrupts in the model's order, and a batch is in position order), but
+  the order is a rule of `read_pauses`, so a unit test over a state whose interrupts are listed in the
+  reverse order was added (it also pins that what the graph wrote itself comes after the tool approvals);
+  M21, an empty or missing description shown as text, had no test (three cases added).
+- **Not mutated**: the "`approval` for the caller" mutant of T054 is M15's neighbour: the model of an
+  approval cannot say `caller` (`ApproverBy` is `person` or `approver`), so the only way to break SC-006
+  here is the role the bridge picks, which M15 covers. The closing walk over every path is T075.
+
 ## R18. Layout, imports and packaging
 
 - **Decision**
