@@ -494,7 +494,7 @@ trip, each with a pause and an answer (SC-002); a lost pause is shown as `lost` 
 
 **Independent test**: `test_langgraph_doors.py`.
 
-- [ ] T037 [P] [US1] Write `python/tests/test_langgraph_doors.py`, A2A half (`a2a_harness`:
+- [X] T037 [P] [US1] Write `python/tests/test_langgraph_doors.py`, A2A half (`a2a_harness`:
   `serve`, `a2a_client`, `send`, `answer`, `kinds`; the style of `test_a2a_restart.py`). Serve
   `SourceExecutor(LangGraphAgent(graph))` with `agent_card(card, url)`, the graph being the suite's with
   one more reply before the tool call ("I will ask."):
@@ -502,30 +502,30 @@ trip, each with a pause and an answer (SC-002); a lost pause is shown as `lost` 
   - the caller's answer continues the **same task**; it completes; the reply artifact is one artifact
     that continues across the pause, and its text equals the script's (`last` on its final chunk);
   - the usage appears; no event follows the terminal one.
-- [ ] T038 [P] [US1] Same file, MCP half (`mcp_harness`: `serve`, `mcp_client`, `call`, `accept`; the style
+- [X] T038 [P] [US1] Same file, MCP half (`mcp_harness`: `serve`, `mcp_client`, `call`, `accept`; the style
   of `test_mcp_restart.py`): `mcp_server("test", R2CExtension(tools=[SourceTool(agent)]),
   security=RequestStateSecurity(keys=KEYS))`; the first call returns `InputRequiredResult` with the
   question; the retry with the answer returns the final result whose text equals the script's (the door
   gathers the text across the pause and ignores `last`).
-- [ ] T039 [P] [US1] Same file, `PauseLost` per door (D2, R13): a graph on an `InMemorySaver`, a pause, a
+- [X] T039 [P] [US1] Same file, `PauseLost` per door (D2, R13): a graph on an `InMemorySaver`, a pause, a
   "restart" (a new graph and agent over a **new** `InMemorySaver`), then the answer. A2A: the task ends in
   the state the door gives a live source's lost run (read `test_a2a_restart.py`'s live case); MCP: the
   call returns the door's `LOST` text; in both, the model's call counter did not move (the graph was not
   started).
-- [ ] T040 [P] [US1] Same file, size limits (R15): the A2A `SourceExecutor(agent, limits=Limits(message_bytes=
+- [X] T040 [P] [US1] Same file, size limits (R15): the A2A `SourceExecutor(agent, limits=Limits(message_bytes=
   32))` fails the task cleanly on a reply over the limit, and the MCP door with a small `Limits` returns
   `output_too_large`; the bridge itself checks no size. (A file block version is added in T065.)
-- [ ] T041 [US1] Build, install, and run T037 to T040. Most should pass on their first run, because phase 3
+- [X] T041 [US1] Build, install, and run T037 to T040. Most should pass on their first run, because phase 3
   made the agent a real source: say so in the report, and for each test that passes at once run the
   mutation of T043 (a passing test is not yet proof). Any failure is a gap in the bridge (T042), **not**
   in the doors: if a door needs a change, stop and tell the maintainer.
-- [ ] T042 [US1] Fix what T041 shows in `bridges/langgraph/` (for example how `last` and the held piece behave
+- [X] T042 [US1] Fix what T041 shows in `bridges/langgraph/` (for example how `last` and the held piece behave
   across a pause, the `Ask` after a flush), test first where a gap is found.
-- [ ] T043 [US1] Mutation check, recorded under R17: with the door tests green, each of these mutants must make
+- [X] T043 [US1] Mutation check, recorded under R17: with the door tests green, each of these mutants must make
   a test fail: `PauseLost` raised as `RuntimeError` (T039, both doors); the reply's held piece dropped at
   a pause (T037 text); `last=True` sent at a pause (T037, the reply would end early); the answer's id
   not forwarded to the interrupt (T037/T038 do not complete).
-- [ ] T044 [US1] Verify, then commit `test(006): serve a wrapped graph through the A2A and MCP doors`.
+- [X] T044 [US1] Verify, then commit `test(006): serve a wrapped graph through the A2A and MCP doors`.
 
 **Checkpoint**: SC-002 holds on both doors, and a lost pause reads as `lost`.
 
@@ -1093,3 +1093,26 @@ criterion is checked on the three Pythons.
   of `test_langgraph_wrap.py` uses `typing_extensions.TypedDict`.
 - **T036**: 2164 tests pass on Python 3.11.14, 3.12.3 and 3.13.16 (2079 at the end of phase 2);
   `core_only.py`, `a2a_only.py`, `mcp_only.py` and `langgraph_only.py` print ok; `ruff --select F` is clean.
+
+### Phase 4 (2026-11-22)
+
+- **T037 to T041**: nine tests in `test_langgraph_doors.py`. Phase 3 had made the agent a real source, so
+  eight passed on their first run, as T041 expected; the ninth failed because the test, not the bridge,
+  looked in the wrong place: with a client that activated R2C the reply is in the reply artifact, and the
+  input-required status carries only the question. The status carries the reply in words only for a client
+  that did not activate R2C, so that case has a test of its own.
+- **T042**: nothing to fix in `bridges/langgraph/`, and no change to a door.
+- **T039 and T040 differ from the tasks' text**: both doors show the `reason` of an `Error`, not a text of
+  their own for the `lost` code, so a lost pause reads on the door as the bridge's own sentence ("The
+  paused run was lost: nothing waits for request ..."), and not as the MCP door's `LOST` constant (that one
+  is for a *live* source). The tests check "lost" in the text and that the model was not called. The size
+  limits give "The content is larger than ..." on both doors (an error result on MCP, a `failed` task on
+  A2A); the MCP error has no code in `_meta`.
+- **T043 mutation check** (R17, "Mutation check of the doors"): 7 of 8 mutants died; the eighth,
+  `PauseLost` raised as `RuntimeError`, cannot be seen at a door (both show the same text), so it is
+  equivalent at this layer and stays killed by the phase 3 test at the `Driver` (B7). The check found one
+  real hole: no test had a **node** that pauses right after the model spoke, so dropping the flush at the
+  pause survived (a tool-call update flushes the held piece first in the suite's graph). Two tests with a
+  hand-built graph (the model speaks, a plain node pauses) were added, one per door.
+- **T044**: 2173 tests pass on Python 3.13; `ruff --select F` is clean. The three-version run is at the
+  end of phase 10 as planned (phase 3's run covered the same bridge code).

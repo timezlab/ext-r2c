@@ -624,6 +624,19 @@ file layout (R18). Five points were not in the approved spec and are listed in
   once: the "nothing after an `Ask`" rule for events other than `Ask` had no test of its own, and a test
   was added.
 
+### Mutation check of the doors (phase 4, 2026-11-22)
+
+- **How**: as for the bridge (R17 above); the file run is `test_langgraph_doors.py` (9 tests), baseline
+  green first.
+- **Result: 7 of 8 mutants died**: D2 the held piece is dropped at a pause (two tests added for it, one
+  per door, with a graph where a plain node pauses right after the model spoke); D3 a pause flushes with
+  `last=True`; D4 the answer's interrupt id is not forwarded; D5 the resumed leg is not seeded; D6 no usage
+  at the end; D7 the thread is a constant; D8 the pause is answered without being found again (the graph
+  is started).
+- **The survivor, D1 `PauseLost` raised as `RuntimeError`, is equivalent at the doors**: A2A and MCP show
+  the `reason` of an `Error` whatever its code, so `lost` and `failed` read the same there. The difference
+  is killed by the phase 3 test at the `Driver` (B7), where the code is visible.
+
 ## R18. Layout, imports and packaging
 
 - **Decision**
