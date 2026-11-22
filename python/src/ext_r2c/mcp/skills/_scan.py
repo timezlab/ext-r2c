@@ -14,7 +14,7 @@ what is left of the 16 MiB, and hashed.
 
 Hidden entries, symbolic links, anything that is not a regular file, names that are not text and names
 that are not safe to print (a control character, a line or paragraph separator, a bidirectional
-control or a backslash) are never served, and each is reported as a `LeftOut` with its path below the
+control or a backslash) are never served, and each is reported as a `LeftOutPath` with its path below the
 root and its reason. The path is shown with such a character escaped, so a name cannot break or
 reorder the line it is printed in.
 
@@ -38,7 +38,7 @@ import stat
 from collections.abc import Iterator, Sequence
 from typing import Any, NamedTuple
 
-from ._catalogue import Catalogue, FileRecord, LeftOut, SkillRecord, SkillsError
+from ._catalogue import Catalogue, FileRecord, LeftOutPath, SkillRecord, SkillsError
 from ._content import mime_for
 from ._frontmatter import FrontmatterError, read_frontmatter
 from ._limits import (
@@ -78,7 +78,7 @@ def scan_roots(
     """The catalogue of every skill found under `folders` that the filters let through. A problem with
     any folder, or with any skill that is let through, is a `SkillsError`: nothing is half built."""
     skills: list[SkillRecord] = []
-    left_out: list[LeftOut] = []
+    left_out: list[LeftOutPath] = []
     found_any = False
     for folder in folders:
         root = _Root(os.fspath(folder), os.path.realpath(folder))
@@ -164,7 +164,7 @@ def _shown(path: tuple[str, ...]) -> str:
     return "".join(shown)
 
 
-def _entries(folder: str, shown: tuple[str, ...], left_out: list[LeftOut]) -> list[os.DirEntry[str]]:
+def _entries(folder: str, shown: tuple[str, ...], left_out: list[LeftOutPath]) -> list[os.DirEntry[str]]:
     """What the folder at `shown` (its path below the root) holds, by name, without the entries a
     scan never serves; each of those is added to `left_out`. An `OSError` is the caller's to name."""
     kept: list[os.DirEntry[str]] = []
@@ -174,12 +174,12 @@ def _entries(folder: str, shown: tuple[str, ...], left_out: list[LeftOut]) -> li
             if reason is None:
                 kept.append(entry)
             else:
-                left_out.append(LeftOut(_shown((*shown, entry.name)), reason))
+                left_out.append(LeftOutPath(_shown((*shown, entry.name)), reason))
     return kept
 
 
 def _search(
-    root: _Root, below: tuple[str, ...], left_out: list[LeftOut], searched: Iterator[int]
+    root: _Root, below: tuple[str, ...], left_out: list[LeftOutPath], searched: Iterator[int]
 ) -> Iterator[_Found]:
     """Every skill folder at or under `below`, in order. A folder with a `SKILL.md` is one and is
     not searched further (`_files` reports what it leaves out); a root that is one is named by its
@@ -188,7 +188,7 @@ def _search(
     root that is a whole disk cannot make the scan walk it."""
     if len(below) > MAX_DEPTH:
         raise SkillsError(root.named(below), f"is more than {MAX_DEPTH} folders deep, the most a scan searches")
-    skipped: list[LeftOut] = []
+    skipped: list[LeftOutPath] = []
     try:
         entries = _entries(os.path.join(root.real, *below), below, skipped)
     except OSError as error:
@@ -207,7 +207,7 @@ def _search(
 def _files(
     folder: str,
     shown: tuple[str, ...],
-    left_out: list[LeftOut],
+    left_out: list[LeftOutPath],
     dirs: list[tuple[str, ...]],
     below: tuple[str, ...] = (),
 ) -> Iterator[tuple[tuple[str, ...], int]]:
@@ -274,7 +274,7 @@ def _too_many_bytes(folder: str) -> SkillsError:
 
 
 def _listing(
-    folder: str, shown: tuple[str, ...], left_out: list[LeftOut]
+    folder: str, shown: tuple[str, ...], left_out: list[LeftOutPath]
 ) -> tuple[list[tuple[tuple[str, ...], int]], list[tuple[str, ...]]]:
     """The files of the skill with their sizes, and its folders, or a `SkillsError` at the first file
     that is past a limit. Only `stat` has been asked of the rest, and the walk stops there."""
@@ -291,7 +291,7 @@ def _listing(
     return listed, dirs
 
 
-def _describe(root: _Root, found: _Found, left_out: list[LeftOut]) -> SkillRecord:
+def _describe(root: _Root, found: _Found, left_out: list[LeftOutPath]) -> SkillRecord:
     """The record of one skill: its frontmatter, and every file with its size and digest."""
     folder = os.path.join(root.real, *found.below)
     uri = encode_uri(found.path, file=SKILL_FILE)

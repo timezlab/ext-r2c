@@ -35,7 +35,7 @@ from mcp.server.mcpserver.resources import Resource
 from mcp.shared.exceptions import MCPError
 from pydantic import Field
 
-from ._catalogue import Catalogue, Child, FileRecord, LeftOut, SkillInfo, SkillRecord, SkillsError
+from ._catalogue import Catalogue, Child, FileRecord, LeftOutPath, SkillInfo, SkillRecord, SkillsError
 from ._content import DIRECTORY, as_text_or_bytes
 from ._cursor import CursorError, decode_cursor, encode_cursor
 from ._read import FileChanged, FileUnreadable, read_file
@@ -134,7 +134,7 @@ class SkillsExtension(Extension):
         return self._catalogue
 
     @property
-    def left_out(self) -> tuple[LeftOut, ...]:
+    def left_out(self) -> tuple[LeftOutPath, ...]:
         """What the scan did not serve, and why: hidden entries, symbolic links, anything that is
         not a regular file, names that are not text and names that are not safe to print. Sorted by
         path below the folder given, each path with such a character escaped."""

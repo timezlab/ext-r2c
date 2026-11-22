@@ -74,7 +74,7 @@ The immutable snapshot the extension serves from.
 | `by_uri` | exact dictionary from a skill's `uri` to its record |
 | `files` | exact dictionary from a file `uri` to its file record |
 | `directories` | exact dictionary from a directory `uri` to its record |
-| `left_out` | tuple of `LeftOut(path, reason)`; the reason is `hidden`, `symbolic link`, `not a regular file`, `undecodable name` or `unsafe name` (a control character, a line or paragraph separator, a bidirectional control, a backslash); the path has such characters escaped (R17) |
+| `left_out` | tuple of `LeftOutPath(path, reason)`; the reason is `hidden`, `symbolic link`, `not a regular file`, `undecodable name` or `unsafe name` (a control character, a line or paragraph separator, a bidirectional control, a backslash); the path has such characters escaped (R17) |
 
 A handler reads `extension.catalogue` once and answers from that object. `refresh()` builds a new
 one and assigns it; a failed scan assigns nothing (R5).
@@ -114,11 +114,11 @@ On the client the result models hold `skills` as a list of raw objects, validate
 |---|---|---|
 | `SkillFileRef` | `uri`, `size`, `digest` | a file the entry lists |
 | `SkillItem` | `origin`, `uri`, `name`, `description`, `frontmatter`, `files` (tuple of `SkillFileRef`) | a validated entry; `key` is `(origin, uri)` |
-| `Refused` | `uri` (or `None`), `check`, `reason` | an entry the listing could not accept (R13, R17: its name, description, URI of any scheme, files strictly inside its folder, listed once) |
-| `SkillListing` | `skills` (tuple of `SkillItem`), `refused` (tuple of `Refused`) | what `list()` returns |
+| `RefusedEntry` | `uri` (or `None`), `check`, `reason` | an entry the listing could not accept (R13, R17: its name, description, URI of any scheme, files strictly inside its folder, listed once) |
+| `SkillListing` | `skills` (tuple of `SkillItem`), `refused` (tuple of `RefusedEntry`) | what `list()` returns |
 | `SkillContent` | `origin`, `uri`, `data` (bytes) | verified bytes, tagged; untrusted; `text()` decodes strictly |
 | `LoadedSkill` | `item`, `instructions` (`SkillContent`, the `SKILL.md`) | what `load()` returns |
-| `DirectoryEntry` | `origin`, `uri`, `name`, `mime`, `is_dir` | one child from a directory read |
+| `SkillDirectoryEntry` | `origin`, `uri`, `name`, `mime`, `is_dir` | one child from a directory read |
 | `SkillRefused` | `uri`, `check`, `reason` (an exception) | a failed check; no content returned |
 
 `check` is one of: `declaration`, `entry`, `resources` (missing, dynamic, malformed), `limit`,

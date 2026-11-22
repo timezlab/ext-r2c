@@ -554,9 +554,15 @@ killed.
   logged); noted in the README, not worked around.
 - **The server's URI in `SkillRefused.__str__` is not shortened.** It is a URI the server chose, and a
   caller that prints it prints what the server sent. Truncating it hides which skill failed.
-- **The names `Refused`, `LeftOut` and `DirectoryEntry` are generic.** They are in the approved
-  contract and exported from `ext_r2c.mcp`; renaming them is a change of the public surface. Asked of
-  the maintainer.
+- **The names `Refused`, `LeftOut` and `DirectoryEntry` are generic.** They were in the approved
+  contract and exported from `ext_r2c.mcp`, a namespace that also holds R2C's names, and `Refused` sat
+  beside the exception `SkillRefused`. **Renamed 2026-11-22** (the maintainer left the choice to us):
+  `RefusedEntry`, `LeftOutPath` and `SkillDirectoryEntry`; no aliases, because nothing is published and
+  nobody outside uses them. This body keeps the old names where it was written with them.
+- **Walking by descriptor (`scandir(fd)`) is not done, and is not scheduled.** Decided 2026-11-22: the
+  race needs write access to the served tree, shows only folder names and serves no file outside (the
+  read is descriptor-based). Revisit when `Remote(skills=...)` (spec 007) can serve a folder that a
+  second party can write to; until then the limit is stated in the README and the contract.
 - **`yaml` is imported eagerly** by `ext_r2c.mcp.skills`. The `[mcp]` extra brings it; the core-only
   and A2A-only runs do not import the package. A lazy import saves a few milliseconds and adds a
   second place that can fail.

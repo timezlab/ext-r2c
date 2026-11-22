@@ -21,7 +21,7 @@ import anyio
 import pytest
 from ext_r2c.mcp import SkillsError
 from ext_r2c.mcp.skills import SkillsExtension
-from ext_r2c.mcp.skills._catalogue import LeftOut
+from ext_r2c.mcp.skills._catalogue import LeftOutPath
 from ext_r2c.mcp.skills._wire import (
     GetSkillParams,
     GetSkillRequest,
@@ -118,7 +118,7 @@ class TestAfterAnEdit:
             assert after[ALPHA]["skill://alpha/a.txt"] == sha("two\n")
             assert {r.uri: r.digest for r in (await entry(client, ALPHA)).skill.resources} == after[ALPHA]
             assert await read(client, "skill://alpha/a.txt") == b"two\n"
-            assert ext.left_out == (LeftOut("alpha/.draft", "hidden"),)
+            assert ext.left_out == (LeftOutPath("alpha/.draft", "hidden"),)
             assert [(s.name, s.files) for s in ext.skills] == [("alpha", 2)]
 
         run(session(ext, body))

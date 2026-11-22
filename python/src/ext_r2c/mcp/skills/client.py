@@ -113,7 +113,7 @@ class SkillItem:
 
 
 @dataclass(frozen=True)
-class Refused:
+class RefusedEntry:
     """An entry of a listing that did not validate, and why (the others are still returned)."""
 
     uri: str | None
@@ -124,7 +124,7 @@ class Refused:
 @dataclass(frozen=True)
 class SkillListing:
     skills: tuple[SkillItem, ...]
-    refused: tuple[Refused, ...]
+    refused: tuple[RefusedEntry, ...]
 
 
 @dataclass(frozen=True)
@@ -150,7 +150,7 @@ class LoadedSkill:
 
 
 @dataclass(frozen=True)
-class DirectoryEntry:
+class SkillDirectoryEntry:
     """One child of a directory, as metadata only: it is not a file the entry lists. `mime` is what the
     server said, or "" when it said nothing (no type is made up); `is_dir` is `mime == "inode/directory"`."""
 
@@ -367,7 +367,7 @@ class SkillsClient:
         validate is returned in `refused`; the others still come."""
         self._require_declared()
         skills: list[SkillItem] = []
-        refused: list[Refused] = []
+        refused: list[RefusedEntry] = []
 
         def request_for(cursor: str | None) -> ListSkillsRequest:
             if cursor is None:
@@ -384,10 +384,10 @@ class SkillsClient:
                     listed.add(item.uri)
                     skills.append(item)
                 except SkillRefused as refusal:
-                    refused.append(Refused(refusal.uri, refusal.check, refusal.reason))
+                    refused.append(RefusedEntry(refusal.uri, refusal.check, refusal.reason))
         return SkillListing(tuple(skills), tuple(refused))
 
-    async def list_directory(self, item: SkillItem, uri: str) -> tuple[DirectoryEntry, ...]:
+    async def list_directory(self, item: SkillItem, uri: str) -> tuple[SkillDirectoryEntry, ...]:
         """The direct children of one folder of a skill, page after page, as metadata only: a child is
         not a file the entry lists, so reading it is still `read`'s to refuse. `uri` is the skill's
         folder or one below it; anything else, and a server that did not declare `directoryRead: true`,
@@ -401,7 +401,7 @@ class SkillsClient:
             params = ReadDirectoryParams(uri=uri) if cursor is None else ReadDirectoryParams(uri=uri, cursor=cursor)
             return ReadDirectoryRequest(params=params)
 
-        entries: list[DirectoryEntry] = []
+        entries: list[SkillDirectoryEntry] = []
         async for page in self._pages(request_for, RawReadDirectoryResult):
             for raw in page.resources:
                 try:
@@ -409,7 +409,7 @@ class SkillsClient:
                 except ValidationError:
                     raise SkillRefused("response", "a child of the directory is not a resource", uri) from None
                 mime = child.mime_type or ""
-                entries.append(DirectoryEntry(self._origin, str(child.uri), child.name, mime, mime == DIRECTORY))
+                entries.append(SkillDirectoryEntry(self._origin, str(child.uri), child.name, mime, mime == DIRECTORY))
         return tuple(entries)
 
     async def get(self, uri: str) -> SkillItem:

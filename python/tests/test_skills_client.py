@@ -21,9 +21,9 @@ from typing import Any
 import mcp_types as types
 import pytest
 from ext_r2c.mcp.skills import (
-    DirectoryEntry,
+    SkillDirectoryEntry,
     LoadedSkill,
-    Refused,
+    RefusedEntry,
     SkillContent,
     SkillFileRef,
     SkillItem,
@@ -524,7 +524,7 @@ class TestAnEntryThatIsNotValid:
         assert [item.uri for item in listing.skills] == [GREETINGS, REFUNDS]  # the others still come
         (refused,) = listing.refused
         entry_uri = sent_uri.get("uri") if isinstance(sent_uri, dict) else None
-        assert isinstance(refused, Refused) and refused.check == check
+        assert isinstance(refused, RefusedEntry) and refused.check == check
         assert refused.uri == (entry_uri if isinstance(entry_uri, str) else None) and refused.reason
         assert (refusal.check, refusal.uri, refusal.reason) == (refused.check, refused.uri, refused.reason)
         assert sent(record, "resources/read") == []  # a bad entry is refused with no file read
@@ -552,7 +552,7 @@ class TestAnEntryThatIsNotValid:
     def test_the_reason_says_what_is_wrong_with_the_entry(self, tmp_path: Path, lie: Callable[[Any], Any], says: str) -> None:
         # Several checks refuse the same entry with the same `check`; the reason is how a caller
         # (and a person reading a log) tells which one did.
-        async def body() -> Refused:
+        async def body() -> RefusedEntry:
             async with connected(Lying(standard_tree(tmp_path).root, entry={PDF: lie})) as skills:
                 (refused,) = (await skills.list()).refused
                 return refused
@@ -1233,24 +1233,24 @@ class TestTheTypes:
         for frozen in (
             item,
             SkillFileRef("skill://a/SKILL.md", 1, "sha256:" + "0" * 64),
-            Refused(None, "entry", "r"),
+            RefusedEntry(None, "entry", "r"),
             SkillListing((), ()),
             SkillContent("o", "u", b""),
             LoadedSkill(item, SkillContent("o", "u", b"")),
-            DirectoryEntry("o", "u", "n", "text/plain", False),
+            SkillDirectoryEntry("o", "u", "n", "text/plain", False),
         ):
             with pytest.raises(AttributeError):  # a frozen dataclass refuses any assignment
                 frozen.anything = "x"  # type: ignore[attr-defined]
         assert hash(item) == hash(SkillItem("o", "skill://a/SKILL.md", "a", "d", {"name": "a", "description": "d"}, ()))
-        assert DirectoryEntry("o", "u", "n", "inode/directory", True).is_dir is True
+        assert SkillDirectoryEntry("o", "u", "n", "inode/directory", True).is_dir is True
 
     def test_the_names_are_exported_from_the_package_and_from_the_door(self) -> None:
         import ext_r2c.mcp
         import ext_r2c.mcp.skills as package
 
         names = {
-            "SkillsClient", "SkillItem", "SkillFileRef", "SkillListing", "Refused", "SkillContent", "LoadedSkill",
-            "DirectoryEntry", "SkillRefused",
+            "SkillsClient", "SkillItem", "SkillFileRef", "SkillListing", "RefusedEntry", "SkillContent", "LoadedSkill",
+            "SkillDirectoryEntry", "SkillRefused",
         }
         assert names <= set(package.__all__) and names <= set(ext_r2c.mcp.__all__)
         for name in names:

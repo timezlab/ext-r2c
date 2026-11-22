@@ -15,7 +15,7 @@ from ext_r2c.mcp.skills._catalogue import (
     Catalogue,
     DirectoryRecord,
     FileRecord,
-    LeftOut,
+    LeftOutPath,
     SkillInfo,
     SkillRecord,
     SkillsError,
@@ -132,7 +132,7 @@ def test_the_catalogue_serves_the_records_it_lists() -> None:
 
 
 def test_what_the_scan_left_out_is_kept_in_order() -> None:
-    left = [LeftOut(".hidden", "hidden"), LeftOut("team/link", "symbolic link"), LeftOut("zz", "not a regular file")]
+    left = [LeftOutPath(".hidden", "hidden"), LeftOutPath("team/link", "symbolic link"), LeftOutPath("zz", "not a regular file")]
     assert Catalogue.build(standard_records(), left).left_out == tuple(left)
     assert Catalogue.build(standard_records(), iter(left)).left_out == tuple(left)
     assert Catalogue.build(standard_records(), []).left_out == ()
@@ -394,14 +394,14 @@ def test_skills_error_survives_a_pickle_and_a_copy() -> None:
 
 def test_skill_info_and_left_out_are_frozen_records() -> None:
     info = SkillInfo(name="n", uri="skill://n/SKILL.md", description="d", files=2, size=30)
-    left = LeftOut(path="team/link", reason="symbolic link")
+    left = LeftOutPath(path="team/link", reason="symbolic link")
     assert [f.name for f in dataclasses.fields(info)] == ["name", "uri", "description", "files", "size"]
     assert [f.name for f in dataclasses.fields(left)] == ["path", "reason"]
     for record, attribute in ((info, "name"), (info, "size"), (left, "path"), (left, "reason")):
         with pytest.raises(dataclasses.FrozenInstanceError):
             setattr(record, attribute, "x")
     assert info == SkillInfo("n", "skill://n/SKILL.md", "d", 2, 30)
-    assert hash(left) == hash(LeftOut("team/link", "symbolic link"))
+    assert hash(left) == hash(LeftOutPath("team/link", "symbolic link"))
 
 
 def test_the_record_fields_are_those_of_the_data_model() -> None:

@@ -32,7 +32,7 @@ import ext_r2c.mcp
 import ext_r2c.mcp.skills as skills_package
 import pytest
 from ext_r2c.mcp.skills import SkillsExtension, _read
-from ext_r2c.mcp.skills._catalogue import LeftOut
+from ext_r2c.mcp.skills._catalogue import LeftOutPath
 from ext_r2c.mcp.skills._wire import (
     GetSkillParams,
     GetSkillRequest,
@@ -302,14 +302,14 @@ class TestLeftOut:
         tree, _ = trapped_skill(tmp_path)
         ext = SkillsExtension(tree.root)
         assert ext.left_out == (
-            LeftOut("pdf-notes/.cache", "hidden"),  # a hidden folder once, not what is inside it
-            LeftOut("pdf-notes/.hidden.txt", "hidden"),
-            LeftOut("pdf-notes/assets/.DS_Store", "hidden"),
-            LeftOut("pdf-notes/assets/dangling", "symbolic link"),
-            LeftOut("pdf-notes/assets/pipe2", "not a regular file"),
-            LeftOut("pdf-notes/leak-dir", "symbolic link"),
-            LeftOut("pdf-notes/leak.txt", "symbolic link"),
-            LeftOut("pdf-notes/pipe", "not a regular file"),
+            LeftOutPath("pdf-notes/.cache", "hidden"),  # a hidden folder once, not what is inside it
+            LeftOutPath("pdf-notes/.hidden.txt", "hidden"),
+            LeftOutPath("pdf-notes/assets/.DS_Store", "hidden"),
+            LeftOutPath("pdf-notes/assets/dangling", "symbolic link"),
+            LeftOutPath("pdf-notes/assets/pipe2", "not a regular file"),
+            LeftOutPath("pdf-notes/leak-dir", "symbolic link"),
+            LeftOutPath("pdf-notes/leak.txt", "symbolic link"),
+            LeftOutPath("pdf-notes/pipe", "not a regular file"),
         )
         assert isinstance(ext.left_out, tuple) and ext.left_out is ext.catalogue.left_out
         assert set(ext.catalogue.files) == set(standard_tree(tmp_path / "clean").expected())  # nothing else is served
@@ -338,11 +338,11 @@ class TestLeftOut:
         add_fifo(tree.root / "a-pipe" / "SKILL.md")
         ext = SkillsExtension(tree.root)
         assert ext.left_out == (
-            LeftOut(".hidden-skill", "hidden"),
-            LeftOut("a-pipe/SKILL.md", "not a regular file"),
-            LeftOut("drafts/.notes", "hidden"),
-            LeftOut("fake/SKILL.md", "symbolic link"),  # a SKILL.md that is a link is not a SKILL.md
-            LeftOut("linked-skill", "symbolic link"),
+            LeftOutPath(".hidden-skill", "hidden"),
+            LeftOutPath("a-pipe/SKILL.md", "not a regular file"),
+            LeftOutPath("drafts/.notes", "hidden"),
+            LeftOutPath("fake/SKILL.md", "symbolic link"),  # a SKILL.md that is a link is not a SKILL.md
+            LeftOutPath("linked-skill", "symbolic link"),
         )
         assert [s.name for s in ext.skills] == ["greetings", "pdf-notes", "refunds"]
 
@@ -353,8 +353,8 @@ class TestLeftOut:
         add_symlink(tree.root / "pdf-notes" / ".dotlink", outside_secret(tmp_path))
         add_fifo(tree.root / "pdf-notes" / ".dotpipe")
         assert SkillsExtension(tree.root).left_out == (
-            LeftOut("pdf-notes/.dotlink", "symbolic link"),
-            LeftOut("pdf-notes/.dotpipe", "hidden"),
+            LeftOutPath("pdf-notes/.dotlink", "symbolic link"),
+            LeftOutPath("pdf-notes/.dotpipe", "hidden"),
         )
 
     def test_a_name_that_is_not_text_is_reported_without_being_served(self, tmp_path: Path) -> None:
@@ -367,7 +367,7 @@ class TestLeftOut:
         except OSError as e:
             pytest.skip(f"this file system takes no names that are not text: {e}")
         ext = SkillsExtension(tree.root)
-        assert ext.left_out == (LeftOut("pdf-notes/bad-\\xff.txt", "undecodable name"),)
+        assert ext.left_out == (LeftOutPath("pdf-notes/bad-\\xff.txt", "undecodable name"),)
         assert set(ext.catalogue.files) == expected
 
     def test_a_pipe_whose_name_is_not_text_is_reported_for_its_name(self, tmp_path: Path) -> None:
@@ -378,14 +378,14 @@ class TestLeftOut:
             os.mkfifo(os.path.join(folder, b"bad-\xff.pipe"))
         except OSError as e:
             pytest.skip(f"this file system takes no names that are not text: {e}")
-        assert SkillsExtension(tree.root).left_out == (LeftOut("pdf-notes/bad-\\xff.pipe", "undecodable name"),)
+        assert SkillsExtension(tree.root).left_out == (LeftOutPath("pdf-notes/bad-\\xff.pipe", "undecodable name"),)
 
     def test_a_scan_with_nothing_to_report_reports_nothing(self, tmp_path: Path) -> None:
         assert SkillsExtension(standard_tree(tmp_path).root).left_out == ()
 
     def test_left_out_is_exported_with_the_other_names(self) -> None:
-        assert ext_r2c.mcp.LeftOut is skills_package.LeftOut is LeftOut
-        assert "LeftOut" in skills_package.__all__ and "LeftOut" in ext_r2c.mcp.__all__
+        assert ext_r2c.mcp.LeftOutPath is skills_package.LeftOutPath is LeftOutPath
+        assert "LeftOutPath" in skills_package.__all__ and "LeftOutPath" in ext_r2c.mcp.__all__
 
 
 class TestTheLog:

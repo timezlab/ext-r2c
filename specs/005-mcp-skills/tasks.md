@@ -1081,7 +1081,19 @@ Kept as a running list while the phases are built; T080 closes it.
   installed wheel; core only, a2a only and mcp only are ok; `ruff check --select F` is clean (CI's own
   rule; there is no other ruff config). The replays are unchanged: R2C examples 46 valid, 20 invalid, 1
   unknown kind ignored, 102 objects round-tripped; A2A 31/29/3; MCP 14/13/1.
-- **Open for the maintainer, not done here.** (1) Whether to rename the generic `Refused`, `LeftOut` and
-  `DirectoryEntry` (approved contract, exported names). (2) Whether to walk the tree by descriptor
-  (`scandir(fd)`), which closes the race that can show a folder's names; a refactor of `_scan.py` and
-  `_read.py`. (3) Whether a 16 MiB blob over HTTP is refused by the SDK's event reader; unverified.
+- **Open for the maintainer at the end of phase 9.** (1) Whether to rename the generic `Refused`,
+  `LeftOut` and `DirectoryEntry`. (2) Whether to walk the tree by descriptor (`scandir(fd)`), which
+  closes the race that can show a folder's names. (3) Whether a 16 MiB blob over HTTP is refused by
+  the SDK's event reader; unverified. **Answered 2026-11-22** (see "After the close" below).
+
+**After the close (2026-11-22)**
+
+- **Pushed.** On the maintainer's go, `main` went to `origin` (`47fba89..08b7cea`) after a leak scan of
+  the whole range (0 hits).
+- **Renamed, mechanical, no behaviour change.** The maintainer left (1) to us. `Refused` is
+  `RefusedEntry`, `LeftOut` is `LeftOutPath`, `DirectoryEntry` is `SkillDirectoryEntry`; no aliases.
+  Done test first: the tests took the new names and failed with `ImportError`, then the source and the
+  live docs (the contract, the data model) followed. The bodies of `plan.md`, `research.md` and the
+  notes above keep the old names; the contract and R17 carry a dated note.
+- **Not done: the descriptor walk (2).** Recorded in R17 with the reason and the point at which to
+  revisit it (spec 007). (3) stays an unverified risk.

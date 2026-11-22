@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 import mcp_types as types
 import pytest
-from ext_r2c.mcp.skills import DirectoryEntry, SkillItem, SkillRefused, SkillsClient, SkillsExtension
+from ext_r2c.mcp.skills import SkillDirectoryEntry, SkillItem, SkillRefused, SkillsClient, SkillsExtension
 from ext_r2c.mcp.skills._wire import (
     EXTENSION_ID,
     ListSkillsRequest,
@@ -568,7 +568,7 @@ class TestListDirectory:
 
         top, below = run(talk(SkillsExtension(root), body))
         assert top == tuple(
-            DirectoryEntry("alpha", uri, name, mime, is_dir)
+            SkillDirectoryEntry("alpha", uri, name, mime, is_dir)
             for uri, name, mime, is_dir in [
                 (f"{REFUNDS}/SKILL.md", "refunds", "text/markdown", False),
                 (f"{REFUNDS}/empty", "empty", DIR, True),
@@ -577,7 +577,7 @@ class TestListDirectory:
                 (f"{REFUNDS}/templates", "templates", DIR, True),
             ]
         )
-        assert below == (DirectoryEntry("alpha", f"{REFUNDS}/templates/reply.md", "reply.md", "text/markdown", False),)
+        assert below == (SkillDirectoryEntry("alpha", f"{REFUNDS}/templates/reply.md", "reply.md", "text/markdown", False),)
 
     def test_it_follows_every_page(self, tmp_path: Path) -> None:
         root = tree_with_an_empty_folder(tmp_path).root
@@ -760,8 +760,8 @@ class TestAServerThatLies:
 
         entries, refused = run(talk(LyingDirectory(root, reply), body, record=record))
         assert entries == (
-            DirectoryEntry("docs", "skill://docs/ghost.md", "ghost.md", "text/markdown", False),
-            DirectoryEntry("docs", "skill://elsewhere/x", "x", "", False),  # no type: no type is made up
+            SkillDirectoryEntry("docs", "skill://docs/ghost.md", "ghost.md", "text/markdown", False),
+            SkillDirectoryEntry("docs", "skill://elsewhere/x", "x", "", False),  # no type: no type is made up
         )
         assert refused.check == "unlisted"
         assert sent(record, "resources/read") == []

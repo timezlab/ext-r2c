@@ -4,6 +4,12 @@ Phase 1 of [plan.md](../plan.md). Public names are exported from `ext_r2c.mcp` (
 `ext_r2c.mcp.skills`); everything in a module with a leading underscore is private. Needs the
 `[mcp]` extra. Types are the shape, not the final source.
 
+> **Renamed 2026-11-22** (the maintainer left the choice to us after the outside review, R17): three
+> exported names were too generic for the `ext_r2c.mcp` namespace, which also holds R2C's names, and
+> `Refused` sat beside the exception `SkillRefused`. `Refused` is now `RefusedEntry`, `LeftOut` is
+> `LeftOutPath` and `DirectoryEntry` is `SkillDirectoryEntry`. Shape and behaviour are unchanged, and
+> there are no aliases (the package is unpublished and has no outside user).
+
 ## Serving
 
 ```python
@@ -28,7 +34,7 @@ class SkillsExtension(Extension):
     @property
     def skills(self) -> tuple[SkillInfo, ...]: ...      # what is served now
     @property
-    def left_out(self) -> tuple[LeftOut, ...]: ...      # what the scan left out, and why
+    def left_out(self) -> tuple[LeftOutPath, ...]: ...  # what the scan left out, and why
 
     def refresh(self, server: MCPServer | None = None) -> None: ...
 
@@ -38,7 +44,7 @@ class SkillsExtension(Extension):
 @dataclass(frozen=True)
 class SkillInfo:  name: str; uri: str; description: str; files: int; size: int
 @dataclass(frozen=True)
-class LeftOut:    path: str; reason: str   # "hidden" | "symbolic link" | "not a regular file" | "undecodable name"
+class LeftOutPath: path: str; reason: str  # "hidden" | "symbolic link" | "not a regular file" | "undecodable name"
                                            # | "unsafe name"; path has such characters escaped (see Rules)
 
 class SkillsError(ValueError):
@@ -145,7 +151,7 @@ class SkillsClient:
     async def get(self, uri: str) -> SkillItem: ...                   # skills/get; refuses a bad entry
     async def load(self, item: SkillItem) -> LoadedSkill: ...         # reads and verifies SKILL.md only
     async def read(self, item: SkillItem, uri: str) -> SkillContent: ...   # one listed file, verified
-    async def list_directory(self, item: SkillItem, uri: str) -> tuple[DirectoryEntry, ...]: ...
+    async def list_directory(self, item: SkillItem, uri: str) -> tuple[SkillDirectoryEntry, ...]: ...
 ```
 
 ### Rules
@@ -156,7 +162,7 @@ class SkillsClient:
   `SkillRefused(check="declaration")` if it is missing; `list_directory` also needs
   `directory_read` (`check="directory"`). Nothing is sent before the check.
 - `list` and `get` send only `skills/list` / `skills/get`. `list` follows `nextCursor` until it is
-  absent and returns every valid entry plus the `Refused` for each invalid one (R13 lists what
+  absent and returns every valid entry plus the `RefusedEntry` for each invalid one (R13 lists what
   makes an entry invalid). A `nextCursor` the client has already received in this listing (an
   empty string too) is a loop: `SkillRefused(check="response")`, and no further request.
   `get` raises `SkillRefused(check="entry" | "resources" | "limit")`.
@@ -184,7 +190,7 @@ class SkillsClient:
   segment after the root must be non-empty, not `.` or `..`, and free of `/`, each after one
   percent-decoding. Any other URI is refused (`check="directory"`) without a request. It follows
   every page (a repeated cursor is `response`, as for `list`) and returns the children as
-  `DirectoryEntry(origin, uri, name, mime, is_dir)`; `mime` is `""` when the server sent none
+  `SkillDirectoryEntry(origin, uri, name, mime, is_dir)`; `mime` is `""` when the server sent none
   (none is made up), and `is_dir` is `mime == "inode/directory"`. A child that is not an MCP
   resource refuses the whole answer (`response`). It never extends the manifest: a child the entry
   does not list is returned as metadata, and `read` still refuses it as `unlisted` (the text's
@@ -208,15 +214,15 @@ class SkillItem:      origin: str; uri: str; name: str; description: str
                       frontmatter: Mapping[str, Any]; files: tuple[SkillFileRef, ...]
                       @property key -> tuple[str, str]       # (origin, uri)
 @dataclass(frozen=True)
-class Refused:        uri: str | None; check: str; reason: str
+class RefusedEntry:   uri: str | None; check: str; reason: str
 @dataclass(frozen=True)
-class SkillListing:   skills: tuple[SkillItem, ...]; refused: tuple[Refused, ...]
+class SkillListing:   skills: tuple[SkillItem, ...]; refused: tuple[RefusedEntry, ...]
 @dataclass(frozen=True)
 class SkillContent:   origin: str; uri: str; data: bytes; def text(self) -> str
 @dataclass(frozen=True)
 class LoadedSkill:    item: SkillItem; instructions: SkillContent
 @dataclass(frozen=True)
-class DirectoryEntry: origin: str; uri: str; name: str; mime: str; is_dir: bool
+class SkillDirectoryEntry: origin: str; uri: str; name: str; mime: str; is_dir: bool
 class SkillRefused(Exception): uri: str | None; check: str; reason: str
 ```
 

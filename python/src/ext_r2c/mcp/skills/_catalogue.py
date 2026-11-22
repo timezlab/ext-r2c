@@ -33,7 +33,7 @@ class SkillsError(ValueError):
 
 
 @dataclass(frozen=True)
-class LeftOut:
+class LeftOutPath:
     """Something a scan did not serve: its path below the folder it was found in (a character that is not
     safe to print is escaped as `\\xNN` or `\\uNNNN`), and why: `hidden`, `symbolic link`,
     `not a regular file`, `undecodable name` (not text) or `unsafe name` (a control character, a line
@@ -111,10 +111,10 @@ class Catalogue:
     by_uri: Mapping[str, SkillRecord]
     files: Mapping[str, FileRecord]
     directories: Mapping[str, DirectoryRecord]
-    left_out: tuple[LeftOut, ...]
+    left_out: tuple[LeftOutPath, ...]
 
     @classmethod
-    def build(cls, skills: Iterable[SkillRecord], left_out: Iterable[LeftOut] = ()) -> Catalogue:
+    def build(cls, skills: Iterable[SkillRecord], left_out: Iterable[LeftOutPath] = ()) -> Catalogue:
         """The catalogue of `skills`: sorted by URI, each skill's files sorted by their path under
         it, one directory record for every directory that holds a file. A skill, a file and a
         directory cannot share a URI (the first segment is compared in lower case, as a host is);
