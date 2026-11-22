@@ -851,7 +851,7 @@ model-visible schema, checked arguments, and a refusal at conversion for an inje
 
 **Independent test**: `test_langgraph_tools.py`.
 
-- [ ] T087 [P] [US6] Write `python/tests/test_langgraph_tools.py` (R16; FR-024, FR-025):
+- [X] T087 [P] [US6] Write `python/tests/test_langgraph_tools.py` (R16; FR-024, FR-025):
   - a tool made with `@tool`, one with a pydantic `args_schema`, one with a plain JSON Schema
     `args_schema`, an async-only tool (`StructuredTool.from_function(coroutine=...)`) and a `BaseTool`
     subclass: the `ToolSpec` has the tool's name, its description and the model-visible schema (`title`
@@ -867,17 +867,17 @@ model-visible schema, checked arguments, and a refusal at conversion for an inje
     argument;
   - `tools_from_langchain` keeps the order, refuses the **whole list** when one is refused, and accepts an
     empty one; the result has the same fields as a `tool_from_function` spec for an equivalent function.
-- [ ] T088 [US6] Build, install, and run T087. Confirm the expected failures: `ImportError` for the two names.
-- [ ] T089 [US6] Complete `tools.py` (R16): `tool_from_langchain(tool)` and `tools_from_langchain(tools)`
+- [X] T088 [US6] Build, install, and run T087. Confirm the expected failures: `ImportError` for the two names.
+- [X] T089 [US6] Complete `tools.py` (R16): `tool_from_langchain(tool)` and `tools_from_langchain(tools)`
   per the contract, built on `schema_of` (T048); the call checks the arguments with `jsonschema` and then
   awaits `tool.ainvoke(dict(args))`; the injected-argument check compares `tool.args` with
   `tool.get_input_schema().model_fields` for a pydantic schema and finds nothing to refuse for a dict
   schema. Export both from `__init__.py` and add them to `__all__`.
-- [ ] T090 [US6] Run T087 until green. Run `test_packaging.py`: the import rules still hold.
-- [ ] T091 [US6] Mutation check, recorded under R17: each of these must make a test fail: arguments not checked;
+- [X] T090 [US6] Run T087 until green. Run `test_packaging.py`: the import rules still hold.
+- [X] T091 [US6] Mutation check, recorded under R17: each of these must make a test fail: arguments not checked;
   an injected argument not refused; `title` left in; a sync tool run on the loop; one refusal not
   refusing the list; a list reordered.
-- [ ] T092 [US6] Verify, then commit `feat(006): LangChain tools as ToolSpecs`.
+- [X] T092 [US6] Verify, then commit `feat(006): LangChain tools as ToolSpecs`.
 
 **Checkpoint**: SC-011 holds; US6's scenarios 1 to 4 pass.
 
@@ -1243,3 +1243,35 @@ criterion is checked on the three Pythons.
   of `"tools"` is what LangGraph infers for a `per_call` pause, so only another node differs.
 - **T086**: 2421 tests pass on Python 3.13 (2336 before); `ruff --select F` is clean. The three-version
   run is at the end of phase 10.
+
+### Phase 9 (2026-11-22)
+
+- **T087, T088**: 50 tests in `test_langgraph_tools.py`, the five kinds of tool through each rule. Red first:
+  `ImportError` for both names.
+- **`schema_of` also drops the top-level `description` of a pydantic schema** (T089, R16 dated note): LangChain
+  builds the model it shows the model with the tool's own description as its docstring, so the first run of the
+  tests had four of five kinds carrying a `description` the `ToolSpec` already has. Phase 5 used `schema_of` for
+  an approval's `edit` schema; that schema no longer carries a top-level `description` either, and no phase 5
+  test looked at it.
+- **One addition to the contract, from FR-024 ("the way `tool_from_function` checks them")**: LangChain's
+  `tool_call_schema` leaves out `extra="forbid"` and the validators of a pydantic `args_schema`, so such a
+  call passes the JSON Schema check and LangChain then refuses it with a raw pydantic `ValidationError`
+  (the tool does not run, but the caller gets the wrong kind of error). `call` also validates with the
+  tool's own pydantic `args_schema` and turns a `ValidationError` into the same `InvalidArguments`, as the
+  core does. A `ValidationError` the tool body itself raises is not touched: a test pins it.
+- **A defect found by a probe, after the mutation check had passed**: a legacy `Tool` with no `args_schema`
+  was refused as "taking `args`, `config` and `kwargs` from the graph". R16's rule compared `tool.args` with
+  `get_input_schema().model_fields`, but that `Tool` reports a made-up `tool_input` as `args` while its input
+  model comes from `_run(*args, config, **kwargs)`. The injected arguments are now the fields of
+  `get_input_schema()` that `tool_call_schema` does not have (two models, one kind of name), and a tool with
+  no `args_schema` whose `args` differ from the schema we would pass on is refused with a clear `TypeError`
+  (no schema of its arguments) instead of being converted into nonsense. A `BaseTool` subclass that leaves its
+  schema to LangChain (read from `_run`) converts, and its injected arguments are refused as well.
+- **Not a defect, noted**: LangChain's `tool_call_schema` shows field *names*, not pydantic aliases, while
+  the tool's own model still asks for the alias; the bridge reports a call by name as "not accepted" and the
+  tool does not run. The tool is inconsistent in LangChain itself.
+- **T091 mutation check** (R17, "Mutation check of the LangChain tools"): 24 of 24 mutants died on the first
+  run (no test hole); the four added for the later fixes died too, 28 of 28.
+- **T092**: 2471 tests pass on Python 3.13 (2421 before); `ruff --select F` is clean; `test_packaging.py`
+  holds (the bridge imports `jsonschema`, `langchain_core` and `pydantic` only). The three-version run is at
+  the end of phase 10.

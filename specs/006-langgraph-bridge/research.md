@@ -554,6 +554,29 @@ file layout (R18). Five points were not in the approved spec and are listed in
   checker, or add a public `check_arguments` to the core: a second core change that was not
   approved; the bridge's own fifteen lines are the smaller step, and moving them into the core later
   breaks nothing.
+- **Phase 9 (2026-11-22), what the installed packages showed once the conversion was written** (the
+  decisions above hold; these add to them):
+  - **The description is in the pydantic schema too.** LangChain builds the model of `tool_call_schema`
+    with the tool's own description as its docstring (also when the user's model has a docstring of its
+    own), so `model_json_schema()` has a top-level `description`, as the dict case has. `schema_of` drops it
+    in both cases; the `ToolSpec` carries the description.
+  - **`tool_call_schema` is weaker than the tool's own model.** It leaves out `extra="forbid"` and field
+    validators, so a call with an extra key or a value a validator refuses passes the JSON Schema check and
+    LangChain then raises a raw pydantic `ValidationError` before the body runs. `call` therefore also
+    validates with the tool's own pydantic `args_schema` and raises `InvalidArguments` (key from the first
+    `loc`, "This value is not accepted.") as `tool_from_function` does. It does not catch what the body raises.
+  - **The injected set is read from two models, not from `tool.args`.** A legacy `Tool` with no
+    `args_schema` has `args == {"tool_input": ...}` while its input model is made from
+    `_run(*args, config, **kwargs)`, so the rule of this note's first bullet ("the difference of the two")
+    named `args`, `config` and `kwargs` as injected. The set is now the fields of `get_input_schema()` that
+    `tool_call_schema` does not have. A tool with no `args_schema` whose `args` differ from the properties of
+    the schema we would pass on (the legacy `Tool`) is refused with a `TypeError` that says there is no
+    schema of its arguments. A `BaseTool` subclass without `args_schema` converts (LangChain reads `_run`).
+  - **A dict `args_schema` with no `properties` has no `tool.args`** (it raises `KeyError`), so the
+    conversion asks `args` only of a tool with no `args_schema`.
+  - **Aliases are dropped by `tool_call_schema`** (it shows the field name; the tool's own model asks for the
+    alias). Inconsistent in LangChain itself; the bridge refuses a call by name as "not accepted" and the
+    tool does not run. Not changed.
 
 ## R17. Tests: the scripted model, real checkpointers, the suite
 
@@ -764,6 +787,26 @@ file layout (R18). Five points were not in the approved spec and are listed in
   spoken; the settle with another `as_node`, a withdrawn message that is a success, a finished call's
   message dropped, a call that has its answer withdrawn again, a hand-written interrupt settled, no settle
   at all, the batch record kept, an empty reason and an empty write.
+
+### Mutation check of the LangChain tools (phase 9, 2026-11-22)
+
+- **How**: as above, against `test_langgraph_tools.py` (46 tests when the check was first run, 50 after),
+  baseline green first; the installed wheel is patched and restored for each mutant.
+- **Result: 28 of 28 mutants died.** The first 24 all died on the first run, so no test was a hole. A probe
+  after that run found the legacy `Tool` defect (see R16, phase 9) and the injected rule was changed; four
+  mutants were added for the new code and died too.
+- **What the 28 cover**: the arguments not checked against the schema, and the pydantic check not run; an
+  injected argument not refused, only the first one named, the tool not named, a subclass that infers its
+  schema not looked at, a plain JSON Schema looked at, the old `tool.args` rule; a tool with no schema of its
+  arguments converted, and the legacy check asked of every tool; `title` or `description` left in; a schema
+  not copied (a pydantic tool, and a dict tool copied shallowly); a sync tool run on the loop; problems in the
+  order they were found, the problem with no key last, a missing key or a breaking key reported with no key,
+  the key of a pydantic problem lost; what the tool itself raises turned into invalid arguments; a value that is
+  not a tool accepted; the name and description of the spec empty or swapped; one refusal leaving the tool out
+  of the list instead of refusing it, and a list reordered; a name missing from `__all__` of the module or of
+  the bridge.
+- **Not covered, on purpose**: which message a key gets when it breaks two rules (the first, as jsonschema
+  finds them): the contract says one problem per key, not which, and pinning it would pin jsonschema's wording.
 
 ## R18. Layout, imports and packaging
 

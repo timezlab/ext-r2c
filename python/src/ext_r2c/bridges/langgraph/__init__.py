@@ -16,5 +16,6 @@ except ImportError as exc:  # pragma: no cover - exercised by a subprocess test
     ) from exc
 
 from .agent import LangGraphAgent
+from .tools import tool_from_langchain, tools_from_langchain
 
-__all__ = ["LangGraphAgent"]
+__all__ = ["LangGraphAgent", "tool_from_langchain", "tools_from_langchain"]

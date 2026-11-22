@@ -105,6 +105,12 @@ def tools_from_langchain(tools: Iterable[BaseTool]) -> list[ToolSpec]: ...
 | refused at conversion | an input with an injected argument (`InjectedState`, `InjectedStore`, `ToolRuntime`, `InjectedToolCallId`, `InjectedToolArg`): `TypeError` naming the tool and the argument |
 | a list | converted in order; one refusal refuses the whole list (FR-025) |
 
+*Phase 9 (2026-11-22), three additions the table did not say:* `input_schema` has no top-level `description`
+either (LangChain puts the tool's description there for a pydantic schema as well); `call` also validates with a
+pydantic `args_schema` of the tool itself (the model-visible schema leaves out `extra="forbid"` and validators) and
+turns its `ValidationError` into the same `InvalidArguments`; a tool with no `args_schema` and no schema to read
+(a legacy single-string `Tool`) is refused at conversion with a `TypeError`. Research R16 has the reasons.
+
 ## Imports and packaging
 
 - `ext_r2c.bridges.langgraph` imports `ext_r2c.core`, `langgraph`, `langchain_core`, `jsonschema` and
