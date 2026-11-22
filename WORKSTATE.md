@@ -103,8 +103,12 @@ Last updated 2026-11-22. Read this first in a new session.
   quickstart and `tasks.md` (80 tasks in 9 phases) are in `specs/005-mcp-skills/`.
   **Phase 1 (T001–T010) is done**: PyYAML `>=6.0.3,<7` in `[mcp]` and the dev group (T001
   re-vetted it, nothing found), the empty `ext_r2c/mcp/skills/` package, the fixture trees and
-  ten SDK-fact tests. **Next is phase 2 (T011–T022, the foundation), one phase per go from the
-  maintainer.** Nothing is pushed.
+  ten SDK-fact tests. **Phase 2 (T011–T022, the foundation) is done** (2026-11-22): the
+  frontmatter reader, URIs, MIME table, page cursor, immutable catalogue and wire models, with
+  347 new unit tests (1257 in all) and a mutation run in which 108 of 108 real mutants died. The
+  maintainer then asked for the whole spec in one run ("implement hết spec"), so phases 3–9 follow
+  without a stop between them; where each phase differed from its plan is kept in "Notes: where
+  reality differed" at the end of `specs/005-mcp-skills/tasks.md`. Nothing is pushed.
 
 ## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)
 

@@ -167,7 +167,7 @@ were each shown able to fail by a mutation check (a changed SDK, or a changed pr
 **Independent test**: `test_skills_frontmatter.py`, `test_skills_wire.py`,
 `test_skills_catalogue.py`, all pure units on the installed wheel.
 
-- [ ] T011 [P] Write `python/tests/test_skills_frontmatter.py` (R7). `read_frontmatter(data)`
+- [x] T011 [P] Write `python/tests/test_skills_frontmatter.py` (R7). `read_frontmatter(data)`
   takes the bytes or text of a `SKILL.md` and returns the mapping, or raises `FrontmatterError`
   with a `reason` from a fixed set (no host path):
   - **keeps**: every field passes through (`license`, a nested `metadata`, `allowed-tools`, lists,
@@ -183,7 +183,7 @@ were each shown able to fail by a mutation check (a changed SDK, or a changed pr
   - **shape of the document**: the frontmatter is the text between the opening `---` (after an
     optional UTF-8 byte-order mark) and the next line that is exactly `---`; CRLF is accepted;
     a `---` inside the body or inside a quoted value does not close it; the body is ignored.
-- [ ] T012 [P] Write `python/tests/test_skills_wire.py`:
+- [x] T012 [P] Write `python/tests/test_skills_wire.py`:
   - **names** (`skill_name_ok`): valid `a`, `a-b`, `a1`, a 64-character name; invalid: empty,
     65 characters, uppercase, a leading or trailing hyphen, `--`, `_`, space, `.`, `é`.
   - **URIs** (`encode_uri(segments, file=...)`): `("team", "billing", "refunds")` and
@@ -205,7 +205,7 @@ were each shown able to fail by a mutation check (a changed SDK, or a changed pr
     `_meta` when unset; a `SkillResource` rejects a digest that is not `sha256:` plus 64
     lowercase hex and a negative size; the typed requests keep `uri` and `cursor`. The JSON shapes
     equal the examples in `contracts/wire-mapping.md`.
-- [ ] T013 [P] Write `python/tests/test_skills_catalogue.py`:
+- [x] T013 [P] Write `python/tests/test_skills_catalogue.py`:
   - a catalogue built from hand-made records has exact dictionaries `by_uri`, `files`,
     `directories`; `skills` sorted by URI; a skill's files sorted by relative path;
   - one directory record per directory of every skill, the root included; its children are the
@@ -214,30 +214,30 @@ were each shown able to fail by a mutation check (a changed SDK, or a changed pr
   - two builds have different `generation` tokens;
   - `SkillsError("folder", "reason")` is a `ValueError` with `.folder`, `.reason` and the message
     `folder: reason`; `SkillInfo` and `LeftOut` are frozen.
-- [ ] T014 Build, install, and run T011–T013. Confirm the expected failures: the modules do not
+- [x] T014 Build, install, and run T011–T013. Confirm the expected failures: the modules do not
   exist.
-- [ ] T015 [P] Create `python/src/ext_r2c/mcp/skills/_frontmatter.py` (R7): the pure-Python
+- [x] T015 [P] Create `python/src/ext_r2c/mcp/skills/_frontmatter.py` (R7): the pure-Python
   `SafeLoader` subclass with the timestamp resolver removed, `yes/no/on/off` kept as text,
   duplicate keys, anchors, aliases and unknown tags refused; `read_frontmatter`, the post-load
   JSON check (string keys; `str`, `int`, finite `float`, `bool`, `None`, lists, mappings; depth
   cap), the 64 KiB cap, `RecursionError` and any other failure turned into `FrontmatterError`;
   `MAX_FRONTMATTER_BYTES`.
-- [ ] T016 [P] Create `python/src/ext_r2c/mcp/skills/_uris.py`: `SCHEME`, `SKILL_FILE`,
+- [x] T016 [P] Create `python/src/ext_r2c/mcp/skills/_uris.py`: `SCHEME`, `SKILL_FILE`,
   `skill_name_ok` (`^[a-z0-9]+(-[a-z0-9]+)*$`, at most 64), `encode_uri`, `authority_key`,
   `last_segments`.
-- [ ] T017 [P] Create `python/src/ext_r2c/mcp/skills/_content.py`: the fixed MIME table (R11) and
+- [x] T017 [P] Create `python/src/ext_r2c/mcp/skills/_content.py`: the fixed MIME table (R11) and
   `mime_for`, `as_text_or_bytes`. It does not use `mimetypes`.
-- [ ] T018 [P] Create `python/src/ext_r2c/mcp/skills/_cursor.py`: `encode_cursor`,
+- [x] T018 [P] Create `python/src/ext_r2c/mcp/skills/_cursor.py`: `encode_cursor`,
   `decode_cursor`, `CursorError`.
-- [ ] T019 Create `python/src/ext_r2c/mcp/skills/_catalogue.py`: the frozen records
+- [x] T019 Create `python/src/ext_r2c/mcp/skills/_catalogue.py`: the frozen records
   (`FileRecord`, `SkillRecord`, `DirectoryRecord`), `Catalogue.build(skills, left_out)` with the
   dictionaries, directories and a random `generation`, and the public `SkillInfo`, `LeftOut`,
   `SkillsError`. Field names are those of `data-model.md`.
-- [ ] T020 Create `python/src/ext_r2c/mcp/skills/_wire.py`: the models of `data-model.md`
+- [x] T020 Create `python/src/ext_r2c/mcp/skills/_wire.py`: the models of `data-model.md`
   (server results, the typed requests of R2, the client's result models with raw `skills`). Its
   docstring names the beta revision and the base protocol; no other module knows the shapes.
-- [ ] T021 Run T011–T013 on the wheel until green.
-- [ ] T022 Verify, then commit `feat(005): frontmatter reader, URIs, cursor, catalogue, wire models`.
+- [x] T021 Run T011–T013 on the wheel until green.
+- [x] T022 Verify, then commit `feat(005): frontmatter reader, URIs, cursor, catalogue, wire models`.
 
 ---
 
@@ -714,4 +714,36 @@ Not in the spec or the research; the maintainer may overrule any of them when ap
 
 ## Notes: where reality differed
 
-Filled by T080.
+Kept as a running list while the phases are built; T080 closes it.
+
+**Phase 2 (2026-11-22)**
+
+- **The reader is stricter than R7 drafted.** Anchors, aliases and the depth cap are refused while
+  the document is composed (a document that is too deep or has an alias is never built), not after
+  it is loaded. Numbers and booleans are JSON-like only (`true`/`false`, `3`, `-4`, `1.5`,
+  `2.5e3`), so `yes`, `no`, `on`, `off`, `12:30`, `0755`, `1_000` and `2026-01-02` stay the text the
+  author wrote. It is a pure-Python `SafeLoader` subclass with its resolvers and constructors cut to
+  a whitelist. R7 and the ADR (T075) record the grammar.
+- **`Catalogue.build` folds the authority for all three kinds** (skill, file, directory), as R3
+  says for skills. `Team/x` and `team/x` clash; `Team/x` and `team/y` are different URIs and are
+  both served. The contract's wording ("first segments differ only in case") is read that way: the
+  hazard is one URI after the authority is normalised, not two skills under similar authorities.
+- **Directories are derived from files only** for now. An empty directory has no file to derive it
+  from; T067 adds it (a `dirs` field on `SkillRecord`, test first).
+- **Code removed because a test could not reach it.** The mutation run found four checks that other
+  checks already made redundant: the cursor's alphabet regex (the canonical re-encode rejects the
+  same strings), `isascii` on the cursor digits (the ASCII decode before it rejects non-ASCII), the
+  catalogue's per-name clash check inside `_directories_of` (`_claim` raises with the same message),
+  and the reader's `len(front)` shortcut. Equivalent mutants left: a cursor cap of 257 (no valid
+  unpadded cursor has that length) and `\Z` against `$` in the number patterns (a plain scalar never
+  ends in a newline).
+- **Two test slips found by the first run.** The size-cap test appended its extra byte after the
+  closing fence (`x---`), so the file was unclosed, not too large; fixed in the test. The
+  `__reduce__` of `SkillsError` and `CursorError` was written before its pickle test; the tests were
+  added after and proven by removing it (both mutants killed).
+- **The mutation harness had its own bug.** It first copied the source tree, which has no
+  `schema/` (the wheel carries it), so the conftest summary hook crashed after the tests had passed
+  and every survivor looked killed. It now copies the installed wheel and reads the pytest summary,
+  not the exit code. The scratch harness is not committed.
+- Mutation result: 109 mutants of the six modules, 108 killed; the survivor is the no-change
+  control.
