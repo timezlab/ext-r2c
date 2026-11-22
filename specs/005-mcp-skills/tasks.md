@@ -528,7 +528,7 @@ server built by hand; spec 004's flows are untouched.
 
 **Independent test**: `test_skills_compose.py`; `mcp_only.py` in `../.mcp-venv`.
 
-- [ ] T058 [P] [US5] Write `python/tests/test_skills_compose.py` (**SC-006**):
+- [x] T058 [P] [US5] Write `python/tests/test_skills_compose.py` (**SC-006**):
   1. `mcp_server("agent", R2CExtension(tools=[...]), extensions=[skills])`: one R2C flow of spec
      004 (use the simplest flow of `test_mcp_serve.py` that asks a question) **and** the skills
      flows complete on the same server; `server/discover` declares both `MCP_KEY` and
@@ -542,19 +542,19 @@ server built by hand; spec 004's flows are untouched.
   4. `mcp_server(...)` without `extensions` is unchanged; `extensions` may be a tuple; the
      extensions are served after R2C's (`[R2C, *extensions]`); two extensions with the same
      identifier fail as the SDK says.
-- [ ] T059 [P] [US5] `python/tests/mcp_only.py`: add `_skills_check()`: build a skills folder in a
+- [x] T059 [P] [US5] `python/tests/mcp_only.py`: add `_skills_check()`: build a skills folder in a
   temporary directory, serve it with `MCPServer(..., extensions=[SkillsExtension(...)])`, list and
   read one skill. Use the SDK's in-memory `Client(server)` if T005 test 9 shows it carries the
   typed requests; if not, check the server side only (declaration, `skills`, `left_out == ()`) as
   spec 004's check does, and say so in the file. Assert no `a2a`, `langchain` or `langgraph`
   module is loaded.
-- [ ] T060 [US5] Build, install, and run T058–T059. Confirm the expected failure: `mcp_server`
+- [x] T060 [US5] Build, install, and run T058–T059. Confirm the expected failure: `mcp_server`
   does not accept `extensions`.
-- [ ] T061 [US5] `python/src/ext_r2c/mcp/server.py`: `extensions: Sequence[Extension] = ()`
+- [x] T061 [US5] `python/src/ext_r2c/mcp/server.py`: `extensions: Sequence[Extension] = ()`
   appended after the R2C extension, with its docstring; no other change.
-- [ ] T062 [US5] Run T058–T059 on the wheel until green, then the **whole** suite: the tests of
+- [x] T062 [US5] Run T058–T059 on the wheel until green, then the **whole** suite: the tests of
   specs 001–004 pass unchanged, and both replays report the same counts as before.
-- [ ] T063 [US5] Verify, then commit `feat(005): skills beside R2C, or alone`.
+- [x] T063 [US5] Verify, then commit `feat(005): skills beside R2C, or alone`.
 
 ---
 
@@ -948,3 +948,48 @@ Kept as a running list while the phases are built; T080 closes it.
 - **Numbers.** 90 tests in `test_skills_build_errors.py` (42 cases in the table, 20 required), 17 in
   `test_skills_refresh.py`, 11 added to `test_skills_scan.py`; the suite is 1703 passed (was 1585); replay
   counts unchanged. `verify.sh` is green on core only, a2a only and mcp only; `ruff --select F` is clean.
+
+**Phase 7 (2026-11-22)**
+
+- **T060 failed where it was meant to.** Ten of 14 tests failed with `TypeError: MCPServer() got multiple
+  values for keyword argument 'extensions'` (`mcp_server` passed its own `extensions=[extension]` and the
+  caller's landed in `**mcp_server_kwargs`). **Four passed at once**: the skills-only server, the hand-built
+  server with a plain tool (the call and the wire), and "without `extensions` the server is what it was".
+  They do not go through `mcp_server`, so they pin what the SDK and phases 3–4 already did; each is proven
+  by a mutant below, not by the green.
+- **T061 is five lines.** `extensions: Sequence[Extension] = ()`, served as `[extension, *extensions]`; the
+  order is observable as the order of `server._lowlevel_server.extensions`. A list, a tuple or any
+  sequence works. Two extensions with one identifier fail with the SDK's own
+  `ValueError: Extension '...' is already registered`; the build's `except` already gives R2C its `ttl`
+  back, so the same `R2CExtension` can be built into a server again (tested for a duplicate skills
+  extension and for R2C handed in twice).
+- **R2C's middleware is only visible on `tools/list`.** The first mutant "R2C loses its middleware when
+  extensions are given" **survived** the question flow and the wire comparison: the middleware gives each
+  tool its own input schema on `tools/list`, which no flow of spec 004 asks for. A test compares the tool
+  list of a server with skills and one without (a `ToolSpec` and a `SourceTool`); it kills the mutant.
+- **The R2C wire is compared on `tools/call` only.** The record of a session with skills also holds
+  `skills/*`, `resources/read`, the initialisation and `server/discover`, which the baseline has not;
+  `tool_calls()` keeps the `tools/call` requests, the responses to them and the notifications, and
+  `normalise` of `mcp_harness` renames the ids. The skills requests are made **while the R2C call is
+  paused** (between its two rounds), so the test also shows a paused call survives them. The comparison
+  would be vacuous if the skills never crossed the wire, so it also asserts that `skills/list` and
+  `resources/read` are in the same record.
+- **The identifier is spelled out in the tests**, `"io.modelcontextprotocol/skills"`, not imported from
+  `_wire`: the first draft imported it, which would have let a mutant that changes the constant agree with
+  itself, so it was changed before that mutant ran (and is killed). Each declaration is also checked for
+  its own content (`{"revision": 1}` for R2C; the one key `directoryRead` for skills), since a mutant that
+  gave skills R2C's `revision` survived a check of the keys alone.
+- **`mcp_only.py` runs the round trip with the SDK's in-memory `Client(server)`** (T005 test 9 showed it
+  carries the typed requests): lists, loads and reads a skill from a temporary folder through
+  `SkillsClient`, builds the R2C-plus-skills server and checks the order of the declarations, and checks
+  that no `a2a`, `langchain` or `langgraph` module was loaded. With `python -I` the tests folder is not on
+  the path, so it uses no helper of `tests/`. A line `Serving skill ...` is printed on stderr: building an
+  `MCPServer` configures logging at INFO (the package itself only logs, as phase 5 said).
+- **Mutation: 11 mutants (`server.py`, `_wire.py`, `extension.py`), tested by `test_skills_compose.py`; 11
+  killed**, after the two gaps above (the middleware, the content of the declaration) were closed. Six of
+  the first eight mutants were not run at all: five had a search text that is also in the docstring and one
+  a constant written wrongly (the harness refuses a text that does not occur exactly once); they were
+  rewritten, not counted. The three that guard the tests that passed at once (the extension intercepts
+  `tools/call`, adds a tool, adds R2C's `revision` to its declaration) are killed by those tests.
+- **Numbers.** 15 tests in `test_skills_compose.py`; the suite is 1718 passed (was 1703); the tests of specs
+  001–004 are unchanged and both replays report the same counts (A2A 31/29/3, MCP 14/13/1).
