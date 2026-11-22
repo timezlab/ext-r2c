@@ -22,14 +22,16 @@ from __future__ import annotations
 import base64
 import hashlib
 import re
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar
+from urllib.parse import unquote
 
 import mcp_types as types
 from mcp.client import Client
 from pydantic import ValidationError
 
+from ._content import DIRECTORY
 from ._frontmatter import FrontmatterError, read_frontmatter
 from ._limits import MAX_BYTES, MAX_FILES
 from ._uris import SKILL_FILE, last_segments
@@ -40,6 +42,9 @@ from ._wire import (
     ListSkillsRequest,
     RawGetSkillResult,
     RawListSkillsResult,
+    RawReadDirectoryResult,
+    ReadDirectoryParams,
+    ReadDirectoryRequest,
 )
 
 Check = Literal[
@@ -147,7 +152,8 @@ class LoadedSkill:
 
 @dataclass(frozen=True)
 class DirectoryEntry:
-    """One child of a directory, as metadata only: it is not a file the entry lists."""
+    """One child of a directory, as metadata only: it is not a file the entry lists. `mime` is what the
+    server said, or "" when it said nothing (no type is made up); `is_dir` is `mime == "inode/directory"`."""
 
     origin: str
     uri: str
@@ -263,9 +269,23 @@ def _check_frontmatter(item: SkillItem, data: bytes) -> None:
         raise SkillRefused("frontmatter", "a frontmatter value of SKILL.md differs from the entry's", item.uri)
 
 
+def _check_inside(item: SkillItem, uri: str) -> None:
+    """`uri` must be the folder of `item` or a folder below it, spelled segment by segment: no empty
+    segment, no `.` or `..` and no `/` once a segment is percent-decoded once. A neighbour whose name
+    only starts like the skill's is not inside it. Nothing is sent for a URI that is not."""
+    root = item.uri.removesuffix("/" + SKILL_FILE)
+    if uri != root:
+        inside = uri.startswith(root + "/") and all(
+            segment and unquote(segment) not in (".", "..") and "/" not in unquote(segment)
+            for segment in uri[len(root) + 1 :].split("/")
+        )
+        if not inside:
+            raise SkillRefused("directory", "the URI is not a folder of the skill", uri)
+
+
 # --- The client -------------------------------------------------------------------------------------
 
-_Result = TypeVar("_Result", RawListSkillsResult, RawGetSkillResult)
+_Result = TypeVar("_Result", RawListSkillsResult, RawGetSkillResult, RawReadDirectoryResult)
 
 
 class SkillsClient:
@@ -310,6 +330,22 @@ class SkillsClient:
         except ValidationError:
             raise SkillRefused("response", "the answer of the server is not a skills answer") from None
 
+    async def _pages(self, request_for: Callable[[str | None], Any], result_type: type[_Result]) -> AsyncIterator[_Result]:
+        """Every page of one listing, in order. A cursor the server sent before (an empty string is a
+        cursor like any other) is a loop, and it is refused instead of followed: a server that never
+        ends must not keep a caller asking for ever."""
+        seen: set[str] = set()
+        cursor: str | None = None
+        while True:
+            page = await self._ask(request_for(cursor), result_type)
+            yield page
+            cursor = page.next_cursor
+            if cursor is None:
+                return
+            if cursor in seen:
+                raise SkillRefused("response", "the server sent a page cursor it had already sent")
+            seen.add(cursor)
+
     # --- Listing
 
     async def list(self) -> SkillListing:
@@ -318,18 +354,44 @@ class SkillsClient:
         self._require_declared()
         skills: list[SkillItem] = []
         refused: list[Refused] = []
-        cursor: str | None = None
-        while True:
-            request = ListSkillsRequest(params=types.PaginatedRequestParams(cursor=cursor)) if cursor is not None else ListSkillsRequest()
-            page = await self._ask(request, RawListSkillsResult)
+
+        def request_for(cursor: str | None) -> ListSkillsRequest:
+            if cursor is None:
+                return ListSkillsRequest()
+            return ListSkillsRequest(params=types.PaginatedRequestParams(cursor=cursor))
+
+        async for page in self._pages(request_for, RawListSkillsResult):
             for raw in page.skills:
                 try:
                     skills.append(parse_entry(self._origin, raw))
                 except SkillRefused as refusal:
                     refused.append(Refused(refusal.uri, refusal.check, refusal.reason))
-            cursor = page.next_cursor
-            if cursor is None:
-                return SkillListing(tuple(skills), tuple(refused))
+        return SkillListing(tuple(skills), tuple(refused))
+
+    async def list_directory(self, item: SkillItem, uri: str) -> tuple[DirectoryEntry, ...]:
+        """The direct children of one folder of a skill, page after page, as metadata only: a child is
+        not a file the entry lists, so reading it is still `read`'s to refuse. `uri` is the skill's
+        folder or one below it; anything else, and a server that did not declare `directoryRead: true`,
+        is a `SkillRefused("directory")` before any request is sent."""
+        self._require_declared()
+        if not self.directory_read:
+            raise SkillRefused("directory", "the server did not declare a directory read", uri)
+        _check_inside(item, uri)
+
+        def request_for(cursor: str | None) -> ReadDirectoryRequest:
+            params = ReadDirectoryParams(uri=uri) if cursor is None else ReadDirectoryParams(uri=uri, cursor=cursor)
+            return ReadDirectoryRequest(params=params)
+
+        entries: list[DirectoryEntry] = []
+        async for page in self._pages(request_for, RawReadDirectoryResult):
+            for raw in page.resources:
+                try:
+                    child = types.Resource.model_validate(raw)
+                except ValidationError:
+                    raise SkillRefused("response", "a child of the directory is not a resource", uri) from None
+                mime = child.mime_type or ""
+                entries.append(DirectoryEntry(self._origin, str(child.uri), child.name, mime, mime == DIRECTORY))
+        return tuple(entries)
 
     async def get(self, uri: str) -> SkillItem:
         """The entry of one skill. A server's own error (an unknown URI is `-32602`) is raised as the

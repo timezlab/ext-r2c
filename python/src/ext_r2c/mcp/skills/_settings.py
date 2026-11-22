@@ -62,3 +62,17 @@ def cache_scope_of(value: Any) -> str:
     if not isinstance(value, str) or value not in SCOPES:
         raise ValueError(f"cache_scope must be one of {', '.join(SCOPES)}, not {_shown(value)}")
     return value
+
+
+def page_size_of(value: Any) -> int:
+    """How many entries come on a page: a whole number, 1 or more (no upper bound: one page for all)."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:  # `True` is an `int`
+        raise ValueError(f"page_size must be a whole number, 1 or more, not {_shown(value)}")
+    return value
+
+
+def directory_read_of(value: Any) -> bool:
+    """Whether `resources/directory/read` is on. Only `True` or `False`: `1` and `"yes"` are mistakes."""
+    if not isinstance(value, bool):
+        raise ValueError(f"directory_read must be True or False, not {_shown(value)}")
+    return value

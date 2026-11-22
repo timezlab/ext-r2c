@@ -100,7 +100,7 @@ def _skills_check() -> None:
         assert extension.left_out == (), extension.left_out
 
         server = MCPServer("docs", extensions=[extension])
-        assert server._lowlevel_server.extensions == {EXTENSION_ID: {"directoryRead": False}}
+        assert server._lowlevel_server.extensions == {EXTENSION_ID: {"directoryRead": True}}
 
         async def round_trip() -> None:
             async with Client(server, cache=None) as client:

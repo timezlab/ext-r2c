@@ -124,9 +124,14 @@ Last updated 2026-11-22. Read this first in a new session.
   tests (1703 in all), 68 of 68 mutants died. **Phase 7 (T058–T063, beside R2C, or alone) is done**
   (2026-11-22): `mcp_server(name, r2c, extensions=[...])` serves other MCP extensions after R2C's, a
   skills-only `MCPServer` and a hand-built one with its own tools work too, R2C's wire on `tools/call`
-  is the same with skills on the server; 15 new tests (1718 in all), 11 of 11 mutants died. The
+  is the same with skills on the server; 15 new tests (1718 in all), 11 of 11 mutants died. **Phase 8
+  (T064–T071, many skills and directories) is done** (2026-11-22): `skills/list` and directory reads
+  page by an opaque cursor that is good for one listing of one catalogue, `resources/directory/read`
+  answers from the catalogue (empty folders included) and is not bound when `directory_read=False`,
+  `SkillsClient.list_directory` refuses a URI outside the skill before sending anything, and the client
+  stops on a repeated cursor; 170 new tests (1888 in all), 46 of 46 mutants died. The
   maintainer then asked for the whole spec in one run ("implement hết spec"), so
-  phases 8–9 follow without a stop between them; where each phase differed from its plan is kept in
+  phase 9 follows without a stop; where each phase differed from its plan is kept in
   "Notes: where reality differed" at the end of `specs/005-mcp-skills/tasks.md`. Nothing is pushed.
 
 ## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)

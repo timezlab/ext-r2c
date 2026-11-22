@@ -565,7 +565,7 @@ the client can read both.
 
 **Independent test**: `test_skills_pages.py`, `test_skills_directory.py`.
 
-- [ ] T064 [P] [US6] Write `python/tests/test_skills_pages.py` (**SC-007**):
+- [x] T064 [P] [US6] Write `python/tests/test_skills_pages.py` (**SC-007**):
   - 60 skills with `page_size=25` give pages of 25, 25 and 10; across them every skill appears
     **exactly once**, in URI order; each entry is whole (its `resources` complete); `nextCursor` is
     absent on the last page; `page_size=1` and a `page_size` above the count work;
@@ -576,7 +576,7 @@ the client can read both.
     of another server, and **a cursor from before a `refresh()`** (the generation changed);
   - the client refuses a server whose `nextCursor` repeats (`SkillRefused`, check `response`) and
     does not loop.
-- [ ] T065 [P] [US6] Write `python/tests/test_skills_directory.py` (FR-013, scenarios 2, 3):
+- [x] T065 [P] [US6] Write `python/tests/test_skills_directory.py` (FR-013, scenarios 2, 3):
   - by default discovery says `directoryRead: true`; with `directory_read=False` it says `false`
     and `resources/directory/read` is `-32601`; the client's `directory_read` follows;
   - a skill's root lists its **direct children only**: `SKILL.md` (with the frontmatter's `name`
@@ -595,19 +595,19 @@ the client can read both.
     skill's root, a prefix above skills, a non-`skill` scheme, or when `directoryRead` is not
     declared; a child the entry does not list (a server that lies) comes back as metadata and
     `read` still refuses it as `unlisted`.
-- [ ] T066 [US6] Build, install, and run T064–T065. Confirm the expected failures: one page only,
+- [x] T066 [US6] Build, install, and run T064–T065. Confirm the expected failures: one page only,
   `directoryRead` false, no directory method, no `list_directory`.
-- [ ] T067 [US6] `python/src/ext_r2c/mcp/skills/_scan.py` and `_catalogue.py`: record every
+- [x] T067 [US6] `python/src/ext_r2c/mcp/skills/_scan.py` and `_catalogue.py`: record every
   directory of a served skill, **empty ones included** (hidden and linked ones are not), with the
   children `(uri, name, mime, is_dir)` sorted by name.
-- [ ] T068 [US6] `python/src/ext_r2c/mcp/skills/extension.py`: page `skills/list` with `_cursor`
+- [x] T068 [US6] `python/src/ext_r2c/mcp/skills/extension.py`: page `skills/list` with `_cursor`
   and `page_size`; the `resources/directory/read` binding, only when `directory_read` is on;
   `settings()` returns `{"directoryRead": self._directory_read}`; every cursor error is
   `MCPError(-32602, ...)` with a fixed message.
-- [ ] T069 [US6] `python/src/ext_r2c/mcp/skills/client.py`: `list_directory`, and the guard that a
+- [x] T069 [US6] `python/src/ext_r2c/mcp/skills/client.py`: `list_directory`, and the guard that a
   repeated `nextCursor` stops `list()` and `list_directory()` with `SkillRefused`.
-- [ ] T070 [US6] Run T064–T065 on the wheel until green.
-- [ ] T071 [US6] Verify, then commit `feat(005): pages and directory reads`.
+- [x] T070 [US6] Run T064–T065 on the wheel until green.
+- [x] T071 [US6] Verify, then commit `feat(005): pages and directory reads`.
 
 ---
 
@@ -993,3 +993,50 @@ Kept as a running list while the phases are built; T080 closes it.
   `tools/call`, adds a tool, adds R2C's `revision` to its declaration) are killed by those tests.
 - **Numbers.** 15 tests in `test_skills_compose.py`; the suite is 1718 passed (was 1703); the tests of specs
   001–004 are unchanged and both replays report the same counts (A2A 31/29/3, MCP 14/13/1).
+
+**Phase 8 (2026-11-22)**
+
+- **T066 failed where it was meant to**: `skills/list` gave one page (no `nextCursor`, no `page_size` argument),
+  discovery said `directoryRead: false`, `resources/directory/read` was `-32601` because nobody bound it, and
+  `SkillsClient` had no `list_directory`. **Five tests passed at once** and are proven by a mutant each
+  (`mutants_phase8b`, 6 mutants, 6 killed): a directory is not a file to read (the client does not send a
+  folder URI to `resources/read`), directories are not registered as resources, distinct cursors that end are
+  not a loop, a record with no `dirs` gives the directories it always gave, and a hidden or linked folder is
+  not a directory.
+- **A cursor is good for one listing of one catalogue** (decided here, written in R9). The plan said a cursor
+  carries the generation. With only that, the cursor of `skill://docs` is also a valid position in
+  `skill://docs/a` and in `skills/list`, so a mix-up is a silent skip or repeat of children, not an error. A
+  directory cursor is now scoped by `<generation>-<first 16 hex of SHA-256 of the URI>`; `skills/list` by the
+  generation alone. Example: with `page_size=3`, the cursor after the first page of `skill://refunds` is
+  refused (`-32602 "Invalid cursor"`) when sent to `skill://refunds/templates` or to `skills/list`. The hash is
+  a label, not a secret. An empty-string cursor is a cursor and a bad one; only `None` is the first page (a
+  mutant that treats `""` as absent is killed).
+- **`SkillRecord.dirs` is a new last field, default `()`** (T067), so every record built by hand in the tests
+  of phases 3–7 still works and gives the directories it always gave. The scan appends each folder it enters,
+  empty ones too; the catalogue sorts and de-duplicates them and derives the records of the folders above each
+  one. A folder that has the URI of a file is still refused (`_claim`). A hidden folder and a linked folder
+  are never entered, so they are not directories.
+- **A nested `SKILL.md` is a file named `SKILL.md`**, in `resources/list` and in a directory alike: one helper
+  (`_named`) gives the frontmatter's name and description only to the skill's own `SKILL.md`. A mutant that
+  gave them to any `SKILL.md` is killed.
+- **Two bugs of my own tests, found by the first green run, not by the code.** (1) A test read only the first
+  page of `skills/list` with `page_size=2` and expected three skills; it now collects every page and asserts
+  three. (2) A test about one directory's cursor expected the wrong second page of `REFUNDS` (with
+  `page_size=3` it is `notes.txt`, `templates`); the expectation was fixed, not the code.
+- **A phase-4 test went red and was updated, not weakened**: `test_a_skills_server_is_declared_and_says_whether_it_reads_directories`
+  expected `directoryRead: false` by default, true only while the method did not exist. It now expects the new
+  default (`True`) and has a second case for `directory_read=False` that expects `False` on the wire and in the
+  client.
+- **A surviving mutant, then killed: "a linked folder is walked".** Removing the scan's rule for a symbolic
+  link, and walking a link as a folder, still left the link out, because `_reason` has a second rule: a
+  directory entry that is neither a real directory nor a real file (`follow_symlinks=False`) is "not a regular
+  file". That is two layers of defence, not a hole in the test; the mutant now removes the three of them and
+  is killed. Both layers stay.
+- **Mutation: 40 mutants in `mutants_phase8.py`, 40 killed**, plus the 6 of `mutants_phase8b.py` for the five
+  tests that were green at once. None of the 46 was left alive.
+- **Residual risks, not closed** (R10): the number of directories is not capped (the limits are 512 files and
+  16 MiB, so a skill with a million empty folders is walked and held); the client catches a **repeated**
+  cursor, not an endless run of distinct ones, so a caller that must bound a hostile server wraps the call in
+  its own timeout. Both go to the outside review of phase 9.
+- **Numbers.** `test_skills_pages.py` and `test_skills_directory.py` are new; the suite is 1888 passed (was
+  1718) on Python 3.11. `verify.sh` is green on core only, a2a only and mcp only; ruff is clean.

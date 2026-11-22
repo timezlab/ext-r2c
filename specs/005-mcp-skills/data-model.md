@@ -30,9 +30,11 @@ One per served skill. Built by the scan, never mutated.
 | `folder` | str | the skill folder's absolute, resolved path on disk |
 | `frontmatter` | dict | every field the author wrote, as plain JSON data (R7) |
 | `files` | tuple of file records | `SKILL.md` and every other file, sorted by relative path |
+| `dirs` | tuple of tuples of str | every folder below the skill folder that the scan walked, **empty ones too**, each as its names from the skill folder down; sorted by tuple (a folder before what is in it) and without repeats. Last field, default `()` (phase 8) |
 
 Invariants: `files` holds `SKILL.md` exactly once; at most 512 files; the sum of sizes is at most
-16,777,216; the URIs of the files are distinct.
+16,777,216; the URIs of the files are distinct. A hidden folder and a linked folder are not in
+`dirs` (the scan never enters them); a folder that holds only what is left out is an empty entry.
 
 ### File record
 
@@ -56,7 +58,10 @@ The record holds **no bytes**. A read opens the file again, checks it against `s
 | `uri` | str | `skill://<encoded path>` for a skill root, `…/<encoded dir>` below it, no trailing slash |
 | `children` | tuple of child | direct children sorted by name: `(uri, name, mime, is_dir)` |
 
-One per directory of every served skill, root included. A prefix above skills is not a directory.
+One per directory of every served skill, root included: the root, every folder that holds a file,
+every folder in the skill's `dirs`, and the folders above each of those, so that a child always has a
+record. A prefix above skills is not a directory. A folder and a file of one URI are refused as a
+`SkillsError` even when the folder is empty.
 
 ### Catalogue
 
@@ -64,7 +69,7 @@ The immutable snapshot the extension serves from.
 
 | Field | Meaning |
 |---|---|
-| `generation` | random token, new on every successful scan; part of every cursor |
+| `generation` | random token, new on every successful scan; part of every cursor (R9: with a hash of the URI for a directory's cursor) |
 | `skills` | skill records sorted by `uri` |
 | `by_uri` | exact dictionary from a skill's `uri` to its record |
 | `files` | exact dictionary from a file `uri` to its file record |

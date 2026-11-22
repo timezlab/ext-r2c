@@ -96,7 +96,8 @@ class TestTheObject:
         ext = SkillsExtension(standard_tree(tmp_path).root)
         assert ext.identifier == EXTENSION_ID == "io.modelcontextprotocol/skills"
         assert isinstance(ext.catalogue, Catalogue)
-        assert ext.settings() == {"directoryRead": False}
+        assert ext.settings() == {"directoryRead": True}
+        assert SkillsExtension(standard_tree(tmp_path).root, directory_read=False).settings() == {"directoryRead": False}
 
     def test_it_is_exported_from_the_package_and_from_the_door(self) -> None:
         assert ext_r2c.mcp.SkillsExtension is skills_package.SkillsExtension is SkillsExtension
@@ -132,8 +133,8 @@ class TestDeclaration:
         caps = run(talk(SkillsExtension(standard_tree(tmp_path).root), body))
         assert caps.resources is not None
         assert caps.extensions is not None and set(caps.extensions) == {EXTENSION_ID}
-        # `directoryRead` is true only where the directory method is served, which phase 8 adds.
-        assert caps.extensions[EXTENSION_ID] == {"directoryRead": False}
+        # `directoryRead` is true because the directory method is served (and false when it is not).
+        assert caps.extensions[EXTENSION_ID] == {"directoryRead": True}
 
 
 # --- Scenario 2: skills/list ----------------------------------------------------------------------
@@ -146,7 +147,7 @@ class TestList:
         listed = run(talk(SkillsExtension(tree.root), list_skills, record=record))
         [wire] = wire_results(record, "skills/list")
         assert wire["resultType"] == "complete"
-        assert "nextCursor" not in wire  # first cut: every skill on one page
+        assert "nextCursor" not in wire  # three skills fit on a page of 25 (`test_skills_pages.py` has the rest)
         assert [e["uri"] for e in wire["skills"]] == list(FRONTMATTER)
         for entry in wire["skills"]:
             assert set(entry) == {"uri", "frontmatter", "resources"}  # no `_meta`

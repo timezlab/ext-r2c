@@ -1,8 +1,10 @@
 """The page cursor of `skills/list` and `resources/directory/read` (spec 005, research R9).
 
 A cursor is opaque to the caller: base64url (no padding) of `<generation>.<offset>`. The
-generation names one catalogue, so a cursor from before a refresh, or from another server, is
-refused instead of pointing into a different list. A cursor carries no path and grants nothing.
+generation names one listing of one catalogue (the extension passes the catalogue's own token for
+`skills/list` and that token with a hash of the URI for one directory), so a cursor from before a
+refresh, from another server or from another listing is refused instead of pointing into a different
+list and skipping or repeating entries. A cursor carries no path and grants nothing.
 """
 
 from __future__ import annotations

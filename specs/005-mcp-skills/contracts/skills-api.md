@@ -62,6 +62,14 @@ class SkillsError(ValueError):
   `left_out` (the build "says" what it left out, FR-004); the package logs one `INFO` line per
   skill and one `WARNING` per symbolic link under the logger `ext_r2c.mcp.skills`, and
   nothing at import.
+- **Pages and cursors.** `skills/list` and every directory read give at most `page_size` entries
+  and a `nextCursor` only when more follow. A cursor is opaque and good for **one listing of one
+  catalogue**: one from another listing, another directory, an earlier refresh or another server
+  is `-32602 "Invalid cursor"` (never echoed). An empty-string cursor is a bad cursor; only an
+  absent one is the first page. With `directory_read=False` the method is not bound at all and the
+  SDK answers `-32601`; `settings()` is `{"directoryRead": directory_read}` (default `True`).
+  A folder the scan walked is a directory even when empty (it answers `[]`); a hidden or linked
+  folder is not a directory.
 - `refresh(server=None)` scans again with the same folders and filters. On success it swaps the
   catalogue in one assignment; on failure the old catalogue stays and the `SkillsError` is raised.
   If the new scan has a file URI the SDK has not been given a resource for, then with a `server`
@@ -124,7 +132,9 @@ class SkillsClient:
   `directory_read` (`check="directory"`). Nothing is sent before the check.
 - `list` and `get` send only `skills/list` / `skills/get`. `list` follows `nextCursor` until it is
   absent and returns every valid entry plus the `Refused` for each invalid one (R13 lists what
-  makes an entry invalid). `get` raises `SkillRefused(check="entry" | "resources" | "limit")`.
+  makes an entry invalid). A `nextCursor` the client has already received in this listing (an
+  empty string too) is a loop: `SkillRefused(check="response")`, and no further request.
+  `get` raises `SkillRefused(check="entry" | "resources" | "limit")`.
 - `load` and `read` send `resources/read` **only when called**, and `read` only for a URI listed
   in `item.files` (`check="unlisted"` otherwise, without a request). They verify, in this order:
   one content with the same URI (`response`); raw length against `size` (`size`; a `blob` or
@@ -133,10 +143,15 @@ class SkillsClient:
   against `item.frontmatter`, field by field (`frontmatter`). A failure raises `SkillRefused`
   with the URI, the check and the reason, and returns nothing.
 - `list_directory` sends `resources/directory/read` for the skill's root (the entry's URI without
-  `/SKILL.md`) or a path below it; any other URI is refused (`check="directory"`) without a
-  request. It follows every page and returns the children as metadata. It never extends the manifest: a child the entry does not list is returned as
-  metadata, and `read` still refuses it as `unlisted` (the text's "directory is not the
-  manifest").
+  `/SKILL.md`) or a path below it (`root/…`, so `refunds-old` is not inside `refunds`); every
+  segment after the root must be non-empty, not `.` or `..`, and free of `/`, each after one
+  percent-decoding. Any other URI is refused (`check="directory"`) without a request. It follows
+  every page (a repeated cursor is `response`, as for `list`) and returns the children as
+  `DirectoryEntry(origin, uri, name, mime, is_dir)`; `mime` is `""` when the server sent none
+  (none is made up), and `is_dir` is `mime == "inode/directory"`. A child that is not an MCP
+  resource refuses the whole answer (`response`). It never extends the manifest: a child the entry
+  does not list is returned as metadata, and `read` still refuses it as `unlisted` (the text's
+  "directory is not the manifest").
 - Nothing is cached across connections and nothing is written to disk. Content is untrusted: no
   frontmatter field is interpreted. `SkillContent.text()` decodes strictly and raises on invalid
   UTF-8.

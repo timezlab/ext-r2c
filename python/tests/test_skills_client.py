@@ -156,7 +156,8 @@ class TestDeclaration:
             async with connected(served_by) as skills:
                 return skills.declared, skills.directory_read
 
-        assert run(body(SkillsExtension(root))) == (True, False)
+        assert run(body(SkillsExtension(root))) == (True, True)  # on by default since phase 8
+        assert run(body(SkillsExtension(root, directory_read=False))) == (True, False)
         assert run(body(Lying(root, declare={"directoryRead": True}))) == (True, True)
         assert run(body(Lying(root, declare={}))) == (True, False)  # an empty object is a valid declaration
         assert run(body(Lying(root, declare={"directoryRead": "yes"}))) == (True, False)  # only `true` counts

@@ -510,6 +510,16 @@ class TestSettings:
             ("ttl_ms", True),
             ("ttl_ms", 1.5),
             ("ttl_ms", None),
+            ("page_size", 0),
+            ("page_size", -1),
+            ("page_size", True),
+            ("page_size", 1.5),
+            ("page_size", "25"),
+            ("page_size", None),
+            ("directory_read", "yes"),
+            ("directory_read", 1),
+            ("directory_read", 0),
+            ("directory_read", None),
             ("cache_scope", "shared"),
             ("cache_scope", None),
             ("cache_scope", "Private"),
@@ -545,6 +555,8 @@ class TestSettings:
     def test_the_good_edges_are_accepted(self, tmp_path: Path) -> None:
         root = standard_tree(tmp_path).root
         SkillsExtension(root, ttl_ms=0, cache_scope="public", include=("*",), exclude=[])
+        SkillsExtension(root, page_size=1, directory_read=False)
+        SkillsExtension(root, page_size=10**9, directory_read=True)  # as many as you like on a page
         SkillsExtension(str(root))
 
     def test_a_str_a_path_like_and_a_list_are_each_accepted_as_folders(self, tmp_path: Path) -> None:

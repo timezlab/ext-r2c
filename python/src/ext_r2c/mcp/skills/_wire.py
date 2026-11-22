@@ -6,7 +6,7 @@ are mapped. The extension is Beta and may break: when it changes, this module an
 (`tests/test_skills_spike.py`) fail first, and nothing else needs to know why.
 
 Two kinds of model live here. The *server* models (`Skill`, `ListSkillsResult`, ...) validate what
-the server builds. The *client* models (`RawListSkillsResult`, `RawGetSkillResult`) keep each skill
+the server builds. The *client* models (`RawListSkillsResult`, `RawGetSkillResult`, `RawReadDirectoryResult`) keep each
 entry raw, so a caller can refuse one malformed entry on its own instead of failing the whole page.
 The requests are typed classes on purpose: the SDK keeps the parameters of a typed request and
 drops those of an untyped one (R2).
@@ -83,6 +83,13 @@ class RawListSkillsResult(types.PaginatedResult, types.CacheableResult):
 
 class RawGetSkillResult(types.CacheableResult):
     skill: Any
+    result_type: types.ResultType = "complete"
+
+
+class RawReadDirectoryResult(types.PaginatedResult, types.CacheableResult):
+    """A directory answer with each child raw, so the client refuses a malformed child on its own terms."""
+
+    resources: list[Any]
     result_type: types.ResultType = "complete"
 
 

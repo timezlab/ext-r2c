@@ -70,7 +70,9 @@ class FileRecord:
 
 @dataclass(frozen=True)
 class SkillRecord:
-    """One served skill: its `SKILL.md` URI, its frontmatter as the reader returned it, its files."""
+    """One served skill: its `SKILL.md` URI, its frontmatter as the reader returned it, its files, and
+    every folder below it that a scan found (`dirs`, each a tuple of names from the skill folder
+    down, empty ones too). Hidden and linked folders are not found, so they are not in it."""
 
     name: str
     path: tuple[str, ...]
@@ -78,6 +80,7 @@ class SkillRecord:
     folder: str
     frontmatter: dict[str, Any]
     files: tuple[FileRecord, ...]
+    dirs: tuple[tuple[str, ...], ...] = ()
 
 
 class Child(NamedTuple):
@@ -138,7 +141,11 @@ class Catalogue:
 
 
 def _with_sorted_files(skill: SkillRecord) -> SkillRecord:
-    return replace(skill, files=tuple(sorted(skill.files, key=lambda record: "/".join(record.parts))))
+    return replace(
+        skill,
+        files=tuple(sorted(skill.files, key=lambda record: "/".join(record.parts))),
+        dirs=tuple(sorted(set(skill.dirs))),
+    )
 
 
 def _fold(uri: str) -> str:
@@ -160,7 +167,8 @@ def _claim(claimed: dict[str, tuple[str, str]], uri: str, kind: str, folder: str
 
 
 def _directories_of(skill: SkillRecord) -> Iterator[DirectoryRecord]:
-    """One record for the skill folder and one for every folder below it that holds a file."""
+    """One record for the skill folder, one for every folder that holds a file and one for every
+    folder in `skill.dirs`, each with the folders above it: a child always has a record."""
     buckets: dict[tuple[str, ...], dict[str, Child]] = {(): {}}
     for record in skill.files:
         parts = record.parts
@@ -171,6 +179,11 @@ def _directories_of(skill: SkillRecord) -> Iterator[DirectoryRecord]:
                 child = Child(encode_uri(skill.path, file=parts[: depth + 1]), name, DIRECTORY, True)
             # A file and a folder of one name keep the first child here; `_claim` refuses the pair.
             buckets.setdefault(parts[:depth], {}).setdefault(name, child)
+    for parts in skill.dirs:
+        for depth, name in enumerate(parts):
+            child = Child(encode_uri(skill.path, file=parts[: depth + 1]), name, DIRECTORY, True)
+            buckets.setdefault(parts[:depth], {}).setdefault(name, child)
+        buckets.setdefault(parts, {})
     for parts, bucket in buckets.items():
         children = tuple(sorted(bucket.values(), key=lambda child: child.name))
         yield DirectoryRecord(encode_uri(skill.path, file=parts), children)

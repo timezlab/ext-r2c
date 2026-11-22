@@ -167,18 +167,24 @@ def _search(root: _Root, below: tuple[str, ...], left_out: list[LeftOut]) -> Ite
 
 
 def _files(
-    folder: str, shown: tuple[str, ...], left_out: list[LeftOut], below: tuple[str, ...] = ()
+    folder: str,
+    shown: tuple[str, ...],
+    left_out: list[LeftOut],
+    dirs: list[tuple[str, ...]],
+    below: tuple[str, ...] = (),
 ) -> Iterator[tuple[tuple[str, ...], int]]:
     """Every regular file under `folder`, depth first and by name, as its path from `folder` down and
-    its size now. `shown` is where `folder` is below the root, for the report. Lazy, so a caller that
-    has seen enough stops the walk."""
+    its size now. `shown` is where `folder` is below the root, for the report. Every folder the walk
+    enters is added to `dirs` (an empty one too) before what is in it, so `dirs` is in pre-order. Lazy,
+    so a caller that has seen enough stops the walk."""
     try:
         entries = _entries(os.path.join(folder, *below), (*shown, *below), left_out)
     except OSError as error:
         raise SkillsError(folder, _cannot_read(below, error)) from None
     for entry in entries:
         if entry.is_dir(follow_symlinks=False):
-            yield from _files(folder, shown, left_out, (*below, entry.name))
+            dirs.append((*below, entry.name))
+            yield from _files(folder, shown, left_out, dirs, (*below, entry.name))
         elif entry.is_file(follow_symlinks=False):
             try:
                 size = entry.stat(follow_symlinks=False).st_size
@@ -224,19 +230,22 @@ def _too_many_bytes(folder: str) -> SkillsError:
     return SkillsError(folder, f"holds more than {MAX_BYTES} bytes, the most a skill may serve")
 
 
-def _listing(folder: str, shown: tuple[str, ...], left_out: list[LeftOut]) -> list[tuple[tuple[str, ...], int]]:
-    """The files of the skill with their sizes, or a `SkillsError` at the first one that is past a
-    limit. Only `stat` has been asked of the rest, and the walk stops there."""
+def _listing(
+    folder: str, shown: tuple[str, ...], left_out: list[LeftOut]
+) -> tuple[list[tuple[tuple[str, ...], int]], list[tuple[str, ...]]]:
+    """The files of the skill with their sizes, and its folders, or a `SkillsError` at the first file
+    that is past a limit. Only `stat` has been asked of the rest, and the walk stops there."""
     listed: list[tuple[tuple[str, ...], int]] = []
+    dirs: list[tuple[str, ...]] = []
     total = 0
-    for parts, size in _files(folder, shown, left_out):
+    for parts, size in _files(folder, shown, left_out, dirs):
         if len(listed) == MAX_FILES:
             raise SkillsError(folder, f"has more than {MAX_FILES} files, the most a skill may serve")
         total += size
         if total > MAX_BYTES:
             raise _too_many_bytes(folder)
         listed.append((parts, size))
-    return listed
+    return listed, dirs
 
 
 def _describe(root: _Root, found: _Found, left_out: list[LeftOut]) -> SkillRecord:
@@ -251,7 +260,7 @@ def _describe(root: _Root, found: _Found, left_out: list[LeftOut]) -> SkillRecor
     except FrontmatterError as error:
         raise SkillsError(folder, f"SKILL.md frontmatter: {error.reason}") from None
     name = _check_fields(frontmatter, folder, found.path[-1])
-    listed = _listing(folder, found.below, left_out)
+    listed, dirs = _listing(folder, found.below, left_out)
     files = []
     used = len(skill_md)  # the bytes read so far, so that a file that grew cannot go past the limit unseen
     for parts, _ in listed:
@@ -274,4 +283,12 @@ def _describe(root: _Root, found: _Found, left_out: list[LeftOut]) -> SkillRecor
                 skill=uri,
             )
         )
-    return SkillRecord(name=name, path=found.path, uri=uri, folder=folder, frontmatter=frontmatter, files=tuple(files))
+    return SkillRecord(
+        name=name,
+        path=found.path,
+        uri=uri,
+        folder=folder,
+        frontmatter=frontmatter,
+        files=tuple(files),
+        dirs=tuple(dirs),
+    )

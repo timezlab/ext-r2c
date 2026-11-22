@@ -39,10 +39,19 @@ def file_record(path: Sequence[str], parts: Sequence[str], *, size: int = 10, fo
     )
 
 
-def skill_record(path: Sequence[str], others: Sequence[Sequence[str]] = (), *, folder: str | None = None) -> SkillRecord:
-    """A skill at `path` whose files are `SKILL.md` and `others` (each a list of path parts)."""
+def skill_record(
+    path: Sequence[str],
+    others: Sequence[Sequence[str]] = (),
+    *,
+    folder: str | None = None,
+    dirs: Sequence[Sequence[str]] | None = None,
+) -> SkillRecord:
+    """A skill at `path` whose files are `SKILL.md` and `others` (each a list of path parts). `dirs`
+    are the folders the scan found (each a list of path parts below the skill folder); left out, the
+    record says none, as a record made before directories were recorded did."""
     folder = folder or "/skills/" + "/".join(path)
     parts: list[Sequence[str]] = [["SKILL.md"], *others]
+    extra = {} if dirs is None else {"dirs": tuple(tuple(d) for d in dirs)}
     return SkillRecord(
         name=path[-1],
         path=tuple(path),
@@ -50,6 +59,7 @@ def skill_record(path: Sequence[str], others: Sequence[Sequence[str]] = (), *, f
         folder=folder,
         frontmatter={"name": path[-1], "description": f"The {path[-1]} skill."},
         files=tuple(file_record(path, p, folder=folder) for p in parts),
+        **extra,
     )
 
 
@@ -201,6 +211,62 @@ def test_a_directory_lists_a_folder_once_however_many_files_it_holds() -> None:
     assert set(catalogue.directories) == {"skill://x", "skill://x/docs", "skill://x/docs/deep"}
 
 
+def test_a_folder_the_scan_found_is_a_directory_even_with_no_file_in_it() -> None:
+    record = skill_record(("x",), [["docs", "a.md"]], dirs=[["docs"], ["empty"], ["docs", "deep"]])
+    catalogue = Catalogue.build([record], [])
+    assert set(catalogue.directories) == {"skill://x", "skill://x/docs", "skill://x/docs/deep", "skill://x/empty"}
+    assert catalogue.directories["skill://x/empty"].children == ()
+    assert catalogue.directories["skill://x/docs/deep"].children == ()
+    # ... and it is a child of its parent, a folder like any other, in name order.
+    assert [(c.name, c.is_dir) for c in catalogue.directories["skill://x"].children] == [
+        ("SKILL.md", False),
+        ("docs", True),
+        ("empty", True),
+    ]
+    assert catalogue.directories["skill://x/docs"].children[-1] == ("skill://x/docs/deep", "deep", DIR, True)
+
+
+def test_the_folders_above_a_listed_one_are_directories_too() -> None:
+    """A record that names only `a/b/c` still gets `a` and `a/b`: no folder is a child that has no record."""
+    catalogue = Catalogue.build([skill_record(("x",), dirs=[["a", "b", "c"]])], [])
+    assert set(catalogue.directories) == {"skill://x", "skill://x/a", "skill://x/a/b", "skill://x/a/b/c"}
+    assert [c.name for c in catalogue.directories["skill://x/a"].children] == ["b"]
+    for directory in catalogue.directories.values():
+        for child in directory.children:
+            assert child.uri in catalogue.files or child.uri in catalogue.directories
+
+
+def test_a_folder_that_is_also_a_file_name_is_refused_even_when_it_is_empty() -> None:
+    with pytest.raises(SkillsError) as caught:
+        Catalogue.build([skill_record(("x",), [["docs"]], dirs=[["docs"]], folder="/one/x")], [])
+    assert "skill://x/docs" in caught.value.reason
+
+
+def test_a_record_with_no_dirs_gives_the_directories_it_always_gave() -> None:
+    assert Catalogue.build(standard_records(), []).directories.keys() == {
+        "skill://greetings",
+        "skill://team/billing/refunds",
+        "skill://team/billing/refunds/templates",
+        "skill://team/billing/refunds/assets",
+    }
+
+
+def test_dirs_has_a_default_and_is_kept_by_the_sort_of_the_files() -> None:
+    plain = skill_record(("x",))
+    assert plain.dirs == ()
+    kept = Catalogue.build([skill_record(("x",), [["b.md"], ["a.md"]], dirs=[["empty"]])], []).skills[0]
+    assert kept.dirs == (("empty",),)
+    assert [r.parts for r in kept.files] == [("SKILL.md",), ("a.md",), ("b.md",)]
+
+
+def test_dirs_are_in_pre_order_without_repeats_whatever_order_a_record_gave_them() -> None:
+    """A folder comes before what is in it, and each is there once: the order a hand-made record is in
+    does not leak into what the catalogue keeps."""
+    given = [["b"], ["a", "z"], ["a"], ["b"], ["a", "m", "q"]]
+    kept = Catalogue.build([skill_record(("x",), dirs=given)], []).skills[0]
+    assert kept.dirs == (("a",), ("a", "m", "q"), ("a", "z"), ("b",))
+
+
 def test_names_are_decoded_and_uris_are_encoded() -> None:
     catalogue = Catalogue.build([skill_record(("x",), [["my dir", "café.md"]])], [])
     root = catalogue.directories["skill://x"]
@@ -343,6 +409,6 @@ def test_the_record_fields_are_those_of_the_data_model() -> None:
         return [f.name for f in dataclasses.fields(cls)]
 
     assert names(FileRecord) == ["uri", "parts", "folder", "size", "digest", "mime", "skill"]
-    assert names(SkillRecord) == ["name", "path", "uri", "folder", "frontmatter", "files"]
+    assert names(SkillRecord) == ["name", "path", "uri", "folder", "frontmatter", "files", "dirs"]
     assert names(DirectoryRecord) == ["uri", "children"]
     assert names(Catalogue) == ["generation", "skills", "by_uri", "files", "directories", "left_out"]

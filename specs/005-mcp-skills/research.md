@@ -271,7 +271,15 @@ package. The extension is **Beta and may break**: R16 says what we do about that
     together), so a listing is stable and a cursor is a position.
   - the **cursor** is opaque: base64url of `<generation>.<offset>`. A cursor that does not decode,
     belongs to another generation (an earlier refresh, another process), or points past the end
-    is `-32602` with a fixed message. It carries no path and grants nothing.
+    is `-32602` with a fixed message (`Invalid cursor`, never the cursor). It carries no path and
+    grants nothing. An empty-string cursor is a cursor (and a bad one): only an absent cursor is
+    the first page.
+  - **A cursor is good for one listing of one catalogue** (decided in phase 8). `skills/list` uses
+    the catalogue's `generation`; a directory read uses `<generation>-<first 16 hex of the SHA-256
+    of the directory's URI>`. A cursor of `skill://docs` given to `skill://docs/a`, or to
+    `skills/list`, is `-32602` instead of a position in another list: with only the generation, it
+    would be accepted and silently skip or repeat children. The hash is a label, not a secret (a
+    client can compute it); the check is there so a mix-up is loud, not to authenticate.
   - `resultType` is always `"complete"`; `_meta` on skills and resources carries no key (FR-015).
 - **Alternatives**: `ttl_ms=0` by default (every client re-fetches every time; the spec's own
   example uses 300000); `"public"` by default (a server behind authentication would hand a shared
@@ -290,6 +298,20 @@ package. The extension is **Beta and may break**: R16 says what we do about that
   `name`, `description` and MIME it has in `resources/list` (the `SKILL.md` child shows the
   frontmatter's). The directory resources are not registered with the SDK, so they stay out of
   `resources/list`. The method answers from the catalogue and never touches the disk.
+- **How it was built** (phase 8): the scan records every folder it walks in `SkillRecord.dirs`
+  (empty ones too), so an empty folder is a directory that answers `[]`; hidden and linked folders
+  are never entered and so are not directories. Only a skill's own `SKILL.md` takes the
+  frontmatter's name and description; a `SKILL.md` below the root is an ordinary file named
+  `SKILL.md`, in `resources/list` and in a directory alike (one helper, `_named`). The method is
+  bound only when `directory_read` is on, so with it off the SDK itself answers `-32601`.
+  `ReadDirectoryParams` extends `PaginatedRequestParams`; every answer carries `ttlMs`,
+  `cacheScope` and `resultType`.
+- **Residual risks, not closed** (recorded in phase 8 and sent to the outside review of phase 9):
+  - the number of **directories** is not capped (the limits are 512 files and 16 MiB): a skill
+    folder with a million empty folders is walked, held in the catalogue and answered from it;
+  - the client catches a **repeated** cursor, not an endless run of distinct ones: a hostile server
+    that invents a new cursor every time still keeps `list()` asking. A caller that must bound
+    that wraps the call in its own timeout.
 
 ## R11. MIME types, and text versus blob
 
@@ -335,7 +357,9 @@ package. The extension is **Beta and may break**: R16 says what we do about that
   - **Declaration first** (FR-018): every method but the property `declared` raises a
     `SkillRefused` with check `declaration` when the server's capabilities lack the extension or
     the `resources` capability; `list_directory` also needs `directoryRead: true`.
-  - `list()` pages with the cursor until `nextCursor` is gone, validates each entry on its own,
+  - `list()` pages with the cursor until `nextCursor` is gone (**a cursor it has seen before, an
+    empty string included, is a loop and is refused** as `SkillRefused("response")`, with no more
+    requests; `list_directory` does the same), validates each entry on its own,
     and returns the good ones with a tuple of `Refused` (URI if any, check, reason) for the rest.
     `get(uri)` raises for a bad entry. An entry is refused when: it is not an object; `uri` or
     `frontmatter.name` or `description` is missing or not a string; the URI does not end in
@@ -363,6 +387,15 @@ package. The extension is **Beta and may break**: R16 says what we do about that
     other field are data in `frontmatter`.
   - Skills with the same name stay apart because the identity of a skill is `(origin, uri)`;
     `SkillItem.key` is that pair, and the client never indexes by name.
+  - **`list_directory(item, uri)`** (phase 8): after the declaration and `directoryRead: true`, the
+    URI must be the skill's root (`item.uri` without `/SKILL.md`) or start with `root + "/"`, and
+    each remaining segment must be non-empty, not `.` or `..`, and must not hold a `/` once it is
+    percent-decoded once. Otherwise `SkillRefused("directory")` and **no request**. A neighbour
+    whose name only starts like the skill's (`refunds-old` for `refunds`) is not inside it. The
+    check is for the caller's benefit: the server never builds a path from a URI. Each child is
+    validated as an MCP `Resource` (a child that is not one refuses the whole answer, check
+    `response`) and returned as `DirectoryEntry(origin, uri, name, mime, is_dir)`; `mime` is `""`
+    when the server sent none (no type is made up) and `is_dir` is `mime == "inode/directory"`.
   - Request classes: typed `Request` subclasses for the three methods (R2).
 - **Alternatives**: raising on a bad page entry (one bad skill hides the others); decoding before
   checking sizes (a hostile server makes the caller allocate before it can refuse).

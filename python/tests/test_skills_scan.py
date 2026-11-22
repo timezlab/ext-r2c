@@ -200,6 +200,75 @@ class TestDescribing:
             "skill://team/billing/refunds/templates",
         }
 
+    def test_an_empty_folder_is_a_directory_with_no_children(self, tmp_path: Path) -> None:
+        tree = standard_tree(tmp_path)
+        refunds = tree.root / "team" / "billing" / "refunds"
+        (refunds / "empty").mkdir()
+        (refunds / "templates" / "drafts" / "old").mkdir(parents=True)  # empty, below a folder that holds only a folder
+        cat = scan_roots([tree.root], (), ())
+        base = "skill://team/billing/refunds"
+        for uri in (f"{base}/empty", f"{base}/templates/drafts", f"{base}/templates/drafts/old"):
+            assert uri in cat.directories, uri
+        assert cat.directories[f"{base}/empty"].children == ()
+        assert cat.directories[f"{base}/templates/drafts/old"].children == ()
+        assert [c.name for c in cat.directories[f"{base}/templates/drafts"].children] == ["old"]
+        assert ("empty", True) in [(c.name, c.is_dir) for c in cat.directories[base].children]
+        assert served(cat)[f"{base}/SKILL.md"].dirs == (
+            ("empty",),
+            ("examples",),
+            ("templates",),
+            ("templates", "drafts"),
+            ("templates", "drafts", "old"),
+        )
+
+    def test_a_folder_that_holds_only_what_is_left_out_is_an_empty_directory(self, tmp_path: Path) -> None:
+        tree = standard_tree(tmp_path)
+        outside = outside_secret(tmp_path)
+        only_hidden = tree.root / "pdf-notes" / "cache"
+        only_hidden.mkdir()
+        (only_hidden / ".keep").write_text("hidden\n")
+        add_symlink(only_hidden / "link.txt", outside)
+        cat = scan_roots([tree.root], (), ())
+        assert cat.directories["skill://pdf-notes/cache"].children == ()
+        assert {item.path for item in cat.left_out} >= {"pdf-notes/cache/.keep", "pdf-notes/cache/link.txt"}
+
+    def test_a_hidden_folder_and_a_linked_folder_are_not_directories(self, tmp_path: Path) -> None:
+        tree = standard_tree(tmp_path)
+        outside = outside_secret(tmp_path)
+        skill = tree.root / "pdf-notes"
+        (skill / ".git").mkdir()
+        (skill / ".git" / "inner").mkdir()
+        add_symlink(skill / "linked", outside.parent, directory=True)
+        add_symlink(skill / "dangling", "nowhere-at-all", directory=True)
+        cat = scan_roots([tree.root], (), ())
+        assert set(cat.directories) == {
+            "skill://greetings",
+            "skill://pdf-notes",
+            "skill://pdf-notes/assets",
+            "skill://pdf-notes/scripts",
+            "skill://team/billing/refunds",
+            "skill://team/billing/refunds/examples",
+            "skill://team/billing/refunds/templates",
+        }
+        assert [c.name for c in cat.directories["skill://pdf-notes"].children] == ["SKILL.md", "assets", "reference.md", "scripts"]
+
+    def test_the_folders_of_a_skill_are_not_those_of_the_skill_beside_it(self, tmp_path: Path) -> None:
+        root = tmp_path / "skills"
+        write_skill(root, "one")
+        write_skill(root, "two")
+        (root / "one" / "only-one").mkdir()
+        cat = scan_roots([root], (), ())
+        assert "skill://one/only-one" in cat.directories
+        assert "skill://two/only-one" not in cat.directories
+        assert served(cat)["skill://two/SKILL.md"].dirs == ()
+
+    def test_a_skill_with_no_folder_has_no_dirs(self, tmp_path: Path) -> None:
+        root = tmp_path / "skills"
+        write_skill(root, "flat")
+        cat = scan_roots([root], (), ())
+        assert served(cat)["skill://flat/SKILL.md"].dirs == ()
+        assert set(cat.directories) == {"skill://flat"}
+
 
 # --- What is not served ---------------------------------------------------------------------------
 
