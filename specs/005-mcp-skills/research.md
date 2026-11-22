@@ -17,9 +17,13 @@ package. The extension is **Beta and may break**: R16 says what we do about that
   - `ResourceBinding(resource)` registers one concrete `Resource` per file. `MCPServer` keys it by
     `str(resource.uri)` and lists it in `resources/list` (602 resources list in 12 ms, unpaged).
   - `settings()` appears at `capabilities.extensions["io.modelcontextprotocol/skills"]` as
-    `{"directoryRead": true}`, and the `resources` capability is declared as soon as one resource
-    is registered. A skill always has at least `SKILL.md`, and a server with no skill is a build
-    error (FR-007), so the `resources` declaration the extension requires always holds.
+    `{"directoryRead": true}`. The `resources` capability (`subscribe` and `listChanged` both
+    true) is declared by every `MCPServer`, whether or not a resource is registered, so the
+    declaration the extension requires holds on any server this feature extends.
+    *Corrected 2026-11-22 by T005: this bullet first said the capability appears "as soon as one
+    resource is registered". `test_resources_capability_is_always_declared` pins the real
+    behaviour. Nothing in the design depended on the old wording: a skill always has at least
+    `SKILL.md`, and a server with no skill is a build error (FR-007) for its own reason.*
   - `Extension.resources()` is read **once**, when `MCPServer` is built. `MCPServer.add_resource`
     exists; there is no way to remove a resource, and `ResourceBinding` cannot carry a template.
   - `SkillsExtension` declares no tool and overrides no interceptor, so it never touches
@@ -193,6 +197,15 @@ package. The extension is **Beta and may break**: R16 says what we do about that
     and this watched is the thing the recency check exists to flag, and it is flagged here.
   - No install script runs for the wheels, and the package declares no dependencies
     (`requires_dist` is empty).
+  - **Vet repeated on 2026-11-22 by T001**, from the PyPI JSON and the OSV API: nothing changed.
+    OSV still lists the same 8 advisories (all fixed in 5.4 or earlier, none a `MAL-`), and an
+    OSV query for versions 6.0.3 and 6.0.4 returns no advisory; neither release is yanked; each has
+    wheels for CPython 3.11, 3.12 and 3.13 on Linux, macOS and Windows plus an sdist;
+    `requires_dist` is empty. 6.0.4 is now two days old (uploaded 2026-11-20 by the upstream
+    maintainer who published the GitHub release the same hour). Its release notes: Python 3.15
+    support, Python 3.8 and 3.9 dropped, a fix for exponential merge-key expansion, libyaml 0.2.6
+    wheels. Nothing there touches the pure-Python `SafeLoader` this feature uses. The bound stays
+    `>=6.0.3,<7`.
 - **Decision**: add `PyYAML>=6.0.3,<7` to the `[mcp]` extra (and the dev group). A pinned ceiling
   below 6.0.4 would be stricter than the rest of the project (`mcp>=2.3,<3` takes the newest) and
   would hold the pin back forever; instead **T001 repeats the vet** (OSV `MAL-` query, upload

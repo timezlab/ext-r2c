@@ -62,7 +62,7 @@ phase per go**: finish the phase, verify, commit, report, stop.
 
 **Independent test**: `test_packaging.py`; `core_only.py`, `mcp_only.py`; `test_skills_spike.py`.
 
-- [ ] T001 Repeat the PyYAML vet with the `security-audit` skill, on the day the dependency is
+- [X] T001 Repeat the PyYAML vet with the `security-audit` skill, on the day the dependency is
   added, and write the result under R7 of `specs/005-mcp-skills/research.md` ("Vet repeated on
   <date> by T001"):
   - OSV query for `PyYAML` (`MAL-` advisories: must be none) and the advisories that apply to
@@ -72,7 +72,7 @@ phase per go**: finish the phase, verify, commit, report, stop.
   - **stop and tell the maintainer** if a `MAL-` advisory, a yanked release, a changed
     maintainer or a changed dependency list shows up. If the maintainer chose `<6.0.4`, use that
     bound in T007 instead of `<7`.
-- [ ] T002 [P] Extend `python/tests/test_packaging.py` (test first):
+- [X] T002 [P] Extend `python/tests/test_packaging.py` (test first):
   - **`test_extras`**: the `mcp` extra now has two requirements, `mcp` with `>=2.3,<3` and
     `PyYAML` with `>=6.0.3,<7` (the current `len(mcp) == 1` assertion changes).
   - **`_imports`** walks sub-folders, so `ext_r2c/mcp/skills/` is scanned by
@@ -84,11 +84,11 @@ phase per go**: finish the phase, verify, commit, report, stop.
     The test asserts the folder exists (`ext_r2c/mcp/skills is not in the installed wheel`).
   - **`test_core_import_loads_no_yaml`**: a subprocess (`python -I`) that imports `ext_r2c` and
     `ext_r2c.core` has no `yaml` module in `sys.modules`.
-- [ ] T003 [P] Extend the two scripts pytest does not collect:
+- [X] T003 [P] Extend the two scripts pytest does not collect:
   - `python/tests/core_only.py`: after importing `ext_r2c.core`, assert `yaml` is not loaded.
   - `python/tests/mcp_only.py`: add `import ext_r2c.mcp.skills` and `import yaml` to the import
     check, and leave a `# phase 7:` comment where the skills round trip goes (T059).
-- [ ] T004 [P] Create `python/tests/skills_fixtures.py`, invented content only:
+- [X] T004 [P] Create `python/tests/skills_fixtures.py`, invented content only:
   - `write_skill(root, path, *, description="Does one thing.", extra="", body="Steps.\n",
     files=None) -> Path`: writes `<root>/<path>/SKILL.md` with frontmatter `name` (the last
     segment of `path`), `description` and the YAML text `extra` (the caller controls the exact
@@ -111,12 +111,14 @@ phase per go**: finish the phase, verify, commit, report, stop.
     the platform cannot.
   - `many_skills(root, n)`: `n` skills named `skill-001`…, each with `SKILL.md` only.
   - `snapshot(root)`: `{relative path: (size, mtime_ns)}` of a tree, to prove nothing was written.
-- [ ] T005 [P] Write `python/tests/test_skills_spike.py`. Each test pins one SDK fact the design
+- [X] T005 [P] Write `python/tests/test_skills_spike.py`. Each test pins one SDK fact the design
   leans on, with a throwaway `Extension` subclass and the harness (`serve`, `mcp_client` with
   `active=False`, `run`); a failing one stops the phase and updates research and plan first.
   1. `test_extension_binds_new_methods_and_declares_settings`: `MethodBinding` for `skills/list`,
      `skills/get` and `resources/directory/read` is accepted; `settings()` appears at
-     `capabilities.extensions[SKILLS_ID]`; one registered resource declares `resources` (R1).
+     `capabilities.extensions[SKILLS_ID]`; `resources` is declared (R1). A second test,
+     `test_resources_capability_is_always_declared`, pins that `MCPServer` declares it even with
+     no resource registered (corrected 2026-11-22: R1 first said "as soon as one is registered").
   2. `test_resources_are_read_once_and_cannot_be_removed`: `resources()` is read at construction;
      `MCPServer.add_resource` adds one later; there is no removal API (R1, R5).
   3. `test_typed_result_carries_cache_fields`: a `CacheableResult` and a `PaginatedResult`
@@ -136,18 +138,25 @@ phase per go**: finish the phase, verify, commit, report, stop.
   9. `test_in_memory_client_carries_typed_skills_requests`: the SDK's own in-memory
      `Client(server)` (no HTTP) can send a typed `skills/list` request and parse a typed result.
      It decides how `mcp_only.py` runs its round trip in T059.
-- [ ] T006 Build, install, and run T002, T003 and T005. Confirm the expected failures: the extra
+- [X] T006 Build, install, and run T002, T003 and T005. Confirm the expected failures: the extra
   has one requirement, `ext_r2c/mcp/skills` is missing, and `yaml` is not yet a dependency. The
   spike tests pass or fail by the facts alone.
-- [ ] T007 Change `python/pyproject.toml`: `mcp = ["mcp>=2.3,<3", "PyYAML>=6.0.3,<7"]` and the same
+- [X] T007 Change `python/pyproject.toml`: `mcp = ["mcp>=2.3,<3", "PyYAML>=6.0.3,<7"]` and the same
   `PyYAML` line in the `dev` group, with a comment saying the group lists what the extras bring.
-- [ ] T008 Create `python/src/ext_r2c/mcp/skills/__init__.py`: a module docstring that says it is
+- [X] T008 Create `python/src/ext_r2c/mcp/skills/__init__.py`: a module docstring that says it is
   MCP Skills, **Beta**, written against the beta revision read on 2026-11-21 (base protocol
   2026-07-28), and that it imports nothing of `ext_r2c`; an empty `__all__`.
-- [ ] T009 Run T002, T003, T005 on the wheel until green. Fix the harness, not the facts. If a
+- [X] T009 Run T002, T003, T005 on the wheel until green. Fix the harness, not the facts. If a
   fact does not hold, stop and update `research.md` and `plan.md` before going on. Run
   `core_only.py` and `mcp_only.py` in their venvs.
-- [ ] T010 Verify, then commit `feat(005): PyYAML in [mcp], skills package skeleton, SDK spike`.
+- [X] T010 Verify, then commit `feat(005): PyYAML in [mcp], skills package skeleton, SDK spike`.
+
+*Phase 1 done 2026-11-22.* 910 tests pass on 3.11, 3.12 and 3.13 (898 before, 12 new), and
+`core_only.py`, `a2a_only.py`, `mcp_only.py` and `ruff --select F` are clean. One SDK fact was
+worse than recorded: `MCPServer` declares `resources` always, not "once a resource is
+registered" (R1 corrected, test 2 added; nothing in the design changes). The `[mcp]` extra now
+resolves PyYAML to 6.0.4, two days old and vetted by T001. Tests that passed on their first run
+were each shown able to fail by a mutation check (a changed SDK, or a changed premise).
 
 ---
 

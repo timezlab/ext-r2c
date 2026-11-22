@@ -7,15 +7,28 @@ import ast
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from importlib.metadata import metadata
 from importlib.resources import files
+from importlib.resources.abc import Traversable
 
 ALLOWED_TOP_LEVEL = {"pydantic", "pydantic_core", "jsonschema", "ext_r2c"}
 FORBIDDEN = ("a2a", "mcp", "langchain", "langgraph")
 # What `a2a-sdk[http-server]` brings, besides the core's own (research R15).
 A2A_ALLOWED_TOP_LEVEL = ALLOWED_TOP_LEVEL | {"a2a", "google", "httpx", "starlette", "sse_starlette"}
-# What `mcp` brings that the MCP door may use (spec 004, research R17).
-MCP_ALLOWED_TOP_LEVEL = ALLOWED_TOP_LEVEL | {"mcp", "mcp_types", "anyio", "httpx2", "starlette"}
+# What `mcp` brings that the MCP door may use (spec 004, research R17), and `PyYAML`, which the
+# skills reader needs (spec 005, research R7).
+MCP_ALLOWED_TOP_LEVEL = ALLOWED_TOP_LEVEL | {"mcp", "mcp_types", "anyio", "httpx2", "starlette", "yaml"}
+
+
+def _sources(folder: Traversable, prefix: str = "") -> Iterator[tuple[str, Traversable]]:
+    """(path below the package folder, file) for every `.py` file, sub-folders included."""
+    for item in sorted(folder.iterdir(), key=lambda i: i.name):
+        if item.is_dir():
+            if item.name != "__pycache__":
+                yield from _sources(item, f"{prefix}{item.name}/")
+        elif item.name.endswith(".py"):
+            yield f"{prefix}{item.name}", item
 
 
 def _imports(package: str) -> list[tuple[str, int, str]]:
@@ -23,15 +36,13 @@ def _imports(package: str) -> list[tuple[str, int, str]]:
     folder = files("ext_r2c") / package
     assert folder.is_dir(), f"ext_r2c/{package} is not in the installed wheel"
     found: list[tuple[str, int, str]] = []
-    for item in folder.iterdir():
-        if not item.name.endswith(".py"):
-            continue
-        tree = ast.parse(item.read_text(encoding="utf-8"), filename=item.name)
+    for name, item in _sources(folder):
+        tree = ast.parse(item.read_text(encoding="utf-8"), filename=name)
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                found += [(item.name, node.lineno, a.name) for a in node.names]
+                found += [(name, node.lineno, a.name) for a in node.names]
             elif isinstance(node, ast.ImportFrom) and not node.level:
-                found.append((item.name, node.lineno, node.module or ""))
+                found.append((name, node.lineno, node.module or ""))
     return found
 
 
@@ -62,8 +73,12 @@ def test_extras() -> None:
         r.split(";", 1)[0].replace(" ", "") for r in meta.get_all("Requires-Dist") or []
         if re.search(r"""extra\s*==\s*["']mcp["']""", r)
     ]
-    assert len(mcp) == 1, mcp
-    assert mcp[0].startswith("mcp") and ">=2.3" in mcp[0] and "<3" in mcp[0], mcp[0]
+    # The skills reader needs PyYAML (spec 005, research R7): a bound on both sides, like `mcp`.
+    assert len(mcp) == 2, mcp
+    by_name = {_requirement_name(r).lower(): r for r in mcp}  # the wheel writes names in lower case
+    assert set(by_name) == {"mcp", "pyyaml"}, mcp
+    assert ">=2.3" in by_name["mcp"] and "<3" in by_name["mcp"], by_name["mcp"]
+    assert ">=6.0.3" in by_name["pyyaml"] and "<7" in by_name["pyyaml"], by_name["pyyaml"]
 
 
 def _bad_imports(package: str, allowed: set[str]) -> list[str]:
@@ -117,3 +132,28 @@ def test_core_import_loads_no_protocol_sdk() -> None:
     )
     out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "[]"
+
+
+def test_mcp_skills_imports_no_ext_r2c() -> None:
+    """The skills package stands alone (spec 005, research R12): nothing of `ext_r2c` comes in,
+    neither by name nor by a relative import that climbs out of `ext_r2c/mcp/skills/`."""
+    folder = files("ext_r2c") / "mcp" / "skills"
+    assert folder.is_dir(), "ext_r2c/mcp/skills is not in the installed wheel"
+    bad: list[str] = []
+    for name, item in _sources(folder):
+        depth = name.count("/")  # sub-folders below `skills/`; a file there may climb `depth` levels
+        for node in ast.walk(ast.parse(item.read_text(encoding="utf-8"), filename=name)):
+            if isinstance(node, ast.Import):
+                bad += [f"{name}:{node.lineno} {a.name}" for a in node.names if a.name.split(".")[0] == "ext_r2c"]
+            elif isinstance(node, ast.ImportFrom):
+                if node.level > depth + 1:
+                    bad.append(f"{name}:{node.lineno} {'.' * node.level}{node.module or ''} (climbs out)")
+                elif not node.level and (node.module or "").split(".")[0] == "ext_r2c":
+                    bad.append(f"{name}:{node.lineno} {node.module}")
+    assert not bad, "ext_r2c/mcp/skills imports ext_r2c:\n" + "\n".join(bad)
+
+
+def test_core_import_loads_no_yaml() -> None:
+    code = "import sys, ext_r2c, ext_r2c.core; print('yaml' in sys.modules)"
+    out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "False"

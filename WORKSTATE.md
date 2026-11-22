@@ -1,6 +1,6 @@
 # Work state
 
-Last updated 2026-11-21. Read this first in a new session.
+Last updated 2026-11-22. Read this first in a new session.
 
 ## Done
 
@@ -98,12 +98,13 @@ Last updated 2026-11-21. Read this first in a new session.
   Skills split out to 005; Q2 A: usage beside `input_requests` while waiting). Where it
   differed from its plan is at the end of `specs/004-mcp-binding/tasks.md`; its outside review
   is in `specs/004-mcp-binding/research.md` ("Outside review").
-- **Next: `005-mcp-skills`.** The maintainer approved `spec.md` on 2026-11-21, D1–D6 as written.
-  `plan.md`, its research, data model, contracts, quickstart and `tasks.md` (80 tasks in 9
-  phases) are drafted in `specs/005-mcp-skills/` and **wait for the maintainer's approval**: no
-  code before that. Two points are his to decide: PyYAML `>=6.0.3,<7` (T001 re-vets it; 6.0.4 is
-  one day old, `<6.0.4` is a one-token alternative), and the order of work in "Decisions made
-  while writing these tasks" at the end of `tasks.md`.
+- **In progress: `005-mcp-skills`.** The maintainer approved `spec.md` on 2026-11-21 (D1–D6 as
+  written) and told us to implement on 2026-11-22; `plan.md`, research, data model, contracts,
+  quickstart and `tasks.md` (80 tasks in 9 phases) are in `specs/005-mcp-skills/`.
+  **Phase 1 (T001–T010) is done**: PyYAML `>=6.0.3,<7` in `[mcp]` and the dev group (T001
+  re-vetted it, nothing found), the empty `ext_r2c/mcp/skills/` package, the fixture trees and
+  ten SDK-fact tests. **Next is phase 2 (T011–T022, the foundation), one phase per go from the
+  maintainer.** Nothing is pushed.
 
 ## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)
 

@@ -35,6 +35,8 @@ class Hello:
 
 def main() -> None:
     import ext_r2c.mcp  # noqa: F401
+    import ext_r2c.mcp.skills  # noqa: F401  (spec 005)
+    import yaml  # noqa: F401  (what the `[mcp]` extra brings for the skills reader)
 
     assert importlib.util.find_spec("pytest") is None, "pytest is installed: this is not an mcp-only venv"
     loaded = sorted({m.split(".")[0] for m in sys.modules} & set(OTHERS))
@@ -64,6 +66,7 @@ def _server_check() -> None:
     assert names == ["add", "agent"], names
     loaded = sorted({m.split(".")[0] for m in sys.modules} & set(OTHERS))
     assert not loaded, f"building an MCP server loaded {loaded}"
+    # phase 7 (T059): serve a skill from a folder and read it with the SDK's own client, here.
 
 
 if __name__ == "__main__":

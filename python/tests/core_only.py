@@ -15,7 +15,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-FORBIDDEN = ("a2a", "mcp", "langchain", "langgraph")
+# `yaml` is what the MCP skills reader brings (spec 005); the core must never load it.
+FORBIDDEN = ("a2a", "mcp", "langchain", "langgraph", "yaml")
 
 
 def main() -> None:

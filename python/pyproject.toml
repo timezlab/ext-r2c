@@ -28,7 +28,7 @@ dependencies = [
 
 [project.optional-dependencies]
 a2a = ["a2a-sdk[http-server]>=1.3,<2"]
-mcp = ["mcp>=2.3,<3"]
+mcp = ["mcp>=2.3,<3", "PyYAML>=6.0.3,<7"]
 langgraph = ["langchain>=1.3", "langgraph"]
 
 [project.urls]
@@ -42,7 +42,9 @@ dev = [
   # The wire examples' envelopes are checked against the real protocol types, and the A2A door
   # is tested by real round trips; `sqlite` gives a durable task store for the restart test.
   "a2a-sdk[http-server,sqlite]>=1.3,<2",
+  # The group lists what the extras bring, so the tests run with them: `mcp` and its `PyYAML`.
   "mcp>=2.3,<3",
+  "PyYAML>=6.0.3,<7",
   "jsonschema[format-nongpl]>=4",
 ]
 
