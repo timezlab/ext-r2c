@@ -456,7 +456,7 @@ wrong, and can scan again without risking a running server.
 **Independent test**: `test_skills_scan.py` (filters), `test_skills_build_errors.py`,
 `test_skills_refresh.py`.
 
-- [ ] T049 [P] [US4] Extend `python/tests/test_skills_scan.py`, the filters (scenarios 1, 2, 7),
+- [x] T049 [P] [US4] Extend `python/tests/test_skills_scan.py`, the filters (scenarios 1, 2, 7),
   on a tree with `a`, `b-draft`, `c`:
   - `include=["a", "c"]` serves `a` and `c`; `exclude=["*-draft"]` serves `a` and `c`;
     `include=["*"]` with `exclude=["a"]` serves everything but `a` (exclude wins);
@@ -466,7 +466,7 @@ wrong, and can scan again without risking a running server.
   - **a broken skill that the filters exclude does not stop the build**: a `SKILL.md` with no
     frontmatter, one with a wrong name, one over the file limit; the build succeeds and the broken
     one is not served.
-- [ ] T050 [P] [US4] Write `python/tests/test_skills_build_errors.py` (**SC-005**, scenarios 5, 6).
+- [x] T050 [P] [US4] Write `python/tests/test_skills_build_errors.py` (**SC-005**, scenarios 5, 6).
   A table: each case builds a bad tree in `tmp_path` and asserts a `SkillsError` whose `folder`
   and `reason` are non-empty, `str(error) == f"{folder}: {reason}"`, and the text names the
   folder. **At least 20 cases**, grouped in the kinds of R6:
@@ -484,7 +484,7 @@ wrong, and can scan again without risking a running server.
   - **settings** are `ValueError`, not `SkillsError`: `ttl_ms` negative, a string or a bool;
     `page_size` 0 or a bool; `cache_scope="shared"`; `include="a"` or `exclude=[""]`; `folders=[]`
     or `""`; a `str`, a `PathLike` and a list are accepted forms of `folders`.
-- [ ] T051 [P] [US4] Write `python/tests/test_skills_refresh.py` (FR-007; D2):
+- [x] T051 [P] [US4] Write `python/tests/test_skills_refresh.py` (FR-007; D2):
   - after editing a file, the list and the entry still show the old digest and a read is `-32603`;
     after `refresh()` the list shows the new digest, the read works, `skills` and `left_out`
     show the new scan;
@@ -499,25 +499,25 @@ wrong, and can scan again without risking a running server.
   - `refresh()` can be called repeatedly; each success changes the catalogue's generation;
   - a burst of `skills/list` requests while refreshes run: every response is consistent (all
     digests of one generation), never a mix.
-- [ ] T052 [US4] Build, install, and run T049–T051. Confirm the expected failures: no filters, a
+- [x] T052 [US4] Build, install, and run T049–T051. Confirm the expected failures: no filters, a
   few build errors still plain, no settings checks, no `refresh`.
-- [ ] T053 [US4] `python/src/ext_r2c/mcp/skills/_scan.py`: apply `include` / `exclude` with
+- [x] T053 [US4] `python/src/ext_r2c/mcp/skills/_scan.py`: apply `include` / `exclude` with
   `fnmatch.fnmatchcase` on the last segment **before** reading a skill; every error kind of R6
   raised as `SkillsError(folder, reason)`; the limits checked from `stat` sizes before hashing;
   the name and description rules; the folder-name rule; duplicate URIs with the first segment
   case-folded; nothing left; an `OSError` becomes a reason without a host path other than the
   folder the owner gave.
-- [ ] T054 [US4] `python/src/ext_r2c/mcp/skills/extension.py`: the `include` and `exclude`
+- [x] T054 [US4] `python/src/ext_r2c/mcp/skills/extension.py`: the `include` and `exclude`
   arguments; settings validation (`ValueError`); the accepted forms of `folders`.
-- [ ] T055 [US4] `python/src/ext_r2c/mcp/skills/extension.py`: `refresh(server=None)`: scan again
+- [x] T055 [US4] `python/src/ext_r2c/mcp/skills/extension.py`: `refresh(server=None)`: scan again
   with the same arguments; new file URIs need `server.add_resource` (without a server:
   `SkillsError`, nothing changed); swap `self._catalogue` in one assignment; a failed scan keeps
   the old catalogue; `SkillFile.read` looks the URI up in the current catalogue, so a removed file
   is `MCPError(-32602, ...)`.
-- [ ] T056 [US4] Run T049–T051 on the wheel until green. **Mutation check**: apply the filters
+- [x] T056 [US4] Run T049–T051 on the wheel until green. **Mutation check**: apply the filters
   after parsing (the excluded-broken tests fail) and swap the catalogue in two steps (the burst
   test fails); restore.
-- [ ] T057 [US4] Verify, then commit `feat(005): filters, build errors, refresh`.
+- [x] T057 [US4] Verify, then commit `feat(005): filters, build errors, refresh`.
 
 ---
 
@@ -891,3 +891,60 @@ Kept as a running list while the phases are built; T080 closes it.
 - **Numbers.** 131 tests in `test_skills_safety.py` (125 first, six added by the mutation run); the suite
   is 1585 passed; replay counts are unchanged. The stale docstring in `test_skills_scan.py::TestLeftOut`
   ("phase 5 makes the scan report them") was updated.
+
+**Phase 6 (2026-11-22)**
+
+- **T052 failed where it was meant to.** Missing export of `SkillsError`, no `include` / `exclude`
+  arguments, no `refresh`, no settings checks, no limits, "nothing left" not raised. **Passed at once**:
+  "no frontmatter" and "unreadable name" in the filters test (the filters already ran before parsing: guards
+  for the mutants of T056), `test_there_are_at_least_twenty_cases`, and the two "accepted forms of
+  `folders`" tests (phase 3 behaviour).
+- **`page_size` and `directory_read` are not checked here.** T050 lists `page_size` 0 or a bool, but the
+  constructor has neither argument until phase 8 (T064–T071), so those two checks and their cases move
+  there. Every other setting is checked, as a `ValueError` naming it, **before** the folders are scanned.
+- **"Nothing to serve" is about all the roots, not one.** An empty root beside a good one is fine. With
+  nothing at all, `SkillsError.folder` is every root given, joined by `", "`; the reason says whether there
+  was no skill (`no skill found`) or the filters left none (and names `include` and `exclude`).
+- **Which path an error names.** A root is named as the owner gave it, made absolute when the extension is
+  built (so a later `chdir` changes nothing; a relative folder is tested with `monkeypatch.chdir`). A skill
+  or a folder below a root is named by the path the scan read, with links resolved. The contract says so.
+  Reasons never quote file text and never hold a host path: an `OSError` is `error.strerror`
+  ("Permission denied"), because `str(error)` ends with the path.
+- **The name is checked before it is compared with the folder**, so `Thing` in a folder `Thing` is refused
+  for being `Thing`, not for the folder. The test table first used the folder `thing` and the fragment
+  `name must be`, which both messages hold; mutation showed the rule on names was never tested (below).
+- **Limits are refused at the first file past them**, not counted whole: `has more than 512 files` and
+  `holds more than 16777216 bytes`, from `stat` sizes while nothing but `SKILL.md` has been read (a test
+  spies on the walk: 513 items listed, the other 88 files never looked at). T050 said "513 files fails";
+  it does, with "more than 512". A `SKILL.md` over the limit is refused for its size before it is parsed.
+  Each hash read is bounded by what is left of the 16 MiB, so a file that grew after `stat` cannot take the
+  skill past the limit unseen (a test grows files while the scan runs, one and two at a time).
+- **`refresh(server=None)`.** The new catalogue is built whole and swapped in with one assignment; a failed
+  scan keeps the old one. New file URIs are registered with `server.add_resource` **before** the swap, so
+  `skills/list` (what a client follows) never names a file the SDK would not find; for an instant
+  `resources/list` can show a new file that a read still refuses (the read looks in the old catalogue).
+  Until a server has asked for the resources (`resources()`), `_registered` is `None` and nothing is "new",
+  so an extension that has not been served yet refreshes without a server; the first cut demanded one and
+  was wrong. A removed file stays in `resources/list` (the SDK cannot remove one) and a read of it is
+  `-32602`. **No lock**: a signal handler that calls `refresh` could deadlock on a lock the interrupted
+  request holds, and the swap is one assignment, so a request sees one scan from end to end.
+- **The burst test needed a pause per request.** With none, the writer thread got 2 refreshes in 150
+  requests and proved nothing; each request now sleeps 1 ms, the test insists on at least 20 refreshes and
+  on both digests having been seen, and it stops at 3000 requests.
+- **Mutation: 68 mutants over `_scan.py`, `_settings.py`, `extension.py` and `_catalogue.py`, tested by
+  five files; 68 killed.** The first full run killed 59 and **left nine**: the rule on names (six mutants:
+  capitals, `--`, a leading or trailing hyphen, a prefix match, the order of the two rules), the reason of an
+  `OSError` holding the path (`str(error)`), a root error named by its resolved path (nothing in a
+  temporary folder is a link), and the `SKILL.md` read bounded at the limit instead of one past it. All
+  nine were gaps in the tests, none equivalent. Closed: names are tested in a folder that has the very name
+  (so only the rule can refuse them) against a fragment only the rule says; every "cannot be read" case
+  must end in `Permission denied` with no `Errno`; an unreadable root that is a link is named as given; an
+  oversized `SKILL.md` with no frontmatter is refused for its size. The two T056 mutants (filters after
+  parsing, and the catalogue cleared then filled) are killed by the filter test and the burst test. One
+  mutant not written because it is equivalent: `resources()` as `set(files)` instead of the union with what
+  was registered, which differs only when it is called twice.
+- **Two runs of the mutation harness proved nothing and are not counted**: the first was given a label that
+  matched no mutant (0 run), the second stopped at a mutant written without its replacement text.
+- **Numbers.** 90 tests in `test_skills_build_errors.py` (42 cases in the table, 20 required), 17 in
+  `test_skills_refresh.py`, 11 added to `test_skills_scan.py`; the suite is 1703 passed (was 1585); replay
+  counts unchanged. `verify.sh` is green on core only, a2a only and mcp only; `ruff --select F` is clean.

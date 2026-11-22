@@ -5,8 +5,9 @@ and `resources/list` work for any client, and declares itself in `server/discove
 the catalogue once and answers from that object; a request URI is only ever looked up as a whole
 string in it, never turned into a path.
 
-First cut (phase 3): all skills on one page, no directory method, and the settings are not checked
-yet; later phases add them.
+The settings are checked first (a bad one is a `ValueError`), then the folders are scanned (a problem
+with them is a `SkillsError`); `refresh()` scans again and swaps the new catalogue in whole. All
+skills are on one page and there is no directory method yet; phase 8 adds both.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import anyio.to_thread
 import mcp_types as types
@@ -23,10 +24,11 @@ from mcp.server.mcpserver.resources import Resource
 from mcp.shared.exceptions import MCPError
 from pydantic import Field
 
-from ._catalogue import Catalogue, FileRecord, LeftOut, SkillInfo, SkillRecord
+from ._catalogue import Catalogue, FileRecord, LeftOut, SkillInfo, SkillRecord, SkillsError
 from ._content import as_text_or_bytes
 from ._read import FileChanged, read_file
 from ._scan import scan_roots
+from ._settings import cache_scope_of, folders_of, patterns_of, ttl_ms_of
 from ._wire import (
     EXTENSION_ID,
     METHOD_GET,
@@ -37,6 +39,9 @@ from ._wire import (
     Skill,
     SkillResource,
 )
+
+if TYPE_CHECKING:
+    from mcp.server.mcpserver import MCPServer
 
 CHANGED = "The skills changed on disk since they were scanned; refresh them."
 log = logging.getLogger("ext_r2c.mcp.skills")
@@ -72,15 +77,23 @@ class SkillsExtension(Extension):
         self,
         folders: str | os.PathLike[str] | Sequence[str | os.PathLike[str]],
         *,
+        include: Sequence[str] = (),
+        exclude: Sequence[str] = (),
         ttl_ms: int = 300_000,
         cache_scope: Literal["private", "public"] = "private",
     ) -> None:
-        self._folders: tuple[str | os.PathLike[str], ...] = (
-            (folders,) if isinstance(folders, (str, os.PathLike)) else tuple(folders)
-        )
-        self._ttl_ms = ttl_ms
-        self._cache_scope = cache_scope
-        self._catalogue = scan_roots(self._folders, (), ())
+        """`include` and `exclude` are glob patterns matched, case-sensitively, against the name of a
+        skill's folder: a skill is served when it matches an `include` (or there is none) and no
+        `exclude`. A bad setting raises `ValueError`; anything wrong with the folders raises
+        `SkillsError`, naming the folder."""
+        self._folders = folders_of(folders)
+        self._include = patterns_of("include", include)
+        self._exclude = patterns_of("exclude", exclude)
+        self._ttl_ms = ttl_ms_of(ttl_ms)
+        self._cache_scope = cache_scope_of(cache_scope)
+        # The file URIs the SDK has been given a resource for; `None` until a server asks (`resources()`).
+        self._registered: set[str] | None = None
+        self._catalogue = scan_roots(self._folders, self._include, self._exclude)
         _announce(self._catalogue)
 
     @property
@@ -112,9 +125,45 @@ class SkillsExtension(Extension):
         return {"directoryRead": False}  # the directory method comes with phase 8
 
     def resources(self) -> list[ResourceBinding]:
-        return [
-            ResourceBinding(self._resource(skill, record)) for skill in self._catalogue.skills for record in skill.files
-        ]
+        """One resource per served file; the SDK reads this once, when the server is built."""
+        catalogue = self._catalogue
+        self._registered = {*(self._registered or ()), *catalogue.files}
+        return [ResourceBinding(self._resource(skill, record)) for skill in catalogue.skills for record in skill.files]
+
+    def refresh(self, server: MCPServer | None = None) -> None:
+        """Scan the folders again, with the same filters, and serve what the new scan found.
+
+        The new catalogue is built whole and then put in place with one assignment, so a request sees
+        one scan from its first line to its last. If the scan fails, the old catalogue keeps serving
+        and the `SkillsError` is raised. A file whose URI the SDK has not been given a resource for
+        needs the `server` the extension is served by (it is added with `add_resource`); without
+        one that is a `SkillsError` and nothing changes.
+
+        The SDK cannot remove a resource: a file that is gone stays in `resources/list` with the
+        name, description and type it had, and reading it is `-32602`. Blocks while it scans: call
+        it from startup code, a signal handler or `anyio.to_thread`. It never writes.
+        """
+        catalogue = scan_roots(self._folders, self._include, self._exclude)
+        registered = self._registered
+        if registered is not None:  # before a server has asked for the resources, it is missing nothing
+            new = [
+                (skill, record)
+                for skill in catalogue.skills
+                for record in skill.files
+                if record.uri not in registered
+            ]
+            if new and server is None:
+                skill, record = new[0]
+                raise SkillsError(skill.folder, f"{record.uri} is new, and only refresh(server) can give a new file to the server")
+            if server is not None:
+                # Registered before the swap, so that `skills/list` (what a client follows) never lists
+                # a file the SDK would not find. For an instant `resources/list` can show a new file
+                # that a read still refuses, because a read looks in the catalogue that is still the old one.
+                for skill, record in new:
+                    server.add_resource(self._resource(skill, record))
+                    registered.add(record.uri)
+        self._catalogue = catalogue
+        _announce(catalogue)
 
     def methods(self) -> list[MethodBinding]:
         return [
@@ -153,7 +202,9 @@ class SkillsExtension(Extension):
         return GetSkillResult(skill=self._entry(skill), ttl_ms=self._ttl_ms, cache_scope=self._cache_scope)
 
     async def _serve(self, uri: str) -> str | bytes:
-        record = self._catalogue.files[uri]
+        record = self._catalogue.files.get(uri)
+        if record is None:  # registered once, gone since a refresh: the SDK cannot unregister it
+            raise MCPError(code=types.INVALID_PARAMS, message=f"No file is served at {uri}")
         try:
             data = await anyio.to_thread.run_sync(self._read_bytes, record)
         except FileChanged:

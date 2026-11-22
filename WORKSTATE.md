@@ -116,9 +116,14 @@ Last updated 2026-11-22. Read this first in a new session.
   control). **Phase 5 (T042–T048, nothing outside is served) is done** (2026-11-22): the read opens
   every name from `/` with `O_NOFOLLOW`, refuses anything that is not a regular file and never reads
   past the entry's size; the scan reports what it left out (`left_out`) and logs it; 131 new tests
-  (1585 in all), 54 of 59 mutants died (the five are the control and four equivalents). The maintainer
+  (1585 in all), 54 of 59 mutants died (the five are the control and four equivalents). **Phase 6
+  (T049–T057, filters, build errors and refresh) is done** (2026-11-22): `include` / `exclude` are matched
+  before a skill is read, every fault of the folders is a `SkillsError(folder, reason)` that quotes no file
+  text and no host path, the 512-file and 16 MiB limits are refused at the first file past them, bad
+  settings are a `ValueError`, and `refresh()` swaps a whole new catalogue in with one assignment; 118 new
+  tests (1703 in all), 68 of 68 mutants died. The maintainer
   then asked for the whole spec in one run ("implement hết spec"), so
-  phases 6–9 follow without a stop between them; where each phase differed from its plan is kept in
+  phases 7–9 follow without a stop between them; where each phase differed from its plan is kept in
   "Notes: where reality differed" at the end of `specs/005-mcp-skills/tasks.md`. Nothing is pushed.
 
 ## Spec sequence (001–004 built; 005 onward proposed, awaiting approval)

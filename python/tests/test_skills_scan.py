@@ -316,6 +316,48 @@ class TestFilters:
         assert "skill://team/billing/refunds/inner-skill/SKILL.md" not in whole.by_uri
 
 
+    def test_the_three_skill_tree_of_the_spec(self, tmp_path: Path) -> None:
+        """Story 4, scenarios 1 and 2: `a`, `b-draft` and `c`."""
+        root = tmp_path / "skills"
+        for name in ("a", "b-draft", "c"):
+            write_skill(root, name)
+        assert self.names(scan_roots([root], ["a", "c"], ())) == ["a", "c"]
+        assert self.names(scan_roots([root], (), ["*-draft"])) == ["a", "c"]
+        assert self.names(scan_roots([root], ["*"], ["a"])) == ["b-draft", "c"]  # exclude wins
+        with pytest.raises(SkillsError):  # case-sensitive: `A` is not `a`, so nothing is left
+            scan_roots([root], ["A"], ["*-draft"])
+
+    @pytest.mark.parametrize("pattern", ["team/billing/refunds", "*/refunds", "team/*", "/refunds", "refunds/"])
+    def test_a_pattern_with_a_slash_never_matches(self, tmp_path: Path, pattern: str) -> None:
+        """The pattern sees one name, so a `/` in it cannot be in what it is matched against."""
+        root = standard_tree(tmp_path).root
+        with pytest.raises(SkillsError):  # as an include it lets nothing through
+            scan_roots([root], [pattern], ())
+        assert self.names(scan_roots([root], (), [pattern])) == ["greetings", "pdf-notes", "refunds"]  # and as an exclude, nothing out
+
+    @pytest.mark.parametrize("fault", ["no frontmatter", "wrong name", "too many files", "too many bytes", "unreadable name"])
+    def test_a_skill_the_filters_leave_out_may_be_broken_in_any_way(self, tmp_path: Path, fault: str) -> None:
+        root = tmp_path / "skills"
+        write_skill(root, "good-one")
+        broken = write_skill(root, "draft-broken")
+        if fault == "no frontmatter":
+            (broken / "SKILL.md").write_text("Just text.\n")
+        elif fault == "wrong name":
+            (broken / "SKILL.md").write_text("---\nname: another-name\ndescription: Fine.\n---\n")
+        elif fault == "too many files":
+            for index in range(513):
+                (broken / f"f{index:03d}.txt").write_text("x")
+        elif fault == "too many bytes":
+            with open(broken / "huge.bin", "wb") as stream:
+                stream.truncate(17 * 1024 * 1024)
+        else:
+            (broken / "SKILL.md").write_bytes(b"---\nname: \xff\ndescription: x\n---\n")
+        assert self.names(scan_roots([root], (), ["draft-*"])) == ["good-one"]
+        assert self.names(scan_roots([root], ["good-*"], ())) == ["good-one"]
+        with pytest.raises(SkillsError):
+            scan_roots([root], (), ())
+
+
 # --- The first cut's errors -----------------------------------------------------------------------
 
 

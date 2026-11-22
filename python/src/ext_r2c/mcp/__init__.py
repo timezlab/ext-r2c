@@ -38,6 +38,7 @@ from .skills import (
     SkillListing,
     SkillRefused,
     SkillsClient,
+    SkillsError,
     SkillsExtension,
 )
 from .source_tool import SourceTool
@@ -69,6 +70,7 @@ __all__ = [
     "SkillListing",
     "SkillRefused",
     "SkillsClient",
+    "SkillsError",
     "SkillsExtension",
     "SourceTool",
     "TooLarge",

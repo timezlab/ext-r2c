@@ -117,7 +117,7 @@ class Catalogue:
         directory cannot share a URI (the first segment is compared in lower case, as a host is);
         if two do, it is a `SkillsError`."""
         ordered = tuple(sorted((_with_sorted_files(skill) for skill in skills), key=lambda skill: skill.uri))
-        claimed: dict[str, str] = {}  # folded URI -> "file" or "directory"
+        claimed: dict[str, tuple[str, str]] = {}  # folded URI -> ("file" or "directory", the skill's folder)
         files: dict[str, FileRecord] = {}
         directories: dict[str, DirectoryRecord] = {}
         for skill in ordered:
@@ -147,16 +147,16 @@ def _fold(uri: str) -> str:
     return f"{_PREFIX}{authority.lower()}{slash}{rest}"
 
 
-def _claim(claimed: dict[str, str], uri: str, kind: str, folder: str) -> None:
-    """Note that `uri` is taken by a `kind` ("file" or "directory"); a second claim is an error."""
+def _claim(claimed: dict[str, tuple[str, str]], uri: str, kind: str, folder: str) -> None:
+    """Note that `uri` is taken by a `kind` ("file" or "directory") of the skill in `folder`; a second
+    claim is an error that names both folders."""
     key = _fold(uri)
     earlier = claimed.get(key)
     if earlier is None:
-        claimed[key] = kind
-    elif earlier == kind:
-        raise SkillsError(folder, f"{uri} is served twice")
-    else:
-        raise SkillsError(folder, f"{uri} is both a file and a directory")
+        claimed[key] = (kind, folder)
+        return
+    what = "served twice" if earlier[0] == kind else "both a file and a directory"
+    raise SkillsError(folder, f"{uri} is {what}; it is also in {earlier[1]}")
 
 
 def _directories_of(skill: SkillRecord) -> Iterator[DirectoryRecord]:

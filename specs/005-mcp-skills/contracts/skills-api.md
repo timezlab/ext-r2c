@@ -41,8 +41,11 @@ class SkillInfo:  name: str; uri: str; description: str; files: int; size: int
 class LeftOut:    path: str; reason: str   # "hidden" | "symbolic link" | "not a regular file" | "undecodable name"
 
 class SkillsError(ValueError):
-    folder: str          # the folder (or root) the reason is about; the filters for "nothing left"
-    reason: str          # message text is f"{folder}: {reason}"
+    folder: str          # a root: as the owner gave it (made absolute); a skill or a folder below a
+                         # root: the path the scan read (links resolved); "nothing left": every
+                         # root given, joined by ", "
+    reason: str          # message text is f"{folder}: {reason}"; never holds file text, and an OS
+                         # error is the system's words for it ("Permission denied"), not its path
 ```
 
 ### Rules
@@ -63,12 +66,16 @@ class SkillsError(ValueError):
   catalogue in one assignment; on failure the old catalogue stays and the `SkillsError` is raised.
   If the new scan has a file URI the SDK has not been given a resource for, then with a `server`
   it is added through `server.add_resource`, and without one `refresh` raises `SkillsError`
-  (the old catalogue stays). It blocks while it scans: call it from startup code, a signal
-  handler, or `anyio.to_thread`. It never writes.
+  (the old catalogue stays). Until a server has asked the extension for its resources (it is
+  built into one), no file is "new" and `server` is not needed. It blocks while it scans: call it
+  from startup code, a signal handler, or `anyio.to_thread`. It never writes and takes no lock.
 - **Refresh limits** (the SDK has no resource removal, R5): a file that disappears stays in
   `resources/list` and its read is `-32602`; a resource's `name`, `description` and MIME in
   `resources/list` keep their values from when it was registered. `skills/list`, `skills/get`
   and directory reads always show the new catalogue.
+- **Limits are refused at the first file past them** ("has more than 512 files", "holds more than
+  16777216 bytes"), from `stat` sizes, when nothing but `SKILL.md` has been read; the message does
+  not count the files or bytes beyond that.
 - **v1 limits**: a `name` must match `^[a-z0-9]+(-[a-z0-9]+)*$` (≤ 64) — ASCII only; a nested
   `SKILL.md` is an ordinary file of the outer skill and is not served as a skill (R6); a file is
   sent whole; the frontmatter text is at most 64 KiB.
