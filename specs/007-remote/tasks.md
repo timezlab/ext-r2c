@@ -296,26 +296,26 @@ by `Remote`, none addressed to the caller.
 
 **Independent test**: `test_remote_approvals.py`.
 
-- [ ] T040 [P] [US3] `tests/test_remote_approvals.py`, section 1 (A2A, the agent's own gate; SC-001 criteria 1
+- [X] T040 [P] [US3] `tests/test_remote_approvals.py`, section 1 (A2A, the agent's own gate; SC-001 criteria 1
   to 3): the real graph with `HumanInTheLoopMiddleware` gating `publish_page`, served by `Remote`: the approval
   carries the tool's `title` and `subject`; `allow` runs the body exactly once and the task completes; `deny`
   with a reason does not run it, the model gets the reason, the task completes; an answer that fails the schema
   is asked again with the same id and `errors` and the run lives.
-- [ ] T041 [P] [US3] section 2 (MCP, `approve=`): the same function as a plain tool in `tools=` with
+- [X] T041 [P] [US3] section 2 (MCP, `approve=`): the same function as a plain tool in `tools=` with
   `approve=["publish_page"]`: a direct call first asks an approval; the body does not run before `allow` and
   runs once after; `deny` does not run it; `approve={"publish_page": Approve(answer_by="approver")}` asks an
   approver; the agent's own list and `approve=` name different tools and each governs only its own path.
-- [ ] T042 [P] [US3] section 3 (SC-004, never answered by `Remote`): every path through `Remote` that makes an
+- [X] T042 [P] [US3] section 3 (SC-004, never answered by `Remote`): every path through `Remote` that makes an
   approval has `answer_by` of `person` or `approver`; `Approve(answer_by="caller")` is refused at build; the
   parameters of `Remote.__init__` equal the list of D1 exactly and the fields of both option classes equal the
   data model's (a surface pin: no hidden knob answers an approval).
-- [ ] T043 [US3] Run T040–T042. Expected: they pass on the code of phases 3 and 4 (this phase composes what
+- [X] T043 [US3] Run T040–T042. Expected: they pass on the code of phases 3 and 4 (this phase composes what
   004 and 006 built). For each that passes on its first run, say so and prove it is not vacuous in T045.
-- [ ] T044 [US3] Fix what the tests find in production code, test first (expected: nothing; record it).
-- [ ] T045 [US3] Mutation check (scratch, green baseline): skip the `approve` existence check; skip the
+- [X] T044 [US3] Fix what the tests find in production code, test first (expected: nothing; record it).
+- [X] T045 [US3] Mutation check (scratch, green baseline): skip the `approve` existence check; skip the
   `answer_by` check; make `approve=` pass nothing to `R2CExtension`; serve the tool before the approval. Each
   mutant fails a named test of T040–T042 or T032.
-- [ ] T046 Verify and commit: `test(007): approvals through Remote on both doors`.
+- [X] T046 Verify and commit: `test(007): approvals through Remote on both doors`.
 
 **Checkpoint**: SC-004 and the approval half of SC-001 hold.
 
@@ -684,3 +684,19 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
 - **Verify.** 128 tests in `test_remote_errors.py`. With the files written ahead for later phases left out,
   the suite is 2691 on 3.13 and the same set is green on 3.11 and 3.12; core only, a2a only, mcp only and
   langgraph only ok; `ruff` clean.
+
+### Phase 5 (2026-11-23)
+
+- **T043.** All 18 tests passed on their first run, on the code of phases 3 and 4: this phase composes what
+  specs 004 and 006 built, as the task expected. **T044:** nothing to fix in production code.
+- **T045, what a first-run pass is worth.** Nine mutants (the four of the task and five more:
+  `approve` naming the agent's own tool, `caller` and `model` taken as answerers, `False` asking, `True` not
+  asking). Eight
+  died on the first run. The ninth, "`approve` may name no tool", died only in `test_remote_errors.py` (row
+  10, as T045 allowed). A typo in `approve` is the one mistake of this argument that leaves a tool running
+  without a question, so this file now says it too: three forms (a list, a mapping with `True`, a mapping with
+  `False`) are refused at build, each naming the misspelt tool. Nine of nine died.
+- **The surface pin** (T042) also fixes the fields of `Approve` (`answer_by`, `expires_in`, `title`): that is
+  where a knob for "who answers" would live. A new field is then a decision, not a patch.
+- **Verify.** 21 tests in `test_remote_approvals.py` on 3.11, 3.12 and 3.13; with the files written ahead for
+  phases 6 to 9 left out, the suite is 2712 on 3.13; `ruff` clean. No source file changed in this phase.
