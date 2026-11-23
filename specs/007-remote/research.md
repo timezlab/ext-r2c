@@ -28,6 +28,12 @@ Each item has a **Decision**, the **Why**, and the **Alternatives** that were we
   unknown paths are A2A's; with `auth` set, `/.well-known/oauth-protected-resource/mcp` is MCP's by
   the same test, with no path list written down.
 
+> **Note, 2026-11-23 (phase 1, the spike).** Two details above were imprecise and are pinned as they
+> are in `tests/test_remote_spike.py`; neither changes the decision. (1) `Mount("/mcp", mcp_app)` answers
+> `POST /mcp` with a `307` to `/mcp/`, and `/mcp/` then answers `404`: a redirect and then nothing, not
+> a `404` at once. (2) The MCP route has no method list, so every method on `/mcp` is a *full* match and
+> the MCP app itself answers a wrong method; there is no partial match to speak of.
+
 **Decision.** `app()` returns `Starlette(routes=[Mount("/", app=Dispatch(a2a, mcp))],
 middleware=list(middleware), lifespan=both)`. `Dispatch` sends a request to the MCP app when the MCP
 router matches it (full or partial: a `GET /mcp` gets MCP's own `405`), else to the A2A app. Each

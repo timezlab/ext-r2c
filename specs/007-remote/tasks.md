@@ -85,39 +85,39 @@ pinned by a test.
 
 **Independent test**: `tests/test_remote_spike.py`.
 
-- [ ] T001 Confirm the set: in `../.ci-venv` list `a2a-sdk`, `mcp`, `starlette`, `httpx`, `httpx2`,
+- [X] T001 Confirm the set: in `../.ci-venv` list `a2a-sdk`, `mcp`, `starlette`, `httpx`, `httpx2`,
   `langchain`, `langgraph`; check that the `[a2a]` and `[mcp]` bounds in `python/pyproject.toml` admit them;
   confirm **no dependency or extra changes** for this spec (FR-036). Write one dated line under "Phase 1" in
   the notes of this file. If a bound would have to move, stop and tell the maintainer.
-- [ ] T002 [P] `tests/test_remote_spike.py`, section 1 (R1): build the real A2A app and the real MCP app
+- [X] T002 [P] `tests/test_remote_spike.py`, section 1 (R1): build the real A2A app and the real MCP app
   (plain, and with the SDK's `auth` using `mcp_harness.auth()`); in the test, a small `Dispatch` asks the
   MCP router; pin: `/mcp` is MCP's exactly and `POST /mcp` has no redirect; the card path, `/` and an unknown
   path are A2A's; with `auth`, the OAuth protected-resource path is MCP's; `Mount("/mcp", mcp_app)` answers
   `/mcp` with `404` and does not run the sub-app's lifespan (so the design is not a mount).
-- [ ] T003 [P] `tests/test_remote_spike.py`, section 2 (R2): an `AsyncExitStack` over the two door lifespans
+- [X] T003 [P] `tests/test_remote_spike.py`, section 2 (R2): an `AsyncExitStack` over the two door lifespans
   starts and stops both in order; the MCP session manager's second `run()` raises; `handler.aclose()` twice is
   harmless. (The lifespan leak is A1's test, T010, not a pinned fact.)
-- [ ] T004 [P] `tests/test_remote_spike.py`, section 3 (R3): under one outer `AuthenticationMiddleware`
+- [X] T004 [P] `tests/test_remote_spike.py`, section 3 (R3): under one outer `AuthenticationMiddleware`
   (`BearerAuth` of `a2a_harness.py`) the A2A default resolver and an `R2CExtension(owner=...)` callable both
   see the same user (`ctx.request.user`).
-- [ ] T005 [P] `tests/test_remote_spike.py`, section 4 (R4, R5): `isinstance(x, AgentSource)` raises
+- [X] T005 [P] `tests/test_remote_spike.py`, section 4 (R4, R5): `isinstance(x, AgentSource)` raises
   `TypeError`; an a2a-sdk executor has `execute` and `cancel` and none of `card`, `pause`, `run`, `resume`;
   `inspect.isroutine` is true for a function and a method and false for a `functools.partial`, a callable
   instance and an object with `invoke`; `tool_from_function` of such an object raises `AttributeError` (the
   reason `Remote` classifies first).
-- [ ] T006 [P] `tests/test_remote_spike.py`, section 5 (R8, R9): the keyword names of
+- [X] T006 [P] `tests/test_remote_spike.py`, section 5 (R8, R9): the keyword names of
   `MCPServer.__init__` and `streamable_http_app` equal the sets written in the test (a rename fails here);
   `mcp_server(..., extensions=[SkillsExtension(...)])` with `R2CExtension(tools=())`, one `add_resource`
   and one `add_prompt` starts, lists the skills, the resource and the prompt, answers `tools/list` empty and
   declares the R2C key; `Approve(answer_by="caller")` constructs (the gap `Remote` closes).
-- [ ] T007 [P] `tests/test_remote_spike.py`, section 6 (R14): one parent app served inside its own lifespan
+- [X] T007 [P] `tests/test_remote_spike.py`, section 6 (R14): one parent app served inside its own lifespan
   gives an A2A client (`a2a_harness.a2a_client(Served(app, card))`) and an MCP client
   (`mcp_harness.mcp_client(Served(None, app))`) at once, one bearer header naming the owner on both; the
   in-process transports do not run the lifespan themselves (the test enters it). If the MCP client needs
   anything from `Served.server`, record what and plan a stand-in in T018.
-- [ ] T008 Run the spike: every test passes. A failing fact means stop, update `research.md` and `plan.md`
+- [X] T008 Run the spike: every test passes. A failing fact means stop, update `research.md` and `plan.md`
   first, and tell the maintainer.
-- [ ] T009 Verify and commit: `test(007): pin the SDK facts Remote leans on`.
+- [X] T009 Verify and commit: `test(007): pin the SDK facts Remote leans on`.
 
 **Checkpoint**: facts pinned; no production code yet.
 
@@ -554,4 +554,24 @@ checked on three Pythons.
 
 ## Notes: where reality differed (dated; the bodies above are not rewritten)
 
-None yet.
+The maintainer said "implement spec" on 2026-11-23. It is read as the whole spec: every phase runs, each
+verified and committed on its own, none pushed.
+
+**Verify, as run.** The working venv `../.ci-venv` is Python 3.13 and is not recreated per phase: the fresh
+wheel is reinstalled into it (`--reinstall-package ext-r2c`), and into the four single-extra venvs. Python
+3.11 and 3.12 have venvs of their own (`../.v3.11-venv`, `../.v3.12-venv`) with the same dev group; the
+whole suite runs there at the end of phases 1, 3 and 10, and wherever a task says so.
+
+### Phase 1 (2026-11-23)
+
+- **T001.** Installed set: `a2a-sdk` 1.3.1, `mcp` 2.3.0, `starlette` 1.10.0, `httpx` 0.28.1, `httpx2` 2.16.2,
+  `langchain` 1.5.2, `langchain-core` 1.8.4, `langgraph` 1.2.24. The `[a2a]` (`>=1.3,<2`) and `[mcp]`
+  (`>=2.3,<3`) bounds admit them. No dependency and no extra changes.
+- **T002.** Two details of research R1 were imprecise; the spike pins what the packages do and R1 has a
+  dated note. A `Mount("/mcp", ...)` answers `POST /mcp` with a `307` to `/mcp/`, which then answers `404`
+  (not a `404` at once). The MCP route has no method list, so every method on `/mcp` is a full match; the
+  dispatcher's "full or partial" test is unchanged and simply never sees a partial one. The decision stands.
+- **T007.** The MCP client needs nothing from `Served.server`: `Served(None, app)` is enough, so the harness
+  of T018 needs no stand-in.
+- **T008.** 14 tests, all green on 3.11, 3.12 and 3.13. They pass on their first run by design: they pin
+  facts of the installed SDKs and no production code exists yet.
