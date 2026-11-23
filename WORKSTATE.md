@@ -241,11 +241,11 @@ Last updated 2026-11-23. Read this first in a new session.
     undeclared keys; a batched answer for an already decided position ends `lost`. **SC-012 is the one thing
     not shown**: it asks that the maintainer, reading the spec, the plan and the ADR, can say for each pause
     what the caller sees and what the graph gets back.
-  - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
-    (spec 006), `3b26285` (its plan), the tasks commit after it and every commit of spec 006's ten phases,
-    and every commit of spec 007 (`git log d07f9c6..HEAD`, the last two are its review fixes and its close).
-  - **Spec 007 is closed locally** (`specs/007-remote/`, 2026-11-23, all ten phases committed, none
-    pushed): `ext_r2c.Remote`, the only remote-side adapter, built from `spec.md` (drafted 2026-11-23),
+  - **Pushed** on the maintainer's go (2026-11-23, `main` at `a31da46`, CI green on 3.11, 3.12 and 3.13): the
+    rename of the three generic names of spec 005 (`a6929a7`), every commit of spec 006 and of spec 007,
+    and the README commit after them ("README answers what a first-time Remote user had to guess").
+  - **Spec 007 is closed** (`specs/007-remote/`, 2026-11-23, all ten phases committed, pushed the same
+    day): `ext_r2c.Remote`, the only remote-side adapter, built from `spec.md` (drafted 2026-11-23),
     `plan.md`, `research.md` (R1–R18), `data-model.md`, `contracts/` (`remote-api.md`, `app-composition.md`),
     `quickstart.md` and `tasks.md` (83 tasks, all done). The maintainer asked for it with "sinh plan và
     task" and then "implement spec"; we read both as approval of the spec with D1–D13 as written, and of
@@ -273,7 +273,7 @@ Last updated 2026-11-23. Read this first in a new session.
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–007 built, 006 and 007 not pushed; 008 onward proposed)
+## Spec sequence (001–007 built and pushed; 008 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -304,7 +304,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    in `ext_r2c.mcp.skills`, read from folders with include / exclude, on the SDK's `Extension`. Split
    out of 004 on 2026-11-20 (maintainer, Q1 A): a separate MCP extension, not R2C. `Remote(skills=...)`
    is spec 007.
-6. **`006-langgraph-bridge`** (closed locally 2026-11-22, all ten phases committed, not pushed) —
+6. **`006-langgraph-bridge`** (closed 2026-11-22, all ten phases committed, pushed 2026-11-23) —
    `ext_r2c.bridges.langgraph` (`LangGraphAgent`, LangChain tools → `ToolSpec`), passing the shared
    bridge conformance suite: graph → run events; `HumanInTheLoopMiddleware` in `batched` and
    `per_call` modes, hand-written `interrupt()`, the `status = "input_required"` turn end, reply
@@ -314,7 +314,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    after the advisory vet). One additive core
    piece (`PauseLost`), one core race fix (found in phase 3) and a structural change to the shared suite;
    ten delivery phases in the plan.
-7. **`007-remote`** (closed locally 2026-11-23, all ten phases committed, not pushed) — `Remote`, the only
+7. **`007-remote`** (closed 2026-11-23, all ten phases committed, pushed the same day) — `Remote`, the only
    remote-side adapter, configured declaratively: `expose` (required) = A2A, MCP or both; one ASGI app; `agent=`
    (an `AgentSource` or an a2a-sdk executor), `card=`, `url=`, `tools=`, `approve=`, `skills=`
    (folders or a `SkillsExtension`), `resources=`, `prompts=`, `mcp_tool=True`, `middleware=`, and
