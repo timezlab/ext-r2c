@@ -413,23 +413,23 @@ by `Remote`, none addressed to the caller.
 
 **Independent test**: `test_remote_options.py`.
 
-- [ ] T066 [P] [US7] `tests/test_remote_options.py`, section 2: `expose=["a2a"]` answers the card and the
+- [X] T066 [P] [US7] `tests/test_remote_options.py`, section 2: `expose=["a2a"]` answers the card and the
   JSON-RPC only and the MCP path answers `404`, and `ext_r2c.mcp` and `mcp` are not in `sys.modules` (child
   process); `expose=["mcp"]` the reverse (SC-008).
-- [ ] T067 [P] [US7] section 3 (the options take effect): the `task_store` object given is the one the door
+- [X] T067 [P] [US7] section 3 (the options take effect): the `task_store` object given is the one the door
   and its store use, and the `owner_resolver` given is read for a task's owner and shares its key with the store
   (spec 003's rule); `MCPOptions.transport_security` allowing `remote.example.com` serves a request with that
   `Host` and a request with another `Host` is `421` (finding 8); `server={"instructions": ...}` reaches the
   initialize result; `http={"json_response": True}` changes the response type; `MCPOptions.path` and
   `A2AOptions.path` move their endpoints.
-- [ ] T068 [P] [US7] section 4 (`middleware` and D5): a counting middleware wraps both doors; `middleware=`
+- [X] T068 [P] [US7] section 4 (`middleware` and D5): a counting middleware wraps both doors; `middleware=`
   given with MCP exposed and no `owner` and no SDK authentication gives one `UserWarning` naming `mcp.owner`;
   with `owner` given, with `token_verifier`, `auth` or `auth_server_provider` in `server`, with no middleware,
   or with A2A only, none; with the recommended recipe one bearer header makes the same owner on both doors
   (an A2A task's owner and the MCP extension's owner are equal).
-- [ ] T069 [US7] Run T066–T068: T068's warning half fails (no D5 yet); the rest are expected to pass. Then
+- [X] T069 [US7] Run T066–T068: T068's warning half fails (no D5 yet); the rest are expected to pass. Then
   `_check.py`: the D5 rule of R11, wired in `Remote.__init__` after D13. Run green.
-- [ ] T070 Verify and commit: `feat(007): one door, door options and the identity warning`.
+- [X] T070 Verify and commit: `feat(007): one door, door options and the identity warning`.
 
 **Checkpoint**: SC-008 (one door) holds; every story is built.
 
@@ -775,3 +775,31 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
   source file and compared again (equal) before the run was repeated in the background.
 - **Verify.** 11 tests in `test_remote_executor.py`; with the file written ahead for phase 9 left out,
   2762 on 3.11, 3.12 and 3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.
+
+### Phase 9 (2026-11-23)
+
+- **T066–T068, written ahead in an earlier session.** First run: 32 of the 38 passed and 6 failed. Three of
+  the six were the D5 tests, red for the expected reason (no `mcp.owner` warning). The other three were bugs
+  of the tests, found by reading each failure and fixed before any code: (1) the control "both doors built
+  load both" served an executor on A2A and nothing on MCP, which row 5 refuses ("nothing to serve"), so it
+  never built (it now serves a tool too); (2) the counting-middleware test took its A2A snapshot after the
+  MCP client had already said hello as it entered, so `/mcp` was in it (the counter is cleared once both
+  clients are in); (3) the order test of the three warnings gave no `expose`. After the fixes the four D5
+  tests were the only ones red, each for the one reason that matters.
+- **T069.** D5 is `_names_an_owner` and `_OWNER_SOURCES` in `_check.py`, after D13 in `warning_texts`, wired
+  as before by `Remote.__init__`. A decision beyond R11's wording: "none of `auth`, `token_verifier`,
+  `auth_server_provider` in `server`" is read as "none *set*", so a key left `None` is no owner source
+  (`server={"auth": None}` is what a deployment that switches the SDK's authentication off by configuration
+  would give). Two tests came with it: that case still warns, and an `owner` beside `auth: None` is enough.
+  The text ends "or ignore this when one owner for every MCP caller is what you want".
+- **Mutation check.** Twenty-five mutants, all died. Thirteen on the rule and its delivery: never warns; warns
+  with no middleware; warns for A2A alone; ignores every owner source; the `owner` callable, `auth`,
+  `token_verifier` or `auth_server_provider` taken out of the sources (four); a `None` setting counted as a
+  source; the text not beginning with the setting; the identity warning first; said again by `app()`; the
+  warning pointing into the library. Twelve on one door and the options: the MCP path not passed (the
+  phase 3 survivor, which now dies on `test_the_two_paths_move_their_endpoints`), the task store, the owner
+  resolver, the host rules, the HTTP keywords, the server keywords and the extension's `owner` each not
+  passed, the card and the JSON-RPC ignoring `a2a.path`, both doors loaded for one, the owner's middleware
+  dropped, and `/mcp` sent to the A2A app.
+- **Verify.** 40 tests in `test_remote_options.py`; the whole suite, nothing left out, 2802 on 3.11, 3.12 and
+  3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.

@@ -25,6 +25,7 @@ from ._options import A2AOptions, MCPOptions, owned_key_problems, path_problems
 __all__ = ["Checked", "check", "warning_texts"]
 
 _ANSWERED_BY = ("person", "approver")  # never a model, and so never the caller's agent (principle V)
+_OWNER_SOURCES = ("auth", "token_verifier", "auth_server_provider")  # the SDK's own ways to name a caller
 
 # What each argument of one door is for, said when that door is not exposed (FR-019).
 _OF_A2A = {"url": "the address on the card is said", "a2a": "its options are read"}
@@ -153,7 +154,8 @@ def check(
 
 def warning_texts(held: Checked) -> list[str]:
     """What a valid ``Remote`` says to its owner once, when it is built (R11), in this order: the A2A
-    door's restart warning, then the MCP door's. Each begins with the setting that answers it."""
+    door's restart warning, then the MCP door's, then the one about the owner of an MCP call. Each begins
+    with the setting that answers it."""
     texts = []
     if "a2a" in held.doors and held.a2a.task_store is None:
         texts.append(
@@ -167,7 +169,20 @@ def warning_texts(held: Checked) -> list[str]:
             "loses the paused call; pass MCPOptions(security=RequestStateSecurity(keys=[...])) with keys that are "
             "the same in every process, or ignore this when a call lost on a restart is fine"
         )
+    if held.middleware and "mcp" in held.doors and not _names_an_owner(held.mcp):
+        texts.append(
+            "mcp.owner: middleware= is given, but the MCP door reads the owner of a call from MCPOptions(owner=...) "
+            "or from the SDK's own authentication and has neither, so every MCP caller is one owner in one thread "
+            "namespace; pass MCPOptions(owner=...) that returns the user the middleware named, or give the server "
+            "the SDK's authentication, or ignore this when one owner for every MCP caller is what you want"
+        )
     return texts
+
+
+def _names_an_owner(options: MCPOptions) -> bool:
+    """Whether the MCP door has a way to tell its callers apart: an ``owner`` callable, or one of the
+    SDK's own authentication settings in the server's keywords (a setting left ``None`` is none)."""
+    return options.owner is not None or any(options.server.get(key) is not None for key in _OWNER_SOURCES)
 
 
 def _can_pause(held: Checked) -> bool:
