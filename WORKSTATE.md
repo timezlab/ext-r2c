@@ -272,6 +272,17 @@ Last updated 2026-11-23. Read this first in a new session.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
+  - **Example `examples/langgraph_agent/`** (2026-11-23, local commit, not pushed). Not a spec: it is
+    documentation and changes nothing under `python/src/`. The maintainer asked for it to see what the SDK
+    looks like in use, for the first outside adopter's case (two LangChain agents in Python calling each
+    other). A reporter and a planner, each wrapped by one `Remote(...)` over A2A and MCP: a question, an
+    approval, an MCP call back, and a rule that declines an approval for an agent that calls an agent.
+    It runs offline with a scripted model. `tests/test_example_langgraph.py` runs it on real sockets against
+    the installed wheel (4 tests; 2 mutants of the example killed). Written first and pinned after, so the
+    test was not seen failing before the code existed. **Maintainer's stated direction, 2026-11-23:** a CI
+    job that builds the wheel on a release, then a first alpha or beta release for that adopter to
+    integrate. Neither exists yet; the release needs the PyPI name decision (not reserved) or a wheel
+    attached to the GitHub release.
 
 ## Spec sequence (001–007 built and pushed; 008 onward proposed)
 
@@ -321,7 +332,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    `A2AOptions` / `MCPOptions` for each door's deployment; build-time errors for a door with nothing
    to serve, something no door serves, or a missing extra. There is no `mcp_server=` (D3). Success
    criteria 1–5 of the brief, served by `Remote`, plus one agent through both doors in one process.
-8. Later: `examples/langgraph_agent/`, bridges for other agent frameworks (Google ADK, OpenAI
+8. Later: bridges for other agent frameworks (Google ADK, OpenAI
    Agents SDK, Claude Agent SDK; the last one is a live-pause source), MCP Tasks for long agent
    runs over MCP, publishing to PyPI, a TypeScript SDK.
 

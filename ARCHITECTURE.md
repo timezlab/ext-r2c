@@ -11,6 +11,10 @@ standard/v1/
   examples/mcp/      wire examples (MCP binding)
   examples/invalid/  objects each schema must reject
 
+examples/langgraph_agent/   the SDK in use: two LangChain agents served by `Remote` that call each
+                            other. Documentation: not in the wheel, run by
+                            python/tests/test_example_langgraph.py against the installed wheel
+
 python/src/ext_r2c/
   __init__.py        URI, MCP_KEY, STANDARD_VERSION, __version__, Remote
   core/                                                            deps: pydantic, jsonschema

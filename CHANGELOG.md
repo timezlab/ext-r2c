@@ -159,6 +159,10 @@ All notable changes to this project are recorded here. The format follows
     [one remote, two doors](docs/design-docs/one-remote-two-doors.md) has the reasons.
 - `python/README.md` has a `Remote` section (a runnable example, what goes through which door,
   the warnings, running the app under a prefix) and the single-extra scripts check a `Remote`.
+- `examples/langgraph_agent/`: two LangChain agents served by `Remote` over A2A and MCP that call
+  each other (a question, an approval and an MCP call back), runnable offline with a scripted
+  model. The example is not shipped in the wheel; `tests/test_example_langgraph.py` runs it
+  against the installed wheel.
 
 ### Changed
 

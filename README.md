@@ -20,9 +20,10 @@ change. Everything travels on the protocol's own stream: A2A status and
 artifact updates, MCP progress notifications and tool results.
 
 > **Status: pre-alpha.** The standard (`standard/v1`) is written and in draft.
-> The Python SDK has its core, the A2A door, the MCP door and MCP Skills (see
-> [`python/`](python/README.md)); the LangGraph bridge and `Remote` come next.
-> Names and shapes may change until `v1` leaves draft.
+> The Python SDK has its core, the A2A door, the MCP door, MCP Skills, the
+> LangGraph bridge and `Remote` (see [`python/`](python/README.md)); it is not on
+> PyPI yet. [`examples/langgraph_agent/`](examples/langgraph_agent/README.md) shows
+> it in use. Names and shapes may change until `v1` leaves draft.
 
 ## Identifiers
 
@@ -36,6 +37,7 @@ artifact updates, MCP progress notifications and tool results.
 ```
 standard/v1/   the normative spec, one JSON Schema per kind, wire examples
 python/        the Python SDK (package ext-r2c, import ext_r2c)
+examples/      the SDK in use: two LangGraph agents that call each other
 ```
 
 The JSON Schemas are the single source of shape. The wire examples under

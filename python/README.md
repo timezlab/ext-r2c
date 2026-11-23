@@ -39,6 +39,9 @@ app = Remote(
 ).app()
 ```
 
+A complete, runnable case, two LangChain agents that call each other, is in
+[`examples/langgraph_agent/`](https://github.com/timezlab/ext-r2c/tree/main/examples/langgraph_agent).
+
 Run it with any ASGI server, for example `uvicorn remote_module:app`. `Remote`
 has no `run()` and no command line. `Remote(...)` and `app()` start nothing: the
 app's lifespan, which every ASGI server runs, starts and stops both doors.
