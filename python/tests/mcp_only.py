@@ -43,7 +43,65 @@ def main() -> None:
     assert not loaded, f"importing the MCP door loaded {loaded}"
     _server_check()
     _skills_check()
+    _remote_check()
     print("mcp only: ok")
+
+
+def _remote_check() -> None:
+    """An MCP-only `Remote` serves its endpoint with nothing of A2A loaded, and the A2A door names its
+    extra (spec 007, SC-010)."""
+    import asyncio
+
+    from ext_r2c import MCPOptions, Remote
+    from mcp.server.request_state import RequestStateSecurity
+
+    def add(a: int, b: int) -> int:
+        """Add two numbers."""
+        return a + b
+
+    source = Hello()
+    remote = Remote(expose=["mcp"], agent=source, mcp_tool=True, tools=[add], approve=["add"],
+                    mcp=MCPOptions(security=RequestStateSecurity(keys=[b"k" * 32])))
+    app = remote.app()
+
+    async def asked() -> tuple[int, int, int]:
+        async with app.router.lifespan_context(app):
+            return (await _ask(app, "POST", "/mcp", b"{}"), await _ask(app, "GET", "/.well-known/agent-card.json"),
+                    await _ask(app, "POST", "/", b"{}"))
+
+    mcp_status, card_status, rpc_status = asyncio.run(asked())
+    assert mcp_status not in (404, 421), f"the MCP endpoint answered {mcp_status}"
+    assert (card_status, rpc_status) == (404, 404), f"an MCP-only Remote answered A2A paths: {card_status}, {rpc_status}"
+    loaded = sorted({m.split(".")[0] for m in sys.modules} & set(OTHERS))
+    assert not loaded, f"an MCP-only Remote loaded {loaded}"
+
+    try:
+        Remote(expose=["a2a"], agent=source, url="https://remote.example.com")
+    except ImportError as error:
+        assert "ext-r2c[a2a]" in str(error), str(error)
+    else:
+        raise AssertionError("the A2A door built without the [a2a] extra")
+
+
+async def _ask(app, method: str, path: str, body: bytes = b"") -> int:  # type: ignore[no-untyped-def]
+    """One HTTP request to an ASGI app with no client library: the status."""
+    waiting = [{"type": "http.request", "body": body, "more_body": False}]
+    sent: list[dict] = []  # type: ignore[type-arg]
+
+    async def receive():  # type: ignore[no-untyped-def]
+        return waiting.pop() if waiting else {"type": "http.disconnect"}
+
+    async def send(message) -> None:  # type: ignore[no-untyped-def]
+        sent.append(message)
+
+    scope = {
+        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": method, "scheme": "http",
+        "path": path, "raw_path": path.encode(), "query_string": b"", "root_path": "",
+        "headers": [(b"host", b"127.0.0.1:8000"), (b"content-type", b"application/json")],
+        "server": ("127.0.0.1", 8000), "client": ("127.0.0.1", 50000),
+    }
+    await app(scope, receive, send)
+    return next(m["status"] for m in sent if m["type"] == "http.response.start")
 
 
 def _server_check() -> None:

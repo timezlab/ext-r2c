@@ -1,6 +1,7 @@
 # Contract: how `Remote.app()` composes two doors (spec 007)
 
-Status: planned (2026-11-23). Facts are from [research.md](research.md) R1, R2, R3, R10 and R14.
+Status: built (2026-11-23); the dated note at the end says what the build added to the text below,
+which is kept as planned. Facts are from [research.md](research.md) R1, R2, R3, R10 and R14.
 
 ## The application
 
@@ -97,3 +98,14 @@ Serves `remote.app()` inside its own lifespan; gives an A2A client and an MCP cl
 (the in-process transports of the doors' suites); builds the card the same way `Remote` does so a test
 can compare. Closed-after-stop is observed by spying `R2CRequestHandler.aclose` and
 `StreamableHTTPSessionManager.run`; `Remote` offers no accessor for the door apps (FR-026).
+
+> **Note, 2026-11-23 (built).** What the build added to the text above:
+> - A probe on the installed Starlette corrected the first draft: `Mount("/mcp", …)` answers `POST /mcp`
+>   with a 307 to `/mcp/`, which then answers 404, so the dispatcher takes the path itself and `/mcp` is
+>   served exactly (research R3). An owner who mounts the whole app under a prefix runs this app's
+>   lifespan, because Starlette's `Mount` does not run the lifespan of what it mounts, and puts the prefix
+>   in `url`; the README shows it.
+> - An error raised while the app is serving comes out of the lifespan inside an `ExceptionGroup`
+>   (the MCP session manager runs in an `anyio` task group; the same without `Remote`), and a door that
+>   fails to start raises its error bare. Both doors are unwound either way (A1 closes the A2A handler),
+>   and `test_remote_lifecycle.py` reads the leaf.

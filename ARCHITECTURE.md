@@ -74,15 +74,27 @@ python/src/ext_r2c/
   bridges/<other>/   later: one bridge and one extra per agent framework
   remote/            Remote: the only remote-side adapter; exposes A2A, MCP or both
                      (a setting) as one ASGI app; agent, tools and skills are passed in
+    _remote.py       Remote: the constructor, app() once, the lifespans of both doors
+    _check.py        every check of the settings at build time (one RemoteError listing all
+                     problems) and the warnings for a door left on its in-memory defaults
+    _classify.py     what an agent is by shape: a source, an a2a-sdk executor, or neither
+    _options.py      A2AOptions, MCPOptions and the keys Remote owns (a clash is a problem)
+    _doors.py        builds the A2A app and the MCP server; loads a door's package only then
+    _compose.py      the parent Starlette app, the dispatcher (/mcp to MCP, the rest to A2A),
+                     the owner's middleware outermost
+    _errors.py       RemoteError
 ```
 
 Three extension points live in `core`: `AgentSource` (an agent framework; supports a
 checkpoint pause and a live pause), `ToolSpec` (a tool), and the run events both doors read.
 A new framework adds a bridge; `Remote` and the doors do not change.
 
-`__init__.py`, `core/`, `a2a/`, `mcp/` and `bridges/langgraph/` exist today; the rest is the
-planned shape from the design brief and the ADR
-[one remote, two doors](docs/design-docs/one-remote-two-doors.md). MCP
+`__init__.py`, `core/`, `a2a/`, `mcp/`, `bridges/langgraph/` and `remote/` exist today; the rest
+is the planned shape from the design brief and the ADR
+[one remote, two doors](docs/design-docs/one-remote-two-doors.md). `Remote` is spec
+`007-remote` (names in
+[specs/007-remote/contracts/remote-api.md](specs/007-remote/contracts/remote-api.md), the app in
+[specs/007-remote/contracts/app-composition.md](specs/007-remote/contracts/app-composition.md)). MCP
 Skills (SEP-2640) is its own spec, `005-mcp-skills`, built under `mcp/skills/`. The LangGraph
 bridge is spec `006-langgraph-bridge` (names in
 [specs/006-langgraph-bridge/contracts/langgraph-api.md](specs/006-langgraph-bridge/contracts/langgraph-api.md);
@@ -115,6 +127,15 @@ is the end of a line: `Remote` takes the agent it is given and imports no bridge
 `test_packaging.py::test_langgraph_bridge_imports_only_allowed_modules` is an `ast` scan of that on
 the installed wheel; a CI step installs the wheel with only `[langgraph]` and runs
 `tests/langgraph_only.py`, which also proves no `a2a` or `mcp` module is loaded.
+
+`remote/` imports at module level only the standard library, `ext_r2c.core*` and its own
+modules. A door's package (`ext_r2c.a2a`, `ext_r2c.mcp`), `starlette`, `a2a` and `mcp` are
+imported inside a function, or under `TYPE_CHECKING`, so `from ext_r2c import Remote` works with
+no extra installed and a door is loaded only when it is exposed. `test_packaging.py` scans it on
+the installed wheel, and each single-extra script checks a `Remote` in its own venv:
+`core_only.py` and `langgraph_only.py` show that a door whose extra is missing is refused with the
+extra's name and that nothing of a door is loaded; `a2a_only.py` and `mcp_only.py` serve their one
+door and show that the other door's paths answer 404 and its package is not loaded.
 
 Importing `ext_r2c` or `ext_r2c.core` must work with no extra installed; opening a door
 whose extra is missing fails with a message naming the extra. `test_packaging.py` enforces the

@@ -313,3 +313,14 @@ None.
   how an ASGI app is mounted, errors at build time) is settled in R1, R6, R7 and [contracts/](contracts/):
   the constructor is D1 as written; one source feeds both doors, each with its own `Driver` and its own
   thread id (data-model 7); the app is the dispatcher (R1); errors are R6 and R7.
+
+> **Closing note, 2026-11-23.** Spec 007 is built and closed locally: all ten phases of
+> [tasks.md](tasks.md) are done, each committed on its own, none pushed. The body above is kept as planned.
+> Where the build differs from it, the reasons are in [research.md](research.md) (R17 the mutation check
+> of the safety rows, R18 the outside review), in the notes of `tasks.md` and in the dated notes of
+> [contracts/remote-api.md](contracts/remote-api.md) and [contracts/app-composition.md](contracts/app-composition.md).
+> The three points of "Needs the maintainer" were built with the recommended answer, A (the reading of
+> the maintainer's go that `tasks.md` records; they were not answered one by one). The risks table held: the one that
+> did not is the identity row (the review showed the A2A door has no owner of its own without a
+> middleware or a resolver, and no warning says so; a warning is proposed, not built). What the maintainer
+> still has to read or decide is at the end of `tasks.md` and in `WORKSTATE.md`.

@@ -132,6 +132,33 @@ All notable changes to this project are recorded here. The format follows
   pump read the run's pending ask to decide it was done, so an answer delivered while
   the source was still ending its stream could be lost. The pump now keeps its own
   `asked` flag.
+- `ext_r2c.Remote`, the one adapter on the remote side (needs no extra of its own; a door
+  loads only when exposed): `Remote(expose=["a2a", "mcp"], agent=..., tools=[...], ...)`
+  wraps an existing remote and `.app()` returns one ASGI app that serves it over A2A, MCP or
+  both, with `A2AOptions`, `MCPOptions` and `RemoteError` beside it. The remote's own logic
+  does not change.
+  - What goes through which door: an `AgentSource` (such as `LangGraphAgent`) or a hand-written
+    a2a-sdk executor on A2A (an executor is served as it is, and never over MCP); `tools=`,
+    `approve=`, `skills=`, `resources=` and `prompts=` on MCP; `mcp_tool=True` serves the agent
+    as one MCP tool. The agent card says the owner's `url` and one `CardInfo` names both doors.
+  - Settings are checked when `Remote(...)` is built, and `app()` builds the app once: one
+    `RemoteError` lists every problem (a door with nothing to serve, something no door serves,
+    a tool name used twice or the agent tool's own name, an option key that `Remote` owns, an
+    `approve` name that is not a plain tool of the MCP door, an approval nobody can answer); a
+    missing extra is an `ImportError` that names `ext-r2c[<extra>]`.
+  - The owner's own `middleware=` goes outermost, around both doors, and authentication there
+    sets the owner of a call. One lifespan starts and stops both doors, in order.
+  - A door left on its in-memory defaults gives a `UserWarning` at the `Remote(...)` line, once
+    per cause: the A2A task store, the MCP request-state keys when something can pause, and an
+    MCP door behind a middleware with nothing that names the owner of a call.
+  - One agent through both doors in one process, with a thread per owner and context for each
+    door; success criteria 1 to 5 of the design brief hold through `Remote`, a restart included
+    (durable checkpointer, task store and request-state keys).
+  - No `mcp_server=` and no `Skills(...)` class (`skills=` takes folders or a ready
+    `SkillsExtension`), and `url=` is required when A2A is exposed: the ADR
+    [one remote, two doors](docs/design-docs/one-remote-two-doors.md) has the reasons.
+- `python/README.md` has a `Remote` section (a runnable example, what goes through which door,
+  the warnings, running the app under a prefix) and the single-extra scripts check a `Remote`.
 
 ### Changed
 
@@ -175,3 +202,9 @@ All notable changes to this project are recorded here. The format follows
   form in `not-activated.json` has its `description`; the reply block of
   `progress-activity.json` has `response: true`; `tool-result.json` names its
   embedded resource `urn:r2c:artifact:<id>`.
+
+### Fixed
+
+- The lifespan of `a2a_app` closes its request handler in a `finally`. Before, an exception
+  thrown into the lifespan left the handler open; `Remote` meets that when the second door fails
+  to start.

@@ -598,6 +598,15 @@ myapp/skills/
 > link is ever followed. See the ADR
 > [skills-frontmatter-and-nesting](design-docs/skills-frontmatter-and-nesting.md).
 
+> **Note, 2026-11-23 (spec `007-remote`, built).** `Remote` is built and its names are fixed. The
+> example and the table above are kept as written; three things differ. There is no `mcp_server=`
+> (the MCP SDK takes an extension only in a server's constructor, so `Remote` builds the server and the
+> owner's server settings go in `MCPOptions`); there is no `Skills(...)` class (`skills=` takes a
+> folder, a list of folders or a `SkillsExtension`); and `name=`, `description=` and `version=` are one
+> `CardInfo` (`card=`, or the agent's own), with `url=` required when A2A is exposed. See the ADR
+> [one-remote-two-doors](design-docs/one-remote-two-doors.md) and
+> [specs/007-remote/contracts/remote-api.md](../specs/007-remote/contracts/remote-api.md).
+
 ### 10.3 Inside
 
 ```mermaid

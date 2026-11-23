@@ -58,6 +58,13 @@ the history the door reads the pending request from. And a task paused while R2C
 showed its R2C Parts to a caller that read it back without activation. An app that builds its
 own handler uses `R2CRequestHandler`.
 
+> **Note, 2026-11-23 (spec 007, A1).** The lifespan of `a2a_app` now closes the request handler in a
+> `finally`: `try: yield` / `finally: await handler.aclose()`. Before, an exception thrown into the
+> lifespan at its `yield` left the handler open; `AsyncExitStack` does that when a later lifespan
+> fails to start, which `Remote` does under both doors. The clean stop is unchanged, `aclose` may run
+> twice, and nothing else in the signature or on the wire changed. See
+> [specs/007-remote/contracts/app-composition.md](../../007-remote/contracts/app-composition.md).
+
 ## Activation
 
 ```python

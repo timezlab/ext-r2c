@@ -1,7 +1,7 @@
 # Contract: the public API of `Remote` (spec 007)
 
-Status: planned (2026-11-23). It becomes the record of what was built at the close of the spec
-(FR-038). Four public names, all importable with no extra installed:
+Status: built (2026-11-23); the dated note at the end says where the build differs from the text
+below, which is kept as planned (FR-038). Four public names, all importable with no extra installed:
 
 ```python
 from ext_r2c import Remote, RemoteError, A2AOptions, MCPOptions
@@ -183,3 +183,39 @@ No authentication or authorization, no route of its own, no CORS or logging midd
 logic (FR-026). No `mcp_server=` argument (D3). No `Skills(...)` helper (D8). No `run()` or command line:
 the README shows `uvicorn remote_module:app`. No edit, subclass or attribute set on anything it is given
 (FR-005). No import of a bridge (FR-035).
+
+> **Note, 2026-11-23 (built).** Where the build differs from the text above (the reasons are in
+> `research.md` and in the phase notes of `tasks.md`; the text above is kept as planned):
+> - `expose` missing is Python's own `TypeError` (the argument is keyword-only and has no default),
+>   not a `RemoteError`. An empty, unknown or repeated `expose` is a `RemoteError` as written.
+> - What the core refuses is not what the "callable the core refuses" row says. The installed core
+>   refuses `*args`, `**kwargs`, positional-only parameters, a parameter whose name starts with an
+>   underscore and type hints it cannot read; it accepts a function with no hints and one whose own name
+>   starts with an underscore. `Remote` passes the core's error through unchanged.
+> - The doors are read in starting order, A2A then MCP, whatever order `expose` lists them in. With both
+>   extras missing one `ImportError` names both (`ext-r2c[a2a]` and `ext-r2c[mcp]`).
+> - The MCP restart warning is given when some `approve` value is not `False` or a checkpoint
+>   `SourceTool` is served; an `approve` mapping whose every value is `False` does not warn (narrower
+>   than R11 read alone).
+> - The `mcp.owner` warning reads an SDK authentication key (`auth`, `token_verifier`,
+>   `auth_server_provider`) left as `None` as not set.
+> - Each option class checks the types of its own fields, so a wrong type there is a `TypeError`
+>   from the option class, before `Remote` reads it.
+> - Problems are listed in the order of the checks, not sorted.
+> - The skills settings are read by `check_skills`; there is no `normalise_skills`.
+>
+> **Note, 2026-11-23 (after the outside review, T078).** Changes to the text above, each with a test in
+> `python/tests/test_remote_review.py` (the findings are in `research.md` R18):
+> - `MCPOptions.owner(ctx)` is asked first: an owner it names wins over the SDK's authenticated
+>   principal, and `None` leaves the principal (then `anonymous`). This is what spec 004's
+>   `R2CExtension` already did; the table in Identity names the two sources, not the order.
+> - `Remote` also owns `security` and `extension` in `server` (the keywords of `mcp_server` itself) and
+>   `host` in `http` (a bind address given there turns the SDK's host guard off in silence; name the
+>   hosts in `transport_security`). A problem reads `mcp.<field>: names <key>, a keyword Remote does not
+>   take from here; <what to do>`.
+> - A class given as `agent` is a `TypeError`. A `url` with a space or a control character, or with a
+>   port that is not a number from 0 to 65535, is a problem of `url`.
+> - A list of skill folders is copied into a tuple when `Remote(...)` is called, as `tools=` is held.
+> - `RemoteError` can be pickled and copied.
+> - Not built, proposed to the maintainer: a warning when the A2A door has no owner (no `middleware=` and
+>   no `owner_resolver`), as D5 does for MCP. The README says it in a sentence instead.

@@ -53,7 +53,27 @@ def main() -> None:
     else:
         raise AssertionError("a question with expires_at 'not a date' was accepted")
 
+    _remote_check()
     print("core only: ok")
+
+
+def _remote_check() -> None:
+    """`Remote` imports with no extra and loads no door; a door it is asked for names its extra
+    (spec 007, SC-010)."""
+    from ext_r2c import A2AOptions, MCPOptions, Remote, RemoteError  # noqa: F401
+
+    loaded = sorted({m.split(".")[0] for m in sys.modules} & set(FORBIDDEN))
+    assert not loaded, f"importing Remote loaded {loaded}"
+    for doors, extras in ((["a2a"], ["a2a"]), (["mcp"], ["mcp"]), (["a2a", "mcp"], ["a2a", "mcp"])):
+        try:
+            Remote(expose=doors)
+        except ImportError as error:
+            missing = [extra for extra in extras if f"ext-r2c[{extra}]" not in str(error)]
+            assert not missing, f"expose={doors}: the error does not name {missing}: {error}"
+        else:
+            raise AssertionError(f"expose={doors} built a Remote with no extra installed")
+    loaded = sorted({m.split(".")[0] for m in sys.modules} & set(FORBIDDEN))
+    assert not loaded, f"a refused Remote loaded {loaded}"
 
 
 def _standard_dir() -> Path:

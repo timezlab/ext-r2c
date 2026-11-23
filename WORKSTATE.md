@@ -80,7 +80,7 @@ Last updated 2026-11-23. Read this first in a new session.
   - it works beside R2C, or alone, on any `MCPServer`;
   - its outside review is in `specs/005-mcp-skills/research.md` (R17), with what was left on
     purpose.
-- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (2034 tests, run against
+- **Wheel builds and tests pass** on Python 3.11, 3.12 and 3.13 (2841 tests, run against
   the installed wheel; the core alone runs `tests/core_only.py`, the wheel with `[a2a]` alone
   runs `tests/a2a_only.py` and the wheel with `[mcp]` alone runs `tests/mcp_only.py`, all with
   no dev group). CI in `.github/workflows/python.yml` does
@@ -242,24 +242,38 @@ Last updated 2026-11-23. Read this first in a new session.
     not shown**: it asks that the maintainer, reading the spec, the plan and the ADR, can say for each pause
     what the caller sees and what the graph gets back.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
-    (spec 006), `3b26285` (its plan), the tasks commit after it and every commit of spec 006's ten phases.
-  - **Waiting for the maintainer's go to implement spec 007** (`specs/007-remote/`): `spec.md` (drafted
-    2026-11-23; `Remote`, the first adapter that takes `agent=LangGraphAgent(graph)`), then `plan.md`,
-    `research.md` (R1–R16), `data-model.md`, `contracts/` (the API, how the app is composed),
-    `quickstart.md` and `tasks.md` (83 tasks in 10 phases) were written the same day, on the maintainer's
-    "sinh plan và task". We read that as approval of the spec with D1–D13 as written; no D was answered
-    one by one. The two the maintainer may want to overrule: D3 (no `mcp_server=`: the installed MCP SDK
-    cannot add R2C to an existing server) and D5 (identity: one `middleware=` outside both doors, each
-    door reads its own owner, a warning when MCP callers cannot be told apart). The plan also needs three
-    answers (recommended option A in each): `Remote` refuses `Approve(answer_by="caller")`; one door still
-    returns the composed app; `url` is the base and the card says `url` + `a2a.path`. One change to a door
-    is planned (A1: the A2A lifespan closes its handler in a `finally`; a probe showed it does not today).
-    Nothing is implemented; the first phase is the spike that pins the SDK facts.
+    (spec 006), `3b26285` (its plan), the tasks commit after it and every commit of spec 006's ten phases,
+    and every commit of spec 007 (`git log d07f9c6..HEAD`, the last two are its review fixes and its close).
+  - **Spec 007 is closed locally** (`specs/007-remote/`, 2026-11-23, all ten phases committed, none
+    pushed): `ext_r2c.Remote`, the only remote-side adapter, built from `spec.md` (drafted 2026-11-23),
+    `plan.md`, `research.md` (R1–R18), `data-model.md`, `contracts/` (`remote-api.md`, `app-composition.md`),
+    `quickstart.md` and `tasks.md` (83 tasks, all done). The maintainer asked for it with "sinh plan và
+    task" and then "implement spec"; we read both as approval of the spec with D1–D13 as written, and of
+    the whole spec in one run. `Remote(expose=[...], agent=..., card=..., url=..., tools=..., approve=...,
+    skills=..., resources=..., prompts=..., mcp_tool=..., middleware=..., a2a=A2AOptions(...),
+    mcp=MCPOptions(...))` checks every argument when it is built (one `RemoteError` lists every problem,
+    a missing extra is an `ImportError` that names it) and `app()` returns one ASGI app that starts and
+    stops the doors itself. One agent served through both doors, an approval on each door, a restart in
+    the middle, skills, resources, prompts and the agent as a tool, and an a2a-sdk executor served as it is
+    are all tests. **2841 tests pass on Python 3.11, 3.12 and 3.13**; the single-extra checks, the replays
+    and `standard/` are unchanged. One change to a door: A1 (the A2A lifespan closes its handler in a
+    `finally`). Its outside review (a code and a security reviewer with no memory of the work) is R18 in
+    `research.md`; the findings acted on are fixed test first, and 19 of 19 mutants of the fixes died
+    (12 of 12 of the safety rows, R17).
+    **For the maintainer to decide or confirm** (the list is at the end of `tasks.md`): D3 (no `mcp_server=`:
+    the installed MCP SDK cannot add R2C to an existing server) and D5 (identity: one `middleware=` outside
+    both doors, each door reads its own owner); the three plan points, built with the recommended answer A and not answered one by one (`Remote` refuses
+    `Approve(answer_by="caller")`; one door still returns the composed app; `url` is the base and the card
+    says `url` + `a2a.path`); and what the review turned up: an `MCPOptions.owner` wins over the SDK's verified
+    principal (the code of spec 004, now documented); a **proposed, not built** warning when the A2A door has
+    no owner (no `middleware=` and no `owner_resolver`), which would change FR-029. **SC-012 is the one thing
+    not shown**: it asks that the maintainer, reading the spec, the plan and the ADR, can say for each
+    argument of `Remote` which door serves it, what happens when none does, and which identity each door reads.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–006 built, 006 not pushed; 007 planned, waiting for the go to implement; 008 onward proposed)
+## Spec sequence (001–007 built, 006 and 007 not pushed; 008 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -300,12 +314,12 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    after the advisory vet). One additive core
    piece (`PauseLost`), one core race fix (found in phase 3) and a structural change to the shared suite;
    ten delivery phases in the plan.
-7. **`007-remote`** (spec, plan and 83 tasks written 2026-11-23, waiting for the go to implement) — `Remote`, the only remote-side
-   adapter, configured declaratively: `expose` (required) = A2A, MCP or both; one ASGI app; `agent=`
+7. **`007-remote`** (closed locally 2026-11-23, all ten phases committed, not pushed) — `Remote`, the only
+   remote-side adapter, configured declaratively: `expose` (required) = A2A, MCP or both; one ASGI app; `agent=`
    (an `AgentSource` or an a2a-sdk executor), `card=`, `url=`, `tools=`, `approve=`, `skills=`
    (folders or a `SkillsExtension`), `resources=`, `prompts=`, `mcp_tool=True`, `middleware=`, and
    `A2AOptions` / `MCPOptions` for each door's deployment; build-time errors for a door with nothing
-   to serve, something no door serves, or a missing extra. `mcp_server=` is proposed out (D3). Success
+   to serve, something no door serves, or a missing extra. There is no `mcp_server=` (D3). Success
    criteria 1–5 of the brief, served by `Remote`, plus one agent through both doors in one process.
 8. Later: `examples/langgraph_agent/`, bridges for other agent frameworks (Google ADK, OpenAI
    Agents SDK, Claude Agent SDK; the last one is a live-pause source), MCP Tasks for long agent

@@ -31,7 +31,37 @@ def main() -> None:
     loaded = sorted({m.split(".")[0] for m in sys.modules} & set(DOORS))
     assert not loaded, f"using the LangGraph bridge loaded {loaded}"
     _blocked_check()
+    _remote_check()
     print("langgraph only: ok")
+
+
+def _remote_check() -> None:
+    """`Remote` takes a `LangGraphAgent` and imports beside the bridge with no door loaded. Neither
+    door's extra is in this venv, so each door `Remote` is asked for names its extra (spec 007, SC-010)."""
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langgraph.graph import END, START, MessagesState, StateGraph
+
+    from ext_r2c import Remote
+    from ext_r2c.bridges.langgraph import LangGraphAgent
+    from ext_r2c.core import CardInfo
+
+    builder = StateGraph(MessagesState)
+    builder.add_node("say", lambda state: {"messages": []})
+    builder.add_edge(START, "say")
+    builder.add_edge("say", END)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # the in-memory saver, checked in `_round_trip`
+        source = LangGraphAgent(builder.compile(checkpointer=InMemorySaver()),
+                                card=CardInfo(name="hello", description="Says hello.", version="0.0.1"))
+    for doors, arguments in ((["a2a"], {"url": "https://remote.example.com"}), (["mcp"], {"mcp_tool": True})):
+        try:
+            Remote(expose=doors, agent=source, **arguments)
+        except ImportError as error:
+            assert f"ext-r2c[{doors[0]}]" in str(error), str(error)
+        else:
+            raise AssertionError(f"expose={doors} built with the [langgraph] extra alone")
+    loaded = sorted({m.split(".")[0] for m in sys.modules} & set(DOORS))
+    assert not loaded, f"Remote beside the LangGraph bridge loaded {loaded}"
 
 
 async def _round_trip() -> None:

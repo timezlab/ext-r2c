@@ -136,6 +136,31 @@ something the agent does not do.
 > take any `AgentSource` without a bridge. How a pause becomes an ask and an answer goes back to the
 > graph: the ADR [langgraph-pause-to-ask](langgraph-pause-to-ask.md).
 
+> **Note, 2026-11-23 (spec `007-remote`, built locally).** `Remote` is `ext_r2c.Remote`, exported
+> lazily from `ext_r2c` with `RemoteError`, `A2AOptions` and `MCPOptions`; the code is the package
+> `ext_r2c.remote`. The constructor above was illustrative. Three things differ, and the text above
+> is kept as written:
+> - **There is no `mcp_server=`.** The MCP SDK applies a server's extensions in its constructor and
+>   offers no way to add one later, and R2C's approvals and agent tool are an extension, so an
+>   existing `MCPServer` cannot take R2C afterwards. `Remote` builds the MCP server itself. An owner
+>   with a server of their own passes its tools (a `@server.tool()` decorator leaves the function
+>   unchanged), resources and prompts, and the server's own settings (`instructions`, `auth`,
+>   `token_verifier`, host rules) through `MCPOptions.server`, `MCPOptions.http` and
+>   `MCPOptions.transport_security`.
+> - **There is no `Skills(...)` class.** `skills=` takes a folder, a list of folders or a ready
+>   `SkillsExtension` (spec 005), and that extension's `include` and `exclude` do the choosing. There
+>   are no `name=`, `description=` and `version=` either: one `CardInfo` (`card=`, or the agent's own)
+>   says them for both doors.
+> - **`url=` is required when A2A is exposed.** It is the public base address of the app, and the card
+>   says `url` + `A2AOptions.path`, so a remote mounted under a prefix puts the prefix in `url`. The
+>   JSON-RPC endpoint is at `/` and MCP is at exactly `/mcp` (no redirect), both configurable.
+>
+> Also: `expose` is required and has no default; `middleware=` is the owner's own, outermost, around
+> both doors, so "no HTTP middleware of its own" still holds; a door left on its in-memory defaults
+> (`A2AOptions.task_store`, `MCPOptions.security`), or an MCP door with a middleware but nothing that
+> names the owner of a call, gives a `UserWarning` at the `Remote(...)` line. The reasons are D1 to D13
+> of [specs/007-remote/spec.md](../../specs/007-remote/spec.md) and its `research.md`.
+
 ### 4. Three extension points, so new frameworks need no change to `Remote`
 
 | Extension point | Interface in `core` | v1 ships | Later |

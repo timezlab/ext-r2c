@@ -98,7 +98,8 @@ installed files from its cache, so an edit of an installed file also edits the c
 ../.ci-venv/bin/pytest -q -W error::UserWarning -p no:cacheprovider
 ```
 
-Expected: everything passes on 3.11, 3.12 and 3.13; every replay is unchanged; `git diff --stat main --
-../standard` is empty. Then the leak scan of the commit (the maintainer's pattern, run by the commit script)
+Expected: everything passes on 3.11, 3.12 and 3.13; every replay is unchanged; `git diff --stat d07f9c6
+-- ../standard` is empty (`d07f9c6` is the commit that opened this spec; work goes straight to `main`, so
+`main` itself is no base to compare with). Then the leak scan of the commit (the maintainer's pattern, run by the commit script)
 and the docs of FR-038. SC-012 is read by the maintainer: from the spec, this plan and the ADR, say for each
 argument of `Remote` which door serves it, what happens when none does, and which identity each door reads.

@@ -418,3 +418,86 @@ Run `uvicorn` in tests: rejected, no network; the in-process transports are what
   `mcp_server` would serve it as `{"role": "caller"}`). `Remote` refuses it (R7 row 16). Hardening
   `Approve` itself is a spec 004 follow-up, not done here ([plan](plan.md#needs-the-maintainer)).
 - The standard (`standard/`) is untouched: `Remote` is an SDK piece.
+
+## R17. Mutation check of the safety rows (T077, run 2026-11-23)
+
+A mutant changes one thing in the installed package, the named test files must then fail, and the
+package is restored from its own text right after. Baseline first: `test_remote_errors.py`,
+`test_remote_approvals.py`, `test_remote_lifecycle.py`, `test_remote_compose.py`,
+`test_remote_options.py` and `test_remote_serve.py` are green (215 tests). **12 of 12 mutants died**,
+and the installed package equalled the source again at the end. The runner stops at the first failing
+test (`-x`), so the table names that one; other tests may fail as well.
+
+| Mutant | First test to fail |
+|---|---|
+| `approve` accepts a name that is no tool | `test_one_mistake_is_one_problem_that_names_its_argument`, the row for it |
+| `approve` accepts the agent's own tool | the same test, the row for the agent's tool |
+| `approve` accepts any `answer_by` | the same test, the row for `answer_by` |
+| A1: the A2A handler is closed only on a clean stop | `test_an_mcp_door_that_fails_to_start_leaves_the_a2a_door_closed` |
+| `/mcp` is routed to the A2A app | `test_a_card_that_is_given_wins_over_the_one_an_agent_brings` |
+| only the A2A lifespan runs | `test_a_card_that_is_given_wins_over_the_one_an_agent_brings` |
+| only the MCP lifespan runs | `test_app_starts_nothing_and_its_lifespan_starts_and_stops_both_doors` |
+| `app()` may run twice | `test_one_remote_builds_one_app` |
+| a failed `app()` may be tried again | `test_one_remote_builds_one_app` |
+| `auth`, `token_verifier`, `auth_server_provider` each dropped from the owner sources | `test_an_mcp_door_that_can_name_the_owner_or_has_no_middleware_does_not_warn`, one mutant for each key |
+
+The three owner-source mutants were re-pointed at `OWNER_SOURCES` in `remote/_options.py`, where the
+phase 10 de-duplication put the tuple that the check and the warning both read.
+
+## R18. The outside review of phases 1 to 10 (T078, run 2026-11-23)
+
+Two reviewers read the whole range since `d07f9c6` with fresh context and no knowledge of the plan's
+reasoning: a code reviewer and a security reviewer. Their findings are numbered below per reviewer. For
+each one acted on, a test was written first and seen to fail for the stated reason on the old wheel
+(20 failures in `test_remote_review.py` and `test_remote_errors.py`), then the fix was made. After the
+fixes the full suite passes (2841 tests on 3.11, 3.12 and 3.13), the four single-extra scripts and
+`ruff --select F` are clean, and **19 of 19 mutants of the fixes died** (below).
+
+**Acted on**
+
+| Finding | What was wrong | What was done | Pinned by |
+|---|---|---|---|
+| code 1 | `SERVER_OWNED` missed `security` and `extension`, the keywords of `mcp_server` itself: giving one in `mcp.server` was a raw `TypeError` from `app()`, not a problem at `Remote(...)` | both are owned, with what to do instead | `test_a_keyword_of_mcp_server_itself_is_a_problem_when_remote_is_built`, `test_the_security_field_is_the_one_way_to_give_the_request_state_policy` |
+| security 2 | `http={"host": ...}` is no collision, but the SDK keeps its host guard only for a loopback `host`, so a bind address there turned the guard off in silence | `host` is owned, and the message points at `transport_security` | `test_the_bind_address_is_not_an_http_keyword_because_it_turns_the_host_guard_off` |
+| code 2 | the `MCPOptions.owner` docstring said the reverse of the code: spec 004's `R2CExtension` asks the callable first and falls back to the SDK's principal | the code stays (it is built, tested and the recipe in the README relies on it); the docstring, the README and the contract say what the code does | `test_an_owner_callable_that_names_an_owner_wins_over_the_verified_principal`, `..._that_answers_none_leaves_the_verified_principal`, `test_the_documentation_of_the_owner_field_says_the_order_the_code_has` |
+| code 3 | a `skills=` list was held by reference, so a list changed after `Remote(...)` was read again, unchecked, by `app()` | a list of folders is copied into a tuple when it passes the check, as `tools=` is held | `test_a_list_of_skill_folders_changed_after_the_build_is_not_read_again` |
+| code 4, security 5 | a `url` with a line break, a tab or a space reached the card (`urlsplit` drops tabs and line breaks before it reads), and so did a port that is no number | a space or control character and a bad port are problems of `url`, in the same one `RemoteError` | `test_a_url_the_card_could_not_say_as_it_is_is_a_problem` (newline, space, tab, NUL, bad port, port above 65535, `[::1`) and `test_the_addresses_an_owner_means_still_build` |
+| code 5 | a class passed `agent_kind` (its `run` and `execute` are plain functions) and failed at the first request | a class given as `agent` is a `TypeError` at `Remote(...)`, naming the class | `test_a_class_given_as_the_agent_is_refused_when_remote_is_built`, `test_an_instance_of_each_is_still_taken` |
+| code 6 | a `RemoteError` could not be pickled or copied (`args` holds the formatted text, which `__init__` refuses as a bare string) | `__reduce__` rebuilds it from `problems` | `test_a_remote_error_survives_pickle_and_copy_with_its_problems_in_order` |
+| code 7 | nothing showed that `limits=` and `clock=` reach each door | tests spy on `SourceExecutor` and `R2CExtension`; the reviewer's four mutants (drop `limits` or `clock` from either door) are in the mutation run | `test_the_limits_and_the_clock_given_reach_the_a2a_door`, `..._the_mcp_door`, `test_without_them_each_door_gets_the_defaults` |
+| code 8, 10, 11 | the `app()` docstring did not say the app starts once; two docstrings were loose | reworded; a README sentence says the app starts once | read, no test |
+| code 12 | test gaps: the `urlsplit` `ValueError` branch and the exact path `/.well-known` | tests added | `test_the_well_known_folder_itself_is_not_a_path_for_a_door`, the `[::1` row above |
+| security 6 | a message echoes the `approve` key the owner typed | this is the contract's carve-out (a tool, door or keyword name the owner chose may appear); the `RemoteError` docstring now says so | read, no test |
+
+**Left on purpose**
+
+- security 1: the D5 warning covers MCP only. With no `middleware=` and no `owner_resolver` every A2A
+  caller is one owner, and the SDK's authentication in `MCPOptions.server` does not protect the A2A door.
+  A warning is a change of the spec (FR-029), so it is **not built**; the README says it in a sentence
+  and the proposal is for the maintainer.
+- security 3: the host guard covers `/mcp` only; the A2A door answers any `Host`. README sentence.
+- security 4: an A2A `task_store` and an `owner_resolver` must agree on who owns a task, and nothing
+  compares them. README sentence.
+- security 7: `approve=` beside `mcp_tool=True` leaves the agent tool without an approval. The README
+  already says the two lists are separate on purpose; the agent's own approvals stay with the agent.
+- security 8: the A2A door holds paused work and reads a request body with no age limit or size cap.
+  This is spec 003's door, unchanged by `Remote`, so it is a follow-up of that spec.
+- code 9: `SkillsError` echoes the folder path the owner gave. It is the unchanged error of spec 005,
+  carved out by the contract and documented in the README.
+- `http` on a non-loopback host in `url` is accepted: a service behind a proxy that ends TLS is
+  reached by `http` inside and `https` outside, and the contract says `http(s)`.
+
+**Mutation check of the fixes (T079).** Baseline first: `test_remote_review.py`, `test_remote_errors.py`
+and `test_remote_options.py` green (207 tests). 19 mutants, all died: `security`, `extension` and
+`host` dropped from the owned keys; the owner order reversed (the principal wins); the owner docstring
+saying "last"; the skills list held by reference; the `url` check dropped whole, or only for a space, or
+only for a NUL; the port check dropped; the `ValueError` of an unparsable address raised; a class
+accepted as an agent; `__reduce__` removed; `limits` and `clock` each dropped from each door;
+`/.well-known` and `/.well-known/` each allowed as a path. The installed package equalled the source
+again at the end.
+
+**Areas the reviewers read and found clean.** The dispatcher and mount (the exact `/mcp` match, the
+lifespan stop order and its unwinding when a door fails), the once-flag of `app()`, an argument fuzz
+(15 arguments, about 34 values each, three `expose` sets: every failure is a `TypeError` or one
+`RemoteError`, never a raw SDK error), the import rule of `remote/`, cross-owner isolation, principle V
+(nothing in `Remote` answers an approval) and the compile on 3.11 and 3.12.

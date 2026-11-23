@@ -73,6 +73,26 @@ wins once it is written.
 >   exception); a new message on a thread with a middleware approval pending first withdraws the
 >   approval by a state update (D9). Reasons: the ADR
 >   [langgraph-pause-to-ask](../design-docs/langgraph-pause-to-ask.md).
+>
+> **Amendment 4, 2026-11-23: what `Remote` built (spec `007-remote`).** `Remote` is
+> `ext_r2c.Remote`, with `A2AOptions`, `MCPOptions` and `RemoteError` beside it. Where §5 and §6 differ,
+> this reads over it (the body stays):
+> - There is no `serve()` and no `run()`: `Remote(expose=[...], agent=..., ...).app()` returns one
+>   ASGI app, and any ASGI server runs it. The app's own lifespan starts and stops both doors.
+> - Success criteria 1 to 5 are served by `Remote`, by real round trips through the doors' own SDK
+>   clients in one process: 1, 2 and 3 on the A2A door by `test_remote_approvals.py`; 4 by a second
+>   `Remote` built over the same SQLite files and the same request-state keys
+>   (`test_remote_restart.py`); 5 by a hand-written executor in the shape of the Currency sample
+>   (`test_remote_executor.py`). The same agent is served by both doors in one process.
+> - Criterion 4 now has one durable layer per place a pause lives: the agent's checkpointer, the A2A
+>   door's task store (`A2AOptions(task_store=...)`) and the MCP door's request-state keys
+>   (`MCPOptions(security=RequestStateSecurity(keys=[...]))`). A door left on its in-memory default
+>   warns once, at the `Remote(...)` line.
+> - §7: "approvals for direct MCP tool calls are `approve=` on `Remote`" is built as written, and
+>   `approve=` may name only a plain MCP tool (never the agent's tool or a tool of another door).
+>   No approval `Remote` serves is addressed to the caller (principle V).
+> - There is no `mcp_server=`, no `Skills(...)` class and `url` is required for A2A: the ADR
+>   [one-remote-two-doors](../design-docs/one-remote-two-doors.md) has the dated note and the reasons.
 
 ## Goal
 

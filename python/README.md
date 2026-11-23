@@ -7,8 +7,9 @@ artifacts.
 > Pre-alpha. The standard v1 is written (draft). This package ships its
 > identifiers, its JSON Schemas, the protocol-free core (`ext_r2c.core`), the
 > A2A door (`ext_r2c.a2a`), the MCP door (`ext_r2c.mcp`), MCP Skills, which
-> is a separate MCP extension served by the same package, and the LangGraph
-> bridge (`ext_r2c.bridges.langgraph`).
+> is a separate MCP extension served by the same package, the LangGraph
+> bridge (`ext_r2c.bridges.langgraph`), and `Remote`, the one adapter that
+> serves a remote over A2A, MCP or both.
 
 ```python
 import ext_r2c
@@ -16,6 +17,187 @@ import ext_r2c
 ext_r2c.URI       # A2A extension URI
 ext_r2c.MCP_KEY   # MCP _meta key
 ```
+
+## Remote
+
+`ext_r2c.Remote` wraps a remote that already exists and serves it over A2A, MCP
+or both, from one ASGI app. The remote's own code does not change: one install
+and one module like this one.
+
+```python
+# remote_module.py
+from ext_r2c import Remote
+from ext_r2c.bridges.langgraph import LangGraphAgent
+
+app = Remote(
+    expose=["a2a", "mcp"],
+    agent=LangGraphAgent(graph),        # an AgentSource, or an a2a-sdk executor
+    url="https://remote.example.com",   # where callers reach this app
+    tools=[publish_page],               # functions and ToolSpecs, served on MCP
+    approve=["publish_page"],           # a direct call first asks an approval
+    mcp_tool=True,                      # the agent is one more MCP tool, `agent`
+).app()
+```
+
+Run it with any ASGI server, for example `uvicorn remote_module:app`. `Remote`
+has no `run()` and no command line. `Remote(...)` and `app()` start nothing: the
+app's lifespan, which every ASGI server runs, starts and stops both doors.
+
+As written the module warns twice, because both doors keep a paused call in
+memory; see *Durable state* below.
+
+`Remote`, `RemoteError`, `A2AOptions` and `MCPOptions` import with no extra
+installed. A door needs its extra (`ext-r2c[a2a]`, `ext-r2c[mcp]`): exposing one
+whose extra is missing is an `ImportError` that names it.
+
+| Argument | Served by | What it is |
+|---|---|---|
+| `expose` | | required: `["a2a"]`, `["mcp"]` or both; there is no default |
+| `agent` | A2A; MCP only with `mcp_tool=True` | an `AgentSource`, such as `LangGraphAgent(graph)`, or an a2a-sdk `AgentExecutor` (A2A only, served as it is) |
+| `card` | both | a `CardInfo`. Needed when the agent brings none (an executor, or tools only). It also names the MCP server |
+| `url` | A2A | the public base address of this app; the card says `url` + `a2a.path` |
+| `tools` | MCP | `ToolSpec`s, `SourceTool`s and plain functions (converted with `tool_from_function`) |
+| `approve` | MCP | tool names, or `{name: Approve(...) or bool}`: a direct call to a named tool first asks an approval |
+| `skills` | MCP | a folder, a list of folders, or a ready `SkillsExtension` (its `include` and `exclude` choose) |
+| `resources`, `prompts` | MCP | the MCP SDK's own `Resource` and `Prompt` objects, served as given |
+| `mcp_tool` | MCP | `True` serves the agent as one tool named `agent` that takes `{message, context_id?}` |
+| `middleware` | both | Starlette `Middleware` objects around both doors, outermost first |
+| `a2a`, `mcp` | its door | `A2AOptions(...)` and `MCPOptions(...)`: the settings of one door |
+| `limits`, `clock` | both | the core's `Limits`, and a clock for tests |
+
+Every argument is a keyword. An argument whose door is not exposed is an error,
+not ignored. A LangChain tool is converted in your own module
+(`tools_from_langchain([...])`), because `Remote` imports no bridge. For an
+agent tool with another name or input, build a `SourceTool` yourself and give it
+in `tools=`.
+
+**Errors come at the `Remote(...)` line.** A value of the wrong type is a
+`TypeError`. Everything else is collected into one `RemoteError` (a
+`ValueError`), whose `problems` lists each one as
+`"<argument>: <what is wrong>; <what to do>"`, so a configuration is fixed in one
+pass: a door with nothing to serve, an agent no door serves, `approve` naming
+something that is not a plain MCP tool, two tools of one name, a `url` that is
+not an absolute `http(s)` base address (or has a space, a control character or a
+bad port), a path under `/.well-known/`. A class given as `agent` is a
+`TypeError`: give an instance. A message
+names the argument and never repeats a value you typed. A skills folder that
+fails its scan is the unchanged `SkillsError`, raised by `app()`.
+
+**One `Remote`, one app.** `app()` is called once; a second call is a
+`RuntimeError`, also after a first call that failed. Build a new `Remote`. The
+app itself starts once too: the SDK parts under it run once, so starting the
+same app a second time fails on MCP and serves nothing useful on A2A. A list of
+skill folders is copied when `Remote(...)` is called, so changing the list
+afterwards changes nothing; the folders are read by `app()`.
+
+**Approvals.** `approve=` covers direct MCP calls to the tools you name, and
+only those. The agent's own approvals (for example LangChain's
+`HumanInTheLoopMiddleware`) stay with the agent and reach the caller through
+either door. The two lists are separate on purpose. An approval is addressed to
+a person or an approver (`Approve(answer_by="approver")`), never to the caller,
+and nothing in `Remote` answers one.
+
+**Paths and the card.** The A2A JSON-RPC endpoint is `/` (`A2AOptions.path`),
+the card is always `/.well-known/agent-card.json`, and the MCP endpoint is
+exactly `/mcp` (`MCPOptions.path`), with no redirect and no trailing slash.
+`url` is the base the app is reached at, such as `https://remote.example.com` or
+`https://remote.example.com/agents`, and the card's address is `url` +
+`a2a.path`. The card declares R2C with `required: false`. `skills=` is MCP
+Skills only: the skills on the A2A card are the ones of `CardInfo.skills`.
+
+**Inside a larger app.** Starlette's `Mount` does not run the lifespan of what
+it mounts, so run it yourself, and put the prefix in `url`:
+
+```python
+agents = Remote(expose=["a2a", "mcp"], agent=agent, mcp_tool=True,
+                url="https://remote.example.com/agents").app()
+
+@contextlib.asynccontextmanager
+async def lifespan(site):
+    async with agents.router.lifespan_context(agents):
+        yield
+
+site = Starlette(routes=[Mount("/agents", app=agents)], lifespan=lifespan)
+```
+
+**Identity.** `Remote` adds no authentication. Each door names the owner of a
+call its own way: A2A reads the user an authentication middleware put on the
+request (`A2AOptions.owner_resolver` changes the rule), and MCP reads the SDK's
+authenticated principal, or `MCPOptions.owner`. `MCPOptions.owner` is asked
+first: an owner it names wins over the SDK's authenticated principal, and
+returning `None` leaves the principal (or `anonymous`). One middleware in
+`middleware=` serves both when the MCP door is told to read its user:
+
+```python
+def owner(ctx):
+    user = getattr(getattr(ctx, "request", None), "user", None)
+    return user.display_name if user is not None and user.is_authenticated else None
+
+Remote(..., middleware=[Middleware(AuthenticationMiddleware, backend=backend)],
+       mcp=MCPOptions(owner=owner))
+```
+
+With `middleware=` given and an MCP door that has neither `owner` nor the SDK's
+own authentication (`auth`, `token_verifier` or `auth_server_provider` set in
+`MCPOptions.server`; a key left `None` counts as not set), `Remote` warns once,
+naming `mcp.owner`: every MCP caller would be one owner and share one set of
+threads. The warning is not an error, because one owner for every MCP caller may
+be what you want. A thread belongs to one owner, one context and one
+door, so the same context id over both doors is two conversations.
+
+Two things `Remote` does not do for you. The SDK's own authentication in
+`MCPOptions.server` protects the MCP door only; the A2A door has no owner until
+a middleware (or `A2AOptions.owner_resolver`) gives it one, and without either
+every A2A caller is the same owner and shares one set of threads. And no
+warning says so, because that may be what you want.
+
+**The host guard.** The MCP endpoint answers `421` to a request whose `Host` is
+not its default `127.0.0.1` until you name the public host. `Remote` does not
+guess it, and the guard covers `/mcp` only (the A2A door answers any `Host`):
+
+```python
+from mcp.server.transport_security import TransportSecuritySettings
+
+MCPOptions(transport_security=TransportSecuritySettings(
+    enable_dns_rebinding_protection=True, allowed_hosts=["remote.example.com"]))
+```
+
+**Durable state.** A pause survives a restart only when each layer keeps it:
+
+| Layer | Setting | Without it |
+|---|---|---|
+| the agent | its own store, such as a durable LangGraph checkpointer | the bridge warns; an answer after a restart ends `lost` |
+| the A2A door | `A2AOptions(task_store=...)`, such as a2a-sdk's `DatabaseTaskStore` | `Remote` warns once, naming `a2a.task_store`; a restart loses every paused task |
+| the MCP door | `MCPOptions(security=RequestStateSecurity(keys=[...]))` | `Remote` warns once, naming `mcp.security`, when something on MCP can pause (an `approve` entry, or an agent of the checkpoint style); a retry after a restart is refused |
+
+Giving `InMemoryTaskStore()` yourself says memory is what you want, and the A2A
+warning stays quiet. A `task_store` and an `owner_resolver` go together: the
+store keys its tasks by the owner the resolver names, and nothing in `Remote`
+compares the two, so give both from the same place. The warnings are `UserWarning`s at the `Remote(...)` line of
+a valid configuration; `app()` says nothing again.
+
+**The rest of a door's settings.** `MCPOptions.server` and `MCPOptions.http` are
+the remaining keyword arguments of the MCP SDK's `MCPServer` and
+`streamable_http_app` (`instructions`, `auth`, `token_verifier`,
+`json_response`, `stateless_http`, ...). There is no `mcp_server=` argument: a
+server built elsewhere cannot take the R2C extension afterwards. The keywords
+`Remote` does not take from there (`name`, `version`, `description`,
+`extensions`, `tools`, `resources`, `request_state_security`, `security`,
+`extension`, `streamable_http_path`, `transport_security`, `host`) are refused,
+with what to do instead: `host` is the address the server that runs the app
+binds, so name the hosts the app answers to in `transport_security`.
+
+**Shared by two doors.** With both doors exposed the same agent object serves
+both, so it must be safe to share (a `LangGraphAgent` is: its state is the
+checkpointer's, keyed by thread). `Remote` sets nothing on the agent, the tools
+or the functions it is given.
+
+**An executor you already have.** An a2a-sdk `AgentExecutor` that knows nothing
+of R2C is served unchanged: `Remote(expose=["a2a"], agent=executor,
+card=CardInfo(...), url=...)`. Its plain-text `input-required` reaches every
+caller as before, and a caller that activated R2C simply gets no R2C part.
+
+`Remote` adds no endpoint, no CORS and no logging of its own.
 
 ## The core
 
@@ -466,5 +648,8 @@ Limits to know:
 | `ext-r2c[a2a]` | a2a-sdk | the A2A door, A2A callers |
 | `ext-r2c[mcp]` | mcp, PyYAML | the MCP door, MCP callers, MCP Skills |
 | `ext-r2c[langgraph]` | langchain, langchain-core, langgraph (no checkpointer) | agents written with LangChain / LangGraph |
+
+`Remote` has no extra of its own: it needs the extras of the doors it exposes,
+for example `ext-r2c[a2a,mcp,langgraph]` for a LangGraph agent on both doors.
 
 See the [repository](https://github.com/timezlab/ext-r2c) for the standard.

@@ -3,8 +3,8 @@
 **What:** R2C (Remote-to-Caller), an extension for A2A and MCP. A **remote** (an A2A agent or
 an MCP server) uses it to ask its **caller** a `question`, request an `approval`, and hand back
 an `artifact`, and reports `activity` and `usage`; the caller replies with an `answer`. One
-adapter, `Remote`, wraps an existing remote and exposes it over A2A, MCP or both, so its own
-logic does not change.
+adapter, `Remote` (`ext_r2c.Remote`, built in spec 007), wraps an existing remote and exposes it
+over A2A, MCP or both from one ASGI app, so its own logic does not change.
 **This repo** holds the standard (`standard/`) and the Python SDK (`python/`). It is **public**:
 neutral data only (constitution VI).
 **State:** see `WORKSTATE.md` first — what exists, what is next, what is waiting for approval.
@@ -51,6 +51,7 @@ neutral data only (constitution VI).
 | Know why the first four kinds                    | `docs/design-docs/four-kinds.md`                            |
 | Know why `activity`, `usage` and the streamed reply | `docs/design-docs/activity-and-usage-kinds.md`           |
 | Know why one adapter (`Remote`) for A2A, MCP or both | `docs/design-docs/one-remote-two-doors.md`              |
+| Know the names of `Remote` and how its one app is composed | `specs/007-remote/contracts/remote-api.md`, `app-composition.md` |
 | Know why the standard and SDK share a repo, and why `standard/` | `docs/design-docs/standard-and-sdk-in-one-repo.md` |
 | Know why no model ever answers an approval       | `docs/design-docs/approval-never-answered-by-a-model.md`    |
 | Know why the thread is keyed by owner and context | `docs/design-docs/thread-per-owner-and-context.md`         |

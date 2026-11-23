@@ -442,50 +442,50 @@ checked on three Pythons.
 
 **Independent test**: the whole suite and `quickstart.md`, end to end.
 
-- [ ] T071 [P] Extend `tests/core_only.py`, `tests/a2a_only.py`, `tests/mcp_only.py` and
+- [X] T071 [P] Extend `tests/core_only.py`, `tests/a2a_only.py`, `tests/mcp_only.py` and
   `tests/langgraph_only.py` (SC-010): core-only: `from ext_r2c import Remote` works, no `a2a` or `mcp` is
   loaded, `expose=["a2a"]` and `["mcp"]` raise an `ImportError` naming `ext-r2c[a2a]` and `ext-r2c[mcp]`;
   a2a-only: an A2A-only `Remote` serves a card and `mcp` is not in `sys.modules`; `expose=["mcp"]` names `[mcp]`;
   mcp-only: the mirror; langgraph-only: `Remote` composes with `LangGraphAgent` and only one door can be
   exposed. Run each in its venv with `-I`.
-- [ ] T072 [P] `python/README.md`: a `Remote` section that says everything in
+- [X] T072 [P] `python/README.md`: a `Remote` section that says everything in
   [contracts/remote-api.md](contracts/remote-api.md) and [contracts/app-composition.md](contracts/app-composition.md)
   that an owner needs: the one-line form and the argument table (which door serves each, what happens when
   none does); `url` is the base and the card says `url` + `a2a.path`; identity per door and the `owner=`
   recipe; the host guard (`transport_security`, the `421`); durable state per door and the two warnings; one
   `Remote`, one `app()`; mounting inside a larger ASGI app (run this app's lifespan, put the prefix in
   `url`); `uvicorn module:app`; an agent source shared by two doors must be safe to share; no `mcp_server=`.
-- [ ] T073 [P] Dated notes (never rewrite a body): `docs/design-docs/one-remote-two-doors.md` (three: no
+- [X] T073 [P] Dated notes (never rewrite a body): `docs/design-docs/one-remote-two-doors.md` (three: no
   `mcp_server=` and why; `Skills(...)` is `skills=`; `url` is required for A2A, and the base form);
   `docs/research/2026-11-20-r2c-v1-design-brief.md` amendment 4 (what `Remote` serves and criteria 1 to 5);
   `specs/003-a2a-binding` contract (A1). Grep the old names (`mcp_server=`, `Skills(`) across docs and code
   until only intentional hits remain.
-- [ ] T074 [P] `ARCHITECTURE.md` (the `remote/` rows and its import rule), `CHANGELOG.md` (Added: `Remote`;
+- [X] T074 [P] `ARCHITECTURE.md` (the `remote/` rows and its import rule), `CHANGELOG.md` (Added: `Remote`;
   Fixed: the A2A lifespan), `AGENTS.md` (what it says about `Remote`; the file stays under 150 lines, it is 68
   now).
-- [ ] T075 [P] Mark `contracts/remote-api.md` and `contracts/app-composition.md` as built (the status line and a
+- [X] T075 [P] Mark `contracts/remote-api.md` and `contracts/app-composition.md` as built (the status line and a
   dated note with what differed, if anything).
-- [ ] T076 Run `quickstart.md` end to end on 3.11, 3.12 and 3.13; fix the guide where it and the code
+- [X] T076 Run `quickstart.md` end to end on 3.11, 3.12 and 3.13; fix the guide where it and the code
   disagree (the guide moves, unless the code is wrong).
-- [ ] T077 Mutation check of the safety rows (quickstart §6), green baseline first: skip the `approve` name
+- [X] T077 Mutation check of the safety rows (quickstart §6), green baseline first: skip the `approve` name
   check; skip the `answer_by` check; drop A1's `finally`; route `/mcp` to A2A; run only the A2A lifespan; let
   `app()` run twice. Record "N of N mutants died" as R17 in `research.md`. Restore from a copy, not by
   reinstalling (the `uv` hard-link trap).
-- [ ] T078 Outside review: dispatch a **code reviewer** and a **security reviewer** (the `.claude/agents/`
+- [X] T078 Outside review: dispatch a **code reviewer** and a **security reviewer** (the `.claude/agents/`
   ones), each with no memory of the work, on the range from `d07f9c6` to HEAD, briefed with what `Remote`
   does and the plan's risks (identity, the `421` host guard, the once-flag, what the messages echo). Check
   every finding against the code. For each one acted on, write a test that **fails first**, then fix. Record
   the review, with what was left on purpose and why, as R18 in `research.md`.
-- [ ] T079 Mutation check of the review fixes, baseline green first; record in R18.
-- [ ] T080 The closing numbers, recorded in this file under "Phase 10 (date)": the suite's count on 3.11, 3.12
+- [X] T079 Mutation check of the review fixes, baseline green first; record in R18.
+- [X] T080 The closing numbers, recorded in this file under "Phase 10 (date)": the suite's count on 3.11, 3.12
   and 3.13 against the installed wheel; core only, a2a only, mcp only and langgraph only ok; `ruff check
   --select F` clean; the replays unchanged; `git diff --stat d07f9c6 -- standard` empty.
-- [ ] T081 Walk SC-001 to SC-012 and write the result against each in this file ("met by T0xx, run
+- [X] T081 Walk SC-001 to SC-012 and write the result against each in this file ("met by T0xx, run
   <date>"); name any not fully met and what is left. SC-012 is for the maintainer to read (the spec, the plan
   and the ADR only).
-- [ ] T082 Update `WORKSTATE.md` (007 closed locally; what is next; the push waits for the maintainer's go) and
+- [X] T082 Update `WORKSTATE.md` (007 closed locally; what is next; the push waits for the maintainer's go) and
   `specs/007-remote/plan.md` (a dated closing note; the body stays).
-- [ ] T083 Final leak scan of the whole range since `d07f9c6` (must be 0), then commit
+- [X] T083 Final leak scan of the whole range since `d07f9c6` (must be 0), then commit
   `docs(007): README, ADR notes and close Remote`. **Do not push.**
 
 **Checkpoint**: the maintainer decides on the push.
@@ -803,3 +803,101 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
   dropped, and `/mcp` sent to the A2A app.
 - **Verify.** 40 tests in `test_remote_options.py`; the whole suite, nothing left out, 2802 on 3.11, 3.12 and
   3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.
+
+### Phase 10 (2026-11-23)
+
+- **T071, the four single-extra scripts.** Each has a `_remote_check()` that runs in its own venv with `-I`:
+  `core_only` imports `Remote` with no extra and loads no door, and each door `Remote` is asked for names its
+  extra (`ext-r2c[a2a]`, `ext-r2c[mcp]`, both); `a2a_only` serves the card with `mcp` never loaded and `/mcp`
+  answering 404; `mcp_only` is the mirror (the card and `POST /` answer 404, the endpoint does not answer
+  404 or 421); `langgraph_only` builds a `LangGraphAgent` beside `Remote` and shows each door refused with
+  its extra named. The task said "only one door can be exposed" for the last one; there neither door's extra is
+  installed, so what is checked is that both are refused and nothing of either is loaded.
+- **T072, the README.** Checked against the code, not against the contract (the names, defaults and warning
+  texts it quotes were compared with the source); the mount example was probed against the installed Starlette (a `Mount` does not run the
+  lifespan of what it mounts, so the README tells the owner to run this app's lifespan and to put the prefix
+  in `url`); `Mount("/mcp", ...)` answers `POST /mcp` with a 307 and then a 404, which the README does not
+  suggest. There is no `mcp_server=` and no `Skills(...)` there, and the text says why in one line each.
+- **T073, the notes.** Three dated notes, bodies unchanged: the ADR (no `mcp_server=`, no `Skills(...)`,
+  `url` required, the settings that follow), amendment 4 of the design brief (what `Remote` serves; criteria 1
+  to 5 by test file), and the spec 003 contract (A1). The grep for the old names found the ADR's and the white
+  paper's own examples (kept as written, each now followed by a note), the contracts that say there is no such
+  argument, and nothing in code. The white paper got a note of its own, which the task did not list.
+- **T074, the surface docs.** `ARCHITECTURE.md` lists the `remote/` modules and the import rule (the rule
+  as the test enforces it: module level is the standard library, the core and its own modules; a door,
+  Starlette, `a2a` and `mcp` come in inside a function or under `TYPE_CHECKING`); `CHANGELOG.md` has one
+  Added entry for `Remote` and a Fixed section for the A2A lifespan; `AGENTS.md` names `Remote` and the two
+  contracts (69 lines).
+- **T075, the contracts.** `remote-api.md` and `app-composition.md` are marked built, each with a dated note.
+  What differed, so the maintainer can confirm it: a missing `expose` is Python's own `TypeError`; the
+  core refuses `*args`, `**kwargs`, positional-only, an underscore parameter and unreadable hints, and accepts a
+  function with no hints; the doors are read in starting order; the MCP restart warning is narrower than
+  the row (an `approve` of `False` alone does not warn); a `None` SDK authentication key is not an owner
+  source; the option classes check their own field types; problems come in the order of the checks.
+- **A slip of mine, in the open.** I appended the `### Fixed` section of the changelog with a shell
+  `printf >>`, against the rule to change repository files with the edit tools. The result is what an edit
+  would have written; I used the edit tool for everything else.
+- **A change that is not a doc.** `_check.py` had its own `_OWNER_SOURCES` beside `OWNER_SOURCES` in
+  `_options.py` (written in phase 9 and never used there). The duplicate is gone and `_check.py` reads the one
+  in `_options.py`; the three owner-source mutants of phase 9 are run again against that line in T077.
+- **T076, the quickstart.** Every command of §1 to §7 was run: the wheel built and installed into the three
+  interpreters, the spike (§2), A1 (§3), the `Remote` tests (§4), the import rules and the four single-extra
+  scripts (§5), the mutation checks (§6, T077 and T079) and the whole suite and the `standard/` diff (§7). The guide
+  and the code agree; §7 had compared `git diff --stat main`, which says nothing on `main`, so it now compares
+  with `d07f9c6`.
+- **T077, the safety rows.** 12 of 12 mutants died ([research.md](research.md) R17).
+- **T078, the outside review.** A code reviewer and a security reviewer, each with fresh context. Every
+  finding was checked against the code; the ones acted on got a failing test first (20 failures on the old
+  wheel), then the fix; the others are left on purpose with the reason ([research.md](research.md) R18).
+  Production code changed in `_options.py` (three more owned keywords), `_classify.py` (a class is no agent;
+  a skills list is copied), `_check.py` (what a `url` may carry), `_errors.py` (`__reduce__`) and docstrings
+  of `_remote.py`; the new tests are `tests/test_remote_review.py` and a pin in `tests/test_remote_errors.py`.
+  The owner order is the one decision to confirm (below).
+- **T079, the review fixes.** 19 of 19 mutants died (R18).
+- **T080, the closing numbers (run 2026-11-23, against the installed wheel).**
+  - The whole suite: **2841 passed** on Python 3.11, on 3.12 and on 3.13 (`-W error::UserWarning`).
+  - core only, a2a only, mcp only and langgraph only: ok. `ruff check --select F src tests`: clean.
+  - The replays run inside the suite, unchanged: 46 valid, 20 invalid and 1 unknown-kind example, 102
+    objects round-tripped; the A2A replay 31 files in client mode and 29 in door mode (two pause styles), 3
+    exempt; the MCP replay 14 files in client mode and 13 in door mode, 1 exempt.
+  - `git diff --stat d07f9c6 -- standard` is empty (0 lines): `standard/` is untouched.
+  - `pyproject.toml` has no change for this spec (FR-036); the one door change is A1 (R2).
+- **T081, the success criteria** (run 2026-11-23):
+  - SC-001 met by T040 and T047 (`test_remote_approvals.py`, `test_remote_restart.py`): the approval with
+    its `title` and `subject`, `allow` once, `deny` with a reason, an answer asked again with the same id and
+    `errors`, a paused task answered after a rebuild.
+  - SC-002 met by T062 and T063 (`test_remote_executor.py`).
+  - SC-003 met by T020 (`test_remote_serve.py`): both doors pause and answer, the two threads differ, one
+    context id over both doors shares nothing.
+  - SC-004 met by T041 and T042 (`test_remote_approvals.py`, section 3: every path that makes an approval).
+  - SC-005 met by T032 to T034 (`test_remote_errors.py`: one test per row, one error for several mistakes) and
+    again by `test_remote_review.py` for the review's rows.
+  - SC-006 met by T048 and T049 (`test_remote_restart.py`).
+  - SC-007 met by T021 and T010 (`test_remote_lifecycle.py`, `test_a2a_serve.py`).
+  - SC-008 met by T019 and T066 (`test_remote_compose.py`, `test_remote_options.py`).
+  - SC-009 met by T020 (`test_remote_serve.py`, section 3).
+  - SC-010 met by T014, T030 and T071 (`test_packaging.py`, the ImportError tests, the four scripts).
+  - SC-011 met by T080 above.
+  - SC-012 is **for the maintainer to read**, from the spec, the plan and the ADR only: for each argument of
+    `Remote`, which door serves it, what happens when none does, and which identity each door reads. It is
+    not claimed here. The README table and the contract say the same, and R18 lists what they do not
+    promise (the A2A door has no owner of its own, and no warning says so).
+  - None is not fully met. What is left is in R18 and below.
+- **For the maintainer to decide or confirm** (each is recorded where it was made):
+  - A missing `expose` is Python's own `TypeError`; the doors are read in starting order; a wider
+    missing-extra name set names both extras in one `ImportError`; a `False`-only `approve` does not warn;
+    D13 is narrower than R11; a `None` SDK authentication key is not an owner source for D5; the option classes
+    check their own field types; problems come in the order of the checks; `normalise_skills` is `check_skills`;
+    the import rule is read with `TYPE_CHECKING` allowed; the `Mount` fact and the `ExceptionGroup` fact of
+    `app-composition.md` are corrected by dated notes.
+  - From the review: `MCPOptions.owner` wins over the SDK's verified principal (the code of spec 004, now
+    documented); `security`, `extension` and `host` are owned keywords; a class as `agent` is a `TypeError`;
+    `RemoteError` can be pickled; `url` refuses a space, a control character and a bad port; a skills list is
+    copied when `Remote(...)` is called.
+  - Proposed and **not built**: a warning when the A2A door has no owner (no `middleware=` and no
+    `owner_resolver`), as D5 does for MCP. It changes FR-029, so it waits for the maintainer.
+  - Not done, other specs' follow-ups: a limit on paused A2A work and on a request body (spec 003);
+    `Approve` does not validate `answer_by` (spec 004, R16).
+- **Slips of mine, in the open.** Besides the changelog `printf >>` above: an earlier rewrite of `tasks.md`
+  as a whole, and an append to `tests/test_remote_errors.py` with a heredoc. Each is against the rule to
+  change repository files with the edit tools; the content is what an edit would have written.
