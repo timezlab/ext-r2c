@@ -1,6 +1,6 @@
 # Work state
 
-Last updated 2026-11-22. Read this first in a new session.
+Last updated 2026-11-23. Read this first in a new session.
 
 ## Done
 
@@ -243,16 +243,23 @@ Last updated 2026-11-22. Read this first in a new session.
     what the caller sees and what the graph gets back.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
     (spec 006), `3b26285` (its plan), the tasks commit after it and every commit of spec 006's ten phases.
-  - **Waiting for the maintainer's approval (the gate):** `specs/007-remote/spec.md` (drafted 2026-11-23;
-    `Remote`, the first adapter that takes `agent=LangGraphAgent(graph)`; no plan yet). It asks about two
-    decisions first: D3 (drop `mcp_server=`: the installed MCP SDK cannot add R2C to an existing server,
-    so the ADR's row cannot be built) and D5 (identity: one `middleware=` outside both doors, each door
-    reads its own owner, a warning when MCP callers cannot be told apart).
+  - **Waiting for the maintainer's go to implement spec 007** (`specs/007-remote/`): `spec.md` (drafted
+    2026-11-23; `Remote`, the first adapter that takes `agent=LangGraphAgent(graph)`), then `plan.md`,
+    `research.md` (R1–R16), `data-model.md`, `contracts/` (the API, how the app is composed),
+    `quickstart.md` and `tasks.md` (83 tasks in 10 phases) were written the same day, on the maintainer's
+    "sinh plan và task". We read that as approval of the spec with D1–D13 as written; no D was answered
+    one by one. The two the maintainer may want to overrule: D3 (no `mcp_server=`: the installed MCP SDK
+    cannot add R2C to an existing server) and D5 (identity: one `middleware=` outside both doors, each
+    door reads its own owner, a warning when MCP callers cannot be told apart). The plan also needs three
+    answers (recommended option A in each): `Remote` refuses `Approve(answer_by="caller")`; one door still
+    returns the composed app; `url` is the base and the card says `url` + `a2a.path`. One change to a door
+    is planned (A1: the A2A lifespan closes its handler in a `finally`; a probe showed it does not today).
+    Nothing is implemented; the first phase is the spike that pins the SDK facts.
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–006 built, 006 not pushed; 007 specified, waiting for approval; 008 onward proposed)
+## Spec sequence (001–006 built, 006 not pushed; 007 planned, waiting for the go to implement; 008 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -293,7 +300,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    after the advisory vet). One additive core
    piece (`PauseLost`), one core race fix (found in phase 3) and a structural change to the shared suite;
    ten delivery phases in the plan.
-7. **`007-remote`** (spec drafted 2026-11-23, waiting for approval) — `Remote`, the only remote-side
+7. **`007-remote`** (spec, plan and 83 tasks written 2026-11-23, waiting for the go to implement) — `Remote`, the only remote-side
    adapter, configured declaratively: `expose` (required) = A2A, MCP or both; one ASGI app; `agent=`
    (an `AgentSource` or an a2a-sdk executor), `card=`, `url=`, `tools=`, `approve=`, `skills=`
    (folders or a `SkillsExtension`), `resources=`, `prompts=`, `mcp_tool=True`, `middleware=`, and
