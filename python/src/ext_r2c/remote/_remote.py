@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
 from datetime import datetime
 from os import PathLike
 from typing import TYPE_CHECKING, Any, Literal
 
 from ..core import AgentSource, CardInfo, Limits, ToolSpec
-from ._classify import AgentKind, agent_kind, normalise_approve, normalise_tools, read_expose
+from ._check import check
+from ._classify import read_expose
 from ._compose import check_no_collision, parent_app
 from ._doors import build_a2a, build_mcp, load_doors
-from ._errors import RemoteError
 from ._options import A2AOptions, MCPOptions
 
 if TYPE_CHECKING:
@@ -25,25 +24,6 @@ if TYPE_CHECKING:
     from ..mcp import Approve, SkillsExtension, SourceTool
 
 __all__ = ["Remote"]
-
-
-@dataclass(frozen=True)
-class _Held:
-    """What a checked ``Remote`` holds until ``app()`` builds from it (data-model §1)."""
-
-    doors: tuple[str, ...]
-    loaded: Mapping[str, Any]  # the package of each exposed door
-    agent: Any
-    kind: AgentKind | None
-    info: CardInfo | None
-    url: str | None
-    tools: tuple[Any, ...]  # what the MCP door serves, the agent tool included
-    approve: Mapping[str, Any]
-    middleware: tuple[Any, ...]
-    a2a: A2AOptions
-    mcp: MCPOptions
-    limits: Limits
-    clock: Callable[[], datetime] | None
 
 
 class Remote:
@@ -81,24 +61,10 @@ class Remote:
     ) -> None:
         doors, problems = read_expose(expose)
         loaded = load_doors(doors)  # a missing extra is said before anything else
-        if not doors:
-            raise RemoteError(problems)  # every other check asks which doors there are
-
-        kind = None if agent is None else agent_kind(agent)
-        served: tuple[Any, ...] = ()
-        if "mcp" in doors:
-            served = normalise_tools(tools, loaded["mcp"].SourceTool)
-            if mcp_tool and kind == "source":
-                served = (*served, loaded["mcp"].SourceTool(agent))
-        named = normalise_approve(approve)
-        info = card if card is not None else agent.card if kind == "source" else None
-        if problems:
-            raise RemoteError(problems)
-
-        self._held = _Held(
-            doors=doors, loaded=loaded, agent=agent, kind=kind, info=info, url=url, tools=served, approve=named,
-            middleware=tuple(middleware), a2a=a2a if a2a is not None else A2AOptions(),
-            mcp=mcp if mcp is not None else MCPOptions(), limits=limits, clock=clock,
+        self._held = check(
+            doors=doors, loaded=loaded, problems=problems, agent=agent, card=card, url=url, tools=tools,
+            approve=approve, skills=skills, resources=resources, prompts=prompts, mcp_tool=mcp_tool,
+            middleware=middleware, a2a=a2a, mcp=mcp, limits=limits, clock=clock,
         )
         self._built = False
 

@@ -1,18 +1,22 @@
 """What each argument of ``Remote`` is, decided by its shape (spec 007, research R4 to R6).
 
-Nothing here loads a door. A check that needs a door's class (``SourceTool``) is given the class, so
-this module imports the core only and a ``Remote`` that exposes one door never touches the other's.
+Nothing here loads a door. A check that needs a door's class (``SourceTool``, ``Approve``) is given
+the class, so this module imports the core only and a ``Remote`` that exposes one door never touches
+the other's. Where the class is ``None`` its door is not exposed: the argument is then reported as
+one no exposed door serves, and only what needs no class is checked here.
 """
 
 from __future__ import annotations
 
 import inspect
 from collections.abc import Mapping, Sequence
+from os import PathLike
 from typing import Any, Literal
 
 from ..core import ToolSpec, tool_from_function
 
-__all__ = ["DOORS", "AgentKind", "agent_kind", "normalise_approve", "normalise_tools", "read_expose"]
+__all__ = ["DOORS", "AgentKind", "agent_kind", "check_skills", "normalise_approve", "normalise_tools",
+           "read_expose", "typed_entries"]
 
 DOORS = ("a2a", "mcp")
 """The doors, in the order they start."""
@@ -73,15 +77,27 @@ def _entries(argument: str, value: Any, what: str) -> Sequence[Any]:
     return value
 
 
-def normalise_tools(tools: Any, source_tool: type) -> tuple[Any, ...]:
+def typed_entries(argument: str, value: Any, kind: type | None, what: str, one: str) -> tuple[Any, ...]:
+    """``value`` as a tuple of ``kind`` objects. ``what`` names them, ``one`` names one of them."""
+    entries = tuple(_entries(argument, value, what))
+    for entry in entries if kind is not None else ():
+        if not isinstance(entry, kind):
+            raise TypeError(f"{argument}: each entry is {one}, not {type(entry).__name__}")
+    return entries
+
+
+def normalise_tools(tools: Any, source_tool: type | None) -> tuple[Any, ...]:
     """Each entry of ``tools`` as what the MCP door serves: a ``ToolSpec`` or a ``SourceTool`` kept, a
     function or a method converted by the core (whose own refusals pass through unchanged).
 
     Anything else is refused with one fixed text. ``Remote`` recognises no framework's tool object:
     the owner converts it in their own module, so no bridge is imported here.
     """
+    entries = _entries("tools", tools, "tools")
+    if source_tool is None:
+        return tuple(entries)
     served = []
-    for tool in _entries("tools", tools, "tools"):
+    for tool in entries:
         if isinstance(tool, (ToolSpec, source_tool)):
             served.append(tool)
         elif inspect.isroutine(tool):
@@ -91,8 +107,9 @@ def normalise_tools(tools: Any, source_tool: type) -> tuple[Any, ...]:
     return tuple(served)
 
 
-def normalise_approve(approve: Any) -> dict[str, Any]:
-    """``approve`` as the mapping the MCP door takes: a list of tool names means ``{name: True}``."""
+def normalise_approve(approve: Any, setting: type | None) -> dict[str, Any]:
+    """``approve`` as the mapping the MCP door takes: a list of tool names means ``{name: True}``.
+    Each value of a mapping is an ``Approve`` (the class ``setting``) or a ``bool``."""
     if isinstance(approve, Mapping):
         named = dict(approve)
     else:
@@ -101,4 +118,21 @@ def normalise_approve(approve: Any) -> dict[str, Any]:
     for name in named:
         if not isinstance(name, str):
             raise TypeError(f"approve: a tool is named by a str, not {type(name).__name__}")
+    for value in named.values() if setting is not None else ():
+        if not isinstance(value, (setting, bool)):
+            raise TypeError(f"approve: the setting of a tool is an Approve or a bool, not {type(value).__name__}")
     return named
+
+
+def check_skills(skills: Any, extension: type | None) -> None:
+    """``skills`` is a folder, a list of folders or a ``SkillsExtension`` (the class ``extension``).
+    The folders themselves are read when the app is built, by the extension."""
+    if skills is None or isinstance(skills, (str, PathLike)):
+        return
+    if isinstance(skills, Sequence) and not isinstance(skills, (bytes, bytearray)):
+        for folder in skills:
+            if not isinstance(folder, (str, PathLike)):
+                raise TypeError(f"skills: each folder is a str or a path, not {type(folder).__name__}")
+        return
+    if extension is not None and not isinstance(skills, extension):
+        raise TypeError(f"skills: is a folder, a list of folders or a SkillsExtension, not {type(skills).__name__}")

@@ -9,6 +9,7 @@ name of ``ext_r2c.a2a`` or ``ext_r2c.mcp``.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +19,36 @@ if TYPE_CHECKING:
     from ._classify import AgentKind
     from ._options import A2AOptions, MCPOptions
 
-__all__ = ["build_a2a", "build_mcp", "load_doors"]
+__all__ = ["Kinds", "build_a2a", "build_mcp", "kinds", "load_doors"]
+
+
+@dataclass(frozen=True)
+class Kinds:
+    """The classes the type checks compare against. ``None`` where the door that has the class is
+    not exposed: that check then waits for the door."""
+
+    middleware: type | None = None
+    source_tool: type | None = None
+    approve: type | None = None
+    skills: type | None = None
+    resource: type | None = None
+    prompt: type | None = None
+
+
+def kinds(loaded: Mapping[str, Any]) -> Kinds:
+    """The classes of the doors in ``loaded``. Starlette comes with either door."""
+    if not loaded:
+        return Kinds()
+    from starlette.middleware import Middleware
+
+    if "mcp" not in loaded:
+        return Kinds(middleware=Middleware)
+    from mcp.server.mcpserver.prompts import Prompt
+    from mcp.server.mcpserver.resources import Resource
+
+    door = loaded["mcp"]
+    return Kinds(middleware=Middleware, source_tool=door.SourceTool, approve=door.Approve,
+                 skills=door.SkillsExtension, resource=Resource, prompt=Prompt)
 
 # The module whose import fails first when a door's extra is not installed. Any other ImportError
 # is a real fault and is not turned into "install the extra".

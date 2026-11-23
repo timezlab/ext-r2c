@@ -242,12 +242,12 @@ that names the argument and says what to do.
 
 ### Tests for User Story 2 ⚠️ (write first, watch them fail on the first cut)
 
-- [ ] T030 [P] [US2] `tests/test_remote_errors.py`, section 2 (ImportError): with `a2a` blocked (child
+- [X] T030 [P] [US2] `tests/test_remote_errors.py`, section 2 (ImportError): with `a2a` blocked (child
   process, `sys.modules["a2a"] = None`), `Remote(expose=["a2a"], ...)` raises an `ImportError` naming
   `ext-r2c[a2a]`; with `mcp` blocked, `[mcp]`; both blocked, both named; `import ext_r2c` and `from ext_r2c
   import Remote` still work; the error comes before any other check (a config with other mistakes still
   raises it).
-- [ ] T031 [P] [US2] section 3 (TypeError, first found): `expose` a bare `str` or with a non-`str` item;
+- [X] T031 [P] [US2] section 3 (TypeError, first found): `expose` a bare `str` or with a non-`str` item;
   `agent` of neither kind (the message names both kinds); a `tools` entry that is a `functools.partial`, a
   callable instance, a stand-in with `invoke` (the message names `tools_from_langchain`); `tools`, `approve`,
   `resources`, `prompts`, `middleware` as a bare `str`; `approve` with a value that is neither `Approve` nor
@@ -255,7 +255,7 @@ that names the argument and says what to do.
   `a2a=` or `mcp=` of the wrong class; `skills` of an unaccepted kind; `card`, `url`, `limits`, `clock`,
   `mcp_tool` of the wrong type. A callable the core refuses (`*args`, no type hints, a leading underscore)
   passes through with the core's own error, unchanged.
-- [ ] T032 [P] [US2] section 4 (`RemoteError`, one test per row of R7, rows 1 to 14 and 16 to 19): the error
+- [X] T032 [P] [US2] section 4 (`RemoteError`, one test per row of R7, rows 1 to 14 and 16 to 19): the error
   type, the message names the argument, the `problems` entry begins with its name, and a companion test
   fixes only that argument and builds (the offending argument is absent from every success path). Includes:
   `approve` naming a tool that does not exist (a typo), the agent's tool and any `SourceTool`; an
@@ -264,26 +264,26 @@ that names the argument and says what to do.
   `http(s)` address, with user info, a query or a fragment; `MCPOptions.server` naming `name`, `extensions`,
   `request_state_security`, …; `.http` naming `streamable_http_path`; the owned keys are a subset of the SDK's
   keyword sets pinned in T006.
-- [ ] T033 [P] [US2] section 5 (collected, no echo): several mistakes at once give one `RemoteError` listing
+- [X] T033 [P] [US2] section 5 (collected, no echo): several mistakes at once give one `RemoteError` listing
   all, in a stable order, and fixing them one at a time ends in a built app; a canary in `url` user info and a
   canary path in an option appear in no message and no `problems` entry; every message says what to do.
-- [ ] T034 [P] [US2] section 6 (order): with an extra missing and other mistakes, the `ImportError` wins; with
+- [X] T034 [P] [US2] section 6 (order): with an extra missing and other mistakes, the `ImportError` wins; with
   a wrong type and a collected problem, the `TypeError` wins; a refused `Remote` emits no warning; a valid one
   emits only the warnings of phases 6 and 9.
-- [ ] T035 [US2] Run T030–T034 against the first cut: each fails for the expected reason (a row is missing, an
+- [X] T035 [US2] Run T030–T034 against the first cut: each fails for the expected reason (a row is missing, an
   error is the wrong type). Report which rows the first cut already met.
 
 ### Implementation for User Story 2
 
-- [ ] T036 [US2] `src/ext_r2c/remote/_check.py`: the type checks (R6 step 3) and the collected problems (every
+- [X] T036 [US2] `src/ext_r2c/remote/_check.py`: the type checks (R6 step 3) and the collected problems (every
   row of R7, with messages in the convention `"<argument>: <what is wrong>; <what to do>"`), called from
   `Remote.__init__` in the R6 order; the unserved-argument rule of FR-019; tool-name and approve tables.
-- [ ] T037 [US2] `src/ext_r2c/remote/_options.py`: the owned-key sets and the path helpers used by the checks
+- [X] T037 [US2] `src/ext_r2c/remote/_options.py`: the owned-key sets and the path helpers used by the checks
   (a path begins with `/`, not under `/.well-known/`, the two differ); extend `_classify.py` for
   `normalise_skills` shape and the `approve` shapes.
-- [ ] T038 [US2] Run T030–T034 green and the whole suite; one pass over every message: it names the argument
+- [X] T038 [US2] Run T030–T034 green and the whole suite; one pass over every message: it names the argument
   and says what to do, and contains no value the owner typed.
-- [ ] T039 Verify and commit: `feat(007): build errors, one test per row`.
+- [X] T039 Verify and commit: `feat(007): build errors, one test per row`.
 
 **Checkpoint**: SC-005 holds.
 
@@ -640,3 +640,47 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
   (phase 9).
 - **Verify.** 2578 tests on 3.11, 3.12 and 3.13; core only, a2a only, mcp only and langgraph only ok;
   `ruff` clean.
+
+### Phase 4 (2026-11-23)
+
+- **T035.** Red for the expected reason: 43 of 123 tests passed on the first cut (all of section 2, a few
+  type errors, row 1, the owned-key pin); 80 failed because there was no type check and no collected
+  problem yet.
+- **Problems come in one fixed order,** whatever order the arguments were typed in, so the same mistakes
+  always read the same: `expose`, then `agent` and `card`, then the A2A arguments (`url`, and `a2a` when A2A is
+  not exposed), then the MCP arguments (`tools`, `approve`, `mcp_tool`, and the rest when MCP is not exposed),
+  then the paths, then the owned keys. This is the order of the checks, close to but not exactly the
+  signature (`a2a` is read with `url`).
+- **A door that is not exposed does not load, so what needs its classes waits.** `tools`, `approve`, `skills`,
+  `resources` and `prompts` are then not typed, and are reported as unserved by that door; the types that
+  need no door class (`a2a`, `mcp`, `limits`, `clock`, `card`, `url`, `mcp_tool`) are checked either way.
+  Starlette comes with either door, so `middleware` is typed with one door as with two.
+- **Row 3 is reported together with row 2** (an A2A remote with no agent and no card has both problems), and
+  row 16 is checked on its own, not only when rows 10 and 11 pass.
+- **`url`.** Query and fragment are looked for in the text as typed (`urlsplit` would hide an empty one);
+  user info is an `@` in the network location; the port is not checked, a card may name any. A
+  `ValueError` from `urlsplit` is "not an absolute address".
+- **`skills=[]` is left to `SkillsExtension` in `app()`,** which says what it refuses (the folder
+  checks of spec 005 are not repeated at build time). A bad folder is that error, unchanged, from `app()`.
+- **The owned-key hints are actions** ("pass skills= to Remote", "use the security field of MCPOptions",
+  "leave it out, the card's name is the server's"), not a bare "not allowed", so each message says what to do.
+- **Where things live.** `Kinds` (the classes the type checks compare against) is in `_doors.py` beside
+  `load_doors`; `Checked` (what `Remote` holds once it is valid; it was `_Held`) is in `_check.py` and already
+  holds `skills`, `resources` and `prompts`, which are served from phase 7.
+- **What the core refuses is not what the contract wrote.** The contract says the core refuses a function
+  "with no type hints, a leading underscore". The installed core refuses `*args`, `**kwargs`, positional-only
+  parameters, a parameter whose name starts with an underscore and type hints it cannot read; it accepts a
+  function with no hints and one whose own name starts with an underscore. The tests pin what the core does
+  and `Remote` passes its error through unchanged; the contract gets a dated note in phase 10.
+- **"A refused `Remote` warns nothing"** (T034) is only meaningful once a valid one can warn: it is written
+  now and has teeth from phase 6.
+- **Mutation check.** 78 mutants, 72 died on the first run. The six that lived were test gaps, not code
+  faults: the keyword a row's problem must say (`address`, `a2a`) also appears in the message of its
+  sibling row, so rows 4 and 6 now say `base address` and `executor`; the value of an owned key was not
+  a canary (now one in `server` and one in `http`); `card=` winning over the source's own card was not
+  tested at all (new test: the A2A card and the MCP server say the given name); `middleware` was only typed
+  in the test with MCP (new test over three door sets); and one of my own mutants changed nothing (the
+  "url said back" one), now a real one. The seven were run again: all died.
+- **Verify.** 128 tests in `test_remote_errors.py`. With the files written ahead for later phases left out,
+  the suite is 2691 on 3.13 and the same set is green on 3.11 and 3.12; core only, a2a only, mcp only and
+  langgraph only ok; `ruff` clean.

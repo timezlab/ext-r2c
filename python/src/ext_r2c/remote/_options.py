@@ -24,9 +24,9 @@ __all__ = ["A2AOptions", "MCPOptions"]
 # version and description come from the card; the extensions, tools and resources from `Remote`'s own
 # arguments; the request-state policy and the two HTTP settings from the fields of `MCPOptions`.
 SERVER_OWNED: Mapping[str, str] = MappingProxyType({
-    "name": "the card's name is the server's name",
-    "description": "the card's description is the server's",
-    "version": "the card's version is the server's",
+    "name": "leave it out, the card's name is the server's",
+    "description": "leave it out, the card's description is the server's",
+    "version": "leave it out, the card's version is the server's",
     "extensions": "pass skills= to Remote",
     "tools": "pass tools= to Remote",
     "resources": "pass resources= to Remote",
@@ -38,6 +38,7 @@ HTTP_OWNED: Mapping[str, str] = MappingProxyType({
 })
 # Keywords of `MCPServer` that give the MCP door an owner of its own (D5).
 OWNER_SOURCES = ("auth", "token_verifier", "auth_server_provider")
+_WELL_KNOWN = "/.well-known"
 
 
 def _path(owner: str, value: Any) -> None:
@@ -107,3 +108,30 @@ class MCPOptions:
             raise TypeError(f"MCPOptions.owner is a callable, not {type(self.owner).__name__}")
         object.__setattr__(self, "server", _keywords("MCPOptions", "server", self.server))
         object.__setattr__(self, "http", _keywords("MCPOptions", "http", self.http))
+
+
+def path_problems(a2a: A2AOptions | None, mcp: MCPOptions | None) -> list[str]:
+    """What is wrong with the paths of the exposed doors (``None`` is a door that is not exposed).
+    A path begins with ``/`` and is not under ``/.well-known/``, and the two differ. No problem says
+    a path back: it is this host's own. A route an SDK adds is checked when the app is built."""
+    problems = []
+    for name, options in (("a2a.path", a2a), ("mcp.path", mcp)):
+        if options is None:
+            continue
+        if not options.path.startswith("/"):
+            problems.append(f"{name}: does not begin with /; begin the path with /")
+        elif options.path == _WELL_KNOWN or options.path.startswith(_WELL_KNOWN + "/"):
+            problems.append(f"{name}: is under /.well-known/, where the card and other well-known documents "
+                            "are served; give another path")
+    if a2a is not None and mcp is not None and a2a.path == mcp.path:
+        problems.append("a2a.path: is the same path as mcp.path; give the two doors different paths")
+    return problems
+
+
+def owned_key_problems(mcp: MCPOptions) -> list[str]:
+    """One problem for each keyword in ``server`` or ``http`` that ``Remote`` sets itself."""
+    return [
+        f"mcp.{field_name}: names {key}, a keyword Remote sets itself; {to_do}"
+        for field_name, given, owned in (("server", mcp.server, SERVER_OWNED), ("http", mcp.http, HTTP_OWNED))
+        for key, to_do in owned.items() if key in given
+    ]
