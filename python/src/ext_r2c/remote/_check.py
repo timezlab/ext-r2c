@@ -3,9 +3,10 @@
 
 ``check`` starts nothing and reads no file. A wrong type is a ``TypeError``, the first one found, in
 the order of the arguments below. What is wrong with the configuration is collected and raised as
-one ``RemoteError``, in the order of the signature of ``Remote``, so the same mistakes always read
-the same way. A problem names an argument, a door, a tool or a key; it never says back an address
-or a path the owner typed.
+one ``RemoteError``, in the order of the checks (``expose``, the agent, the card, ``url``, the MCP
+door's arguments, the two paths, the keywords ``Remote`` owns), so the same mistakes always read the
+same way. A problem names an argument, a door, a tool or a key; it never says back an address or a
+path the owner typed.
 """
 
 from __future__ import annotations
@@ -20,12 +21,11 @@ from ..core import CardInfo, Limits
 from ._classify import AgentKind, agent_kind, check_skills, normalise_approve, normalise_tools, typed_entries
 from ._doors import kinds
 from ._errors import RemoteError
-from ._options import A2AOptions, MCPOptions, owned_key_problems, path_problems
+from ._options import OWNER_SOURCES, A2AOptions, MCPOptions, owned_key_problems, path_problems
 
 __all__ = ["Checked", "check", "warning_texts"]
 
 _ANSWERED_BY = ("person", "approver")  # never a model, and so never the caller's agent (principle V)
-_OWNER_SOURCES = ("auth", "token_verifier", "auth_server_provider")  # the SDK's own ways to name a caller
 
 # What each argument of one door is for, said when that door is not exposed (FR-019).
 _OF_A2A = {"url": "the address on the card is said", "a2a": "its options are read"}
@@ -78,7 +78,7 @@ def check(
         raise TypeError(f"agent: its card is a CardInfo, not {type(agent.card).__name__}")
     served = normalise_tools(tools, of.source_tool)
     named = normalise_approve(approve, of.approve)
-    check_skills(skills, of.skills)
+    skills = check_skills(skills, of.skills)
     resources = typed_entries("resources", resources, of.resource, "the MCP SDK's Resource objects",
                               "an MCP SDK Resource")
     prompts = typed_entries("prompts", prompts, of.prompt, "the MCP SDK's Prompt objects", "an MCP SDK Prompt")
@@ -182,7 +182,7 @@ def warning_texts(held: Checked) -> list[str]:
 def _names_an_owner(options: MCPOptions) -> bool:
     """Whether the MCP door has a way to tell its callers apart: an ``owner`` callable, or one of the
     SDK's own authentication settings in the server's keywords (a setting left ``None`` is none)."""
-    return options.owner is not None or any(options.server.get(key) is not None for key in _OWNER_SOURCES)
+    return options.owner is not None or any(options.server.get(key) is not None for key in OWNER_SOURCES)
 
 
 def _can_pause(held: Checked) -> bool:
@@ -216,6 +216,9 @@ def _url_problems(url: str | None) -> list[str]:
     if url is None:
         return ["url: the A2A door is exposed and its card says where this app is reached; give the public base "
                 "address, beginning with https://"]
+    if any(char.isspace() or not char.isprintable() for char in url):
+        # `urlsplit` drops tabs and line breaks before it reads, so it would pass what the card then says as is.
+        return ["url: has a space or a control character; remove it, the card says the address as it is typed"]
     try:
         parts = urlsplit(url)
         host = parts.hostname
@@ -224,6 +227,10 @@ def _url_problems(url: str | None) -> list[str]:
     if parts.scheme not in ("http", "https"):
         return [_NOT_ABSOLUTE]
     problems = []
+    try:
+        _ = parts.port  # reading it is the check: it raises for a port that is no number or is out of range
+    except ValueError:
+        problems.append("url: has a port that is not a number from 0 to 65535; give it as :8443")
     if not host:
         problems.append("url: has no host; give the public host this app is reached at")
     if "@" in parts.netloc:

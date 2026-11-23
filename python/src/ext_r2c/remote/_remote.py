@@ -30,7 +30,8 @@ __all__ = ["Remote"]
 class Remote:
     """Serves an existing remote over A2A, MCP or both, from one ASGI app.
 
-    ``Remote(...)`` checks what it is given and builds nothing; ``app()`` builds the app, once::
+    ``Remote(...)`` checks what it is given and builds no door and reads no file; ``app()`` builds the
+    app, once::
 
         app = Remote(agent=LangGraphAgent(graph), tools=[publish_page], mcp_tool=True,
                      expose=["a2a", "mcp"], url="https://remote.example.com").app()
@@ -74,7 +75,9 @@ class Remote:
     def app(self) -> ASGIApp:
         """The one ASGI app that serves every exposed door. Its own lifespan starts and stops the
         doors, so an ASGI server needs no other step. One ``Remote`` builds one app: a second
-        call, or a call after one that failed, is a ``RuntimeError``."""
+        call, or a call after one that failed, is a ``RuntimeError``. The app starts once: the
+        doors' own SDK parts run once, so a second start of the same app fails (MCP) or serves
+        nothing useful (A2A); build a new ``Remote`` for a new app, as a test does."""
         if self._built:
             raise RuntimeError("one `Remote` builds one app; build a new `Remote`")
         self._built = True  # also when the build below fails: what it was given may be half used

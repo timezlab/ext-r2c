@@ -20,9 +20,12 @@ if TYPE_CHECKING:
 
 __all__ = ["A2AOptions", "MCPOptions"]
 
-# Keywords of `MCPServer` and of `streamable_http_app` that `Remote` sets itself: the server's name,
-# version and description come from the card; the extensions, tools and resources from `Remote`'s own
-# arguments; the request-state policy and the two HTTP settings from the fields of `MCPOptions`.
+# Keywords of `MCPServer`, of `mcp_server` and of `streamable_http_app` that `Remote` takes out of the
+# owner's hands: the server's name, version and description come from the card; the extensions, tools and
+# resources from `Remote`'s own arguments; the request-state policy and the HTTP settings from the fields of
+# `MCPOptions`. `security` and `extension` are the keywords of `mcp_server` itself (a second value for
+# either one is a `TypeError` from the SDK, so it is a problem here); `host` is no collision, but the SDK
+# keeps its host guard only for a loopback `host`, so a bind address given here would turn it off in silence.
 SERVER_OWNED: Mapping[str, str] = MappingProxyType({
     "name": "leave it out, the card's name is the server's",
     "description": "leave it out, the card's description is the server's",
@@ -31,10 +34,14 @@ SERVER_OWNED: Mapping[str, str] = MappingProxyType({
     "tools": "pass tools= to Remote",
     "resources": "pass resources= to Remote",
     "request_state_security": "use the security field of MCPOptions",
+    "security": "use the security field of MCPOptions",
+    "extension": "leave it out, Remote builds R2C's own extension",
 })
 HTTP_OWNED: Mapping[str, str] = MappingProxyType({
     "streamable_http_path": "use the path field of MCPOptions",
     "transport_security": "use the transport_security field of MCPOptions",
+    "host": "the server that runs this app binds the address; name the hosts it answers to in the "
+            "transport_security field of MCPOptions",
 })
 # Keywords of `MCPServer` that give the MCP door an owner of its own (D5).
 OWNER_SOURCES = ("auth", "token_verifier", "auth_server_provider")
@@ -85,8 +92,11 @@ class MCPOptions:
     - ``path``: the streamable-HTTP endpoint, exactly this path.
     - ``security``: the SDK's ``RequestStateSecurity``. ``None`` is its ephemeral policy: a
       restart then invalidates every paused call. Give fixed keys to resume after one.
-    - ``owner``: ``owner(ctx) -> str | None``, the owner of a call when the SDK's own
-      authentication does not name one. It may read ``ctx.request.user``.
+    - ``owner``: ``owner(ctx) -> str | None``, the owner of a call. It is asked first: an owner it
+      names wins over the SDK's authenticated principal, and ``None`` leaves the principal (or
+      ``anonymous`` when the SDK authenticates nobody). So with the SDK's authentication on, a
+      callable that returns something other than the verified user replaces it. It may read
+      ``ctx.request.user``.
     - ``transport_security``: the SDK's host rules. Without it only ``127.0.0.1`` is served and
       any other ``Host`` is answered ``421``.
     - ``server``: other keyword arguments of ``MCPServer`` (``instructions``, ``auth``,
@@ -129,9 +139,9 @@ def path_problems(a2a: A2AOptions | None, mcp: MCPOptions | None) -> list[str]:
 
 
 def owned_key_problems(mcp: MCPOptions) -> list[str]:
-    """One problem for each keyword in ``server`` or ``http`` that ``Remote`` sets itself."""
+    """One problem for each keyword in ``server`` or ``http`` that ``Remote`` takes out of the owner's hands."""
     return [
-        f"mcp.{field_name}: names {key}, a keyword Remote sets itself; {to_do}"
+        f"mcp.{field_name}: names {key}, a keyword Remote does not take from here; {to_do}"
         for field_name, given, owned in (("server", mcp.server, SERVER_OWNED), ("http", mcp.http, HTTP_OWNED))
         for key, to_do in owned.items() if key in given
     ]

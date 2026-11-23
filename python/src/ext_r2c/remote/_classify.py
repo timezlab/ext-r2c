@@ -57,8 +57,13 @@ def agent_kind(agent: Any) -> AgentKind:
     """``"source"`` for an ``AgentSource``, ``"executor"`` for an a2a-sdk ``AgentExecutor``.
 
     By shape, source first: ``AgentSource`` is a protocol that ``isinstance`` cannot check, and the
-    executor's class lives in an SDK that may not be installed when only MCP is exposed.
+    executor's class lives in an SDK that may not be installed when only MCP is exposed. A class is
+    never an agent: its ``run`` and ``execute`` are plain functions that need an instance, and it
+    would fail only at the first request.
     """
+    if inspect.isclass(agent):
+        raise TypeError(f"agent: is the class {agent.__name__}, not an object; give an instance of it, "
+                        f"such as {agent.__name__}(...)")
     if (hasattr(agent, "card") and hasattr(agent, "pause")
             and callable(getattr(agent, "run", None)) and callable(getattr(agent, "resume", None))):
         return "source"
@@ -124,15 +129,21 @@ def normalise_approve(approve: Any, setting: type | None) -> dict[str, Any]:
     return named
 
 
-def check_skills(skills: Any, extension: type | None) -> None:
+def check_skills(skills: Any, extension: type | None) -> Any:
     """``skills`` is a folder, a list of folders or a ``SkillsExtension`` (the class ``extension``).
-    The folders themselves are read when the app is built, by the extension."""
+    The folders themselves are read when the app is built, by the extension.
+
+    Returns what ``Remote`` holds: a list of folders is copied into a tuple, so a list the owner
+    changes after ``Remote(...)`` is not read again by ``app()``, unchecked (as ``tools=`` is held).
+    """
     if skills is None or isinstance(skills, (str, PathLike)):
-        return
+        return skills
     if isinstance(skills, Sequence) and not isinstance(skills, (bytes, bytearray)):
-        for folder in skills:
+        folders = tuple(skills)
+        for folder in folders:
             if not isinstance(folder, (str, PathLike)):
                 raise TypeError(f"skills: each folder is a str or a path, not {type(folder).__name__}")
-        return
+        return folders
     if extension is not None and not isinstance(skills, extension):
         raise TypeError(f"skills: is a folder, a list of folders or a SkillsExtension, not {type(skills).__name__}")
+    return skills

@@ -19,7 +19,7 @@ import pytest
 from a2a.server.agent_execution import AgentExecutor
 from ext_r2c import A2AOptions, MCPOptions, Remote, RemoteError
 from ext_r2c.core import CardInfo, ToolSpec, tool_from_function
-from ext_r2c.mcp import Approve, SourceTool
+from ext_r2c.mcp import Approve, SourceTool, mcp_server
 from ext_r2c.remote._options import HTTP_OWNED, SERVER_OWNED
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.prompts import Prompt
@@ -512,12 +512,14 @@ def test_one_mistake_is_one_problem_that_names_its_argument(
 
 def test_the_keys_remote_owns_are_keywords_the_sdk_has() -> None:
     """A rename in the SDK fails here, not in a deployment (research R8)."""
-    server = set(inspect.signature(MCPServer.__init__).parameters)
+    server = set(inspect.signature(MCPServer.__init__).parameters) | set(inspect.signature(mcp_server).parameters)
     http = set(inspect.signature(MCPServer.streamable_http_app).parameters)
     assert set(SERVER_OWNED) <= server and set(HTTP_OWNED) <= http
+    # `security` and `extension` are the keywords of `mcp_server` itself (review, R18); `host` is not a
+    # collision but the SDK turns its host guard off for a non-loopback one (review, R18).
     assert set(SERVER_OWNED) == {"name", "description", "version", "extensions", "tools", "resources",
-                                 "request_state_security"}
-    assert set(HTTP_OWNED) == {"streamable_http_path", "transport_security"}
+                                 "request_state_security", "security", "extension"}
+    assert set(HTTP_OWNED) == {"streamable_http_path", "transport_security", "host"}
 
 
 def test_an_approval_may_be_addressed_to_a_person_or_an_approver_only() -> None:
