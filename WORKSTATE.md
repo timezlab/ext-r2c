@@ -278,13 +278,23 @@ Last updated 2026-11-23. Read this first in a new session.
     other). A reporter and a planner, each wrapped by one `Remote(...)` over A2A and MCP: a question, an
     approval, an MCP call back, and a rule that declines an approval for an agent that calls an agent.
     It runs offline with a scripted model. `tests/test_example_langgraph.py` runs it on real sockets against
-    the installed wheel (4 tests; 2 mutants of the example killed). Written first and pinned after, so the
-    test was not seen failing before the code existed. **Maintainer's stated direction, 2026-11-23:** a CI
-    job that builds the wheel on a release, then a first alpha or beta release for that adopter to
-    integrate. Neither exists yet; the release needs the PyPI name decision (not reserved) or a wheel
-    attached to the GitHub release.
+    the installed wheel (5 tests; 2 mutants of the example killed). Written first and pinned after, so the
+    test was not seen failing before the code existed. Committed locally as `b307085`, with `c9e7a7c`, not
+    pushed; 2846 tests pass on 3.13 and the example's tests also pass on 3.11. Two findings: two uvicorn
+    servers in one process must be stopped last-started-first (else a stale SIGTERM handler ends every
+    later SSE stream, which broke 34 other tests until fixed), and the SDK has no helper that runs a call
+    to completion with an answerer, so each caller writes the loop (`peers.py`). **Maintainer's stated
+    direction, 2026-11-23:** a CI job that builds the wheel on a release, then a first alpha or beta release
+    for that adopter to integrate. That is spec 008.
+  - **Spec 008** (`specs/008-release/`, 2026-11-23): `spec.md` and its checklist are drafted, **waiting for
+    the maintainer's approval** (the gate): the first pre-release `0.1.0a1`, a tag-triggered job that
+    builds once, tests those bytes on 3.11, 3.12 and 3.13, scans and checks them, and attaches them to a
+    GitHub pre-release (a draft first), with no PyPI. Three decisions to confirm first: D3 (the PyPI name
+    is free for anyone, so the install line is always a full address), D5 (the private-token scan stays on
+    the maintainer's machine) and D11 (the publishing steps cannot be rehearsed before the first release).
+    No plan, no workflow, no tag.
 
-## Spec sequence (001–007 built and pushed; 008 onward proposed)
+## Spec sequence (001–007 built and pushed; 008 drafted, at the gate; 009 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -332,7 +342,11 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    `A2AOptions` / `MCPOptions` for each door's deployment; build-time errors for a door with nothing
    to serve, something no door serves, or a missing extra. There is no `mcp_server=` (D3). Success
    criteria 1–5 of the brief, served by `Remote`, plus one agent through both doors in one process.
-8. Later: bridges for other agent frameworks (Google ADK, OpenAI
+8. **`008-release`** (spec drafted 2026-11-23, waiting for approval) — the first pre-release `0.1.0a1`: a
+   release job that builds the wheel and the sdist once, tests them on 3.11, 3.12 and 3.13, checks and
+   scans them, and attaches them to a GitHub pre-release; release notes assembled from the repository;
+   a manual run that publishes nothing; no PyPI. Pushing the first tag is the maintainer's own go.
+9. Later: bridges for other agent frameworks (Google ADK, OpenAI
    Agents SDK, Claude Agent SDK; the last one is a live-pause source), MCP Tasks for long agent
    runs over MCP, publishing to PyPI, a TypeScript SDK.
 
