@@ -172,14 +172,14 @@ an MCP caller each reaching the agent through a pause and an answer; both doors 
 
 ### Tests for User Story 1 ⚠️ (write first, watch them fail)
 
-- [ ] T018 [US1] `tests/remote_harness.py` (a helper, not a test): `serve_remote(remote)` builds
+- [X] T018 [US1] `tests/remote_harness.py` (a helper, not a test): `serve_remote(remote)` builds
   `remote.app()`, enters `app.router.lifespan_context(app)`, and yields an object with `.app`, `.a2a(user=,
   r2c=)` (an A2A client over the same app; the card is built by the same `agent_card(info, address)` call
   `Remote` makes) and `.mcp(user=, active=)` (an MCP client over the same app); `quiet(**kw)` builds a
   `Remote` with an explicit in-memory task store and request-state policy, the recommended identity recipe
   (`Middleware(AuthenticationMiddleware, backend=BearerAuth())` and `MCPOptions(owner=<reads
   ctx.request.user>)`), and the arguments given. One bearer header names the owner on both doors.
-- [ ] T019 [P] [US1] `tests/test_remote_compose.py`: with `CheckpointFake` as the agent and `mcp_tool=True`:
+- [X] T019 [P] [US1] `tests/test_remote_compose.py`: with `CheckpointFake` as the agent and `mcp_tool=True`:
   the card at `/.well-known/agent-card.json`, the JSON-RPC at `/` and the MCP endpoint at `/mcp` all answer;
   `/mcp` answers with **no redirect**; the served card equals the one `agent_card` builds and its address is
   `url` + `a2a.path` (default `https://remote.example.com/`; with `A2AOptions(path="/rpc")`
@@ -187,7 +187,7 @@ an MCP caller each reaching the agent through a pause and an answer; both doors 
   (`mcp_harness.auth()`) the OAuth protected-resource metadata path answers from MCP, not A2A; a recording
   middleware given as `middleware=` runs once per request on both doors and outside each door's own
   middleware.
-- [ ] T020 [P] [US1] `tests/test_remote_serve.py`: SC-003 and SC-009 with the real graph of spec 006
+- [X] T020 [P] [US1] `tests/test_remote_serve.py`: SC-003 and SC-009 with the real graph of spec 006
   (`langgraph_graphs.py`, `langgraph_models.py`: scripted model, checkpointer, two tools) wrapped by
   `LangGraphAgent`, `mcp_tool=True`: (a) an A2A caller gets a question, answers, and gets the reply; (b) an MCP
   caller gets the same through the tool `agent`; (c) the two threads differ (the checkpointer holds one thread
@@ -195,37 +195,37 @@ an MCP caller each reaching the agent through a pause and an answer; both doors 
   did not activate R2C gets text and standard artifacts on both doors (0 R2C parts or metadata); (e) nothing
   is set on the agent, the graph, a tool or a function it was given (a snapshot of `vars()` before `app()` and
   after the round trips).
-- [ ] T021 [P] [US1] `tests/test_remote_lifecycle.py`: SC-007: entering the app's lifespan starts both doors
+- [X] T021 [P] [US1] `tests/test_remote_lifecycle.py`: SC-007: entering the app's lifespan starts both doors
   (each answers a request); leaving it closes the A2A handler once (spy on `R2CRequestHandler.aclose`) and
   exits the MCP session manager (spy on `StreamableHTTPSessionManager.run`, enter and exit around the real
   one); an MCP start that fails (the spy raises on enter) leaves the A2A handler closed and the error
   propagates (this needs A1); an exception thrown while serving unwinds both; a second `app()` raises
   `RuntimeError` naming "build a new `Remote`" (D4).
-- [ ] T022 [US1] Run T019–T021 against the stub: each fails for the expected reason (`NotImplementedError`
+- [X] T022 [US1] Run T019–T021 against the stub: each fails for the expected reason (`NotImplementedError`
   from `Remote.__init__`). Report.
 
 ### Implementation for User Story 1
 
-- [ ] T023 [P] [US1] `src/ext_r2c/remote/_classify.py` (first cut): `agent_kind(agent)` by shape (R4);
+- [X] T023 [P] [US1] `src/ext_r2c/remote/_classify.py` (first cut): `agent_kind(agent)` by shape (R4);
   `normalise_tools(...)` (kept, converted with `tool_from_function`, or the static `TypeError` of R5);
   `normalise_approve(...)` (a name list becomes `{name: True}`).
-- [ ] T024 [P] [US1] `src/ext_r2c/remote/_doors.py`: `load_door(name)` (imports inside the function; an
+- [X] T024 [P] [US1] `src/ext_r2c/remote/_doors.py`: `load_door(name)` (imports inside the function; an
   `ImportError` whose `name` is the door's SDK becomes an `ImportError` naming `ext-r2c[<door>]`, any other
   propagates); `build_a2a(...)` (executor by kind, `agent_card(info, url.rstrip("/") + path)`, `a2a_app` with
   `task_store` and `owner_resolver` only when set, `rpc_url`); `build_mcp(...)` (the agent tool, `R2CExtension`,
   `mcp_server` with the card's name, version and description, `streamable_http_app` with `path` and
   `transport_security`). Skills, resources and prompts are phase 7.
-- [ ] T025 [US1] `src/ext_r2c/remote/_compose.py`: `Dispatch` (the MCP router's own matching, R1), the `both`
+- [X] T025 [US1] `src/ext_r2c/remote/_compose.py`: `Dispatch` (the MCP router's own matching, R1), the `both`
   lifespan over an `AsyncExitStack`, `parent_app(...)` (`Mount("/", Dispatch)`, the owner's `middleware`),
   `check_no_collision(...)` (the dynamic check of R10, a `RemoteError`).
-- [ ] T026 [US1] `src/ext_r2c/remote/_remote.py`: `Remote.__init__` first cut (R6: read `expose`, load the
+- [X] T026 [US1] `src/ext_r2c/remote/_remote.py`: `Remote.__init__` first cut (R6: read `expose`, load the
   doors, classify `agent` and `tools`, resolve the card information, the first problems: `expose` empty,
   unknown or repeated) and `app()` (the once-flag at entry, build, compose); replace the stub.
-- [ ] T027 [US1] Run T019–T021 green, then the whole suite; fix what breaks.
-- [ ] T028 [US1] Mutation check (a scratch script, not committed; baseline green first): route `/mcp` to the
+- [X] T027 [US1] Run T019–T021 green, then the whole suite; fix what breaks.
+- [X] T028 [US1] Mutation check (a scratch script, not committed; baseline green first): route `/mcp` to the
   A2A app; enter only the A2A lifespan; remove A1's `finally`; let `app()` run twice; set an attribute on the
   agent. Each mutant must fail a named test of T019–T021.
-- [ ] T029 Verify (also on 3.12 and 3.13) and commit: `feat(007): Remote serves one agent over A2A and MCP in
+- [X] T029 Verify (also on 3.12 and 3.13) and commit: `feat(007): Remote serves one agent over A2A and MCP in
   one app`.
 
 **Checkpoint**: SC-003, SC-007, SC-008 (both doors) and SC-009 hold. After it, a `Remote` is servable end to
@@ -597,3 +597,46 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
   load; the owner's `dict` kept; a mutable mapping; a `RemoteError` with no problems; an unknown name
   that returns `None`).
 - **Verify.** 2555 tests on 3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.
+
+### Phase 3 (2026-11-23)
+
+- **T022.** Red for the expected reason: all 22 tests failed with the stub's `NotImplementedError`.
+- **`expose` has no default (a deviation from one word of FR-032, row 1).** The signature of D1 keeps
+  `expose` a required keyword, so a call without it is Python's own `TypeError` that names `expose`, and a
+  type checker flags it before the code runs. Empty, unknown and repeated are the collected `RemoteError`,
+  as written. Giving it a default only to raise `RemoteError` for "missing" would hide it from type
+  checkers. For the maintainer to confirm.
+- **`expose` with no door that exists.** The `RemoteError` then lists the `expose` problem only: every
+  other check asks which doors are exposed, and would report each argument as unserved.
+- **Door order.** The doors are kept in starting order (`a2a`, then `mcp`), not in the order typed
+  (data-model §1): the order of `expose` has no meaning, and a set is accepted.
+- **T024, the names that mean "the extra is missing".** Wider than data-model §2, from the four
+  single-extra venvs: with `[mcp]` absent the first import that fails is `mcp_types`, not `mcp`. The sets
+  are `a2a`, `starlette`, `sse_starlette` for A2A and `mcp`, `mcp_types`, `yaml` for MCP. Any other
+  `ImportError` propagates unchanged; the new error keeps the first one as its cause.
+- **T025, the collision check reads the A2A app's own routes.** Each path the A2A app answers is asked of
+  the MCP router, so the card's path is not written down a second time. A test uses a route the SDK adds
+  with an authorization server provider (`/token`); the SDK refuses a provider and a token verifier
+  together, which the test notes.
+- **T025, every scope is asked of the MCP router,** not HTTP only: a route of another kind that MCP may
+  have is MCP's too. With one door nothing is asked.
+- **T021, an error while serving arrives in a group.** The MCP session manager runs in an `anyio` task
+  group, so an exception raised inside the app's lifespan comes out as an `ExceptionGroup` holding it
+  (the same without `Remote`). A door that fails to start raises its error bare. Both doors are unwound
+  either way; the test reads the leaf.
+- **T020, what "nothing is set" compares.** Before and after `Remote(...)` and `app()`: every attribute
+  and which object it is, for the agent, the graph, a function, a `ToolSpec` and the graph's own tools.
+  After serving: the attribute names, and not for the graph's tools, because LangChain itself caches
+  `_injected_args_keys` on a tool the first time it runs it. The function is the test's own: a
+  module-level one kept an attribute a mutant had set in an earlier test, which hid the mutant.
+- **A card with no skills.** `a2a-sdk` logs "AgentCard is not spec-compliant ... skills" (a log record,
+  not a warning) when the card information has no skill, as `LangGraphAgent`'s default card has. It is
+  the SDK's own remark and `Remote` adds nothing to the card (FR-007); the README will say to give skills.
+- **Tests beyond the task list.** A server that speaks the ASGI lifespan protocol by hand (what
+  `uvicorn` does); `app()` alone starts nothing; a build that fails uses the `Remote` up (R12); a wrong
+  method on a path of MCP's is MCP's `405`; the dynamic collision above.
+- **Mutation check.** 21 of 24 mutants died. The three that lived drop an option whose tests are in later
+  phases, and are run again there: the task store and the request-state policy (phase 6), the MCP path
+  (phase 9).
+- **Verify.** 2578 tests on 3.11, 3.12 and 3.13; core only, a2a only, mcp only and langgraph only ok;
+  `ruff` clean.
