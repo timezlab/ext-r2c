@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from os import PathLike
 from typing import TYPE_CHECKING, Any, Literal
 
 from ..core import AgentSource, CardInfo, Limits, ToolSpec
-from ._check import check
+from ._check import check, warning_texts
 from ._classify import read_expose
 from ._compose import check_no_collision, parent_app
 from ._doors import build_a2a, build_mcp, load_doors
@@ -67,6 +68,8 @@ class Remote:
             middleware=middleware, a2a=a2a, mcp=mcp, limits=limits, clock=clock,
         )
         self._built = False
+        for text in warning_texts(self._held):  # only a valid `Remote` warns; `app()` does not warn again
+            warnings.warn(text, UserWarning, stacklevel=2)  # at the owner's `Remote(...)` line
 
     def app(self) -> ASGIApp:
         """The one ASGI app that serves every exposed door. Its own lifespan starts and stops the

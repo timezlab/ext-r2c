@@ -327,25 +327,25 @@ by `Remote`, none addressed to the caller.
 
 **Independent test**: `test_remote_restart.py`.
 
-- [ ] T047 [P] [US4] `tests/test_remote_restart.py`, section 1 (A2A, SC-001 criterion 4): a graph on an
+- [X] T047 [P] [US4] `tests/test_remote_restart.py`, section 1 (A2A, SC-001 criterion 4): a graph on an
   `AsyncSqliteSaver` file and the durable task store `test_a2a_restart.py` uses, paused on a question; drop
   the app and every in-memory object; build a new `Remote` over the same files; answer; the task completes
   and the tool body ran once.
-- [ ] T048 [P] [US4] section 2 (MCP, SC-006): `approve=["publish_page"]` and fixed `RequestStateSecurity` keys
+- [X] T048 [P] [US4] section 2 (MCP, SC-006): `approve=["publish_page"]` and fixed `RequestStateSecurity` keys
   in `MCPOptions.security`; a paused direct call is retried after a rebuild with the same keys and completes,
   the body once; with another key (or the ephemeral policy) the retry is refused as spec 004 defines.
-- [ ] T049 [P] [US4] section 3 (D13): A2A with no `task_store` gives one `UserWarning` naming `a2a.task_store`;
+- [X] T049 [P] [US4] section 3 (D13): A2A with no `task_store` gives one `UserWarning` naming `a2a.task_store`;
   with one, none; MCP with a non-empty `approve` or a checkpoint-style `SourceTool` and no `security` gives one
   naming `mcp.security`; plain `ToolSpec`s only, or a live-style source, none; both doors give two warnings,
   one each; they fire at construction, not in `app()`; `warning.filename` is the test file (the `stacklevel`).
-- [ ] T050 [US4] Run T047–T049: T049 fails (no warning yet); T047 and T048 are expected to pass on the earlier
+- [X] T050 [US4] Run T047–T049: T049 fails (no warning yet); T047 and T048 are expected to pass on the earlier
   code (say so; T052 proves them).
-- [ ] T051 [US4] `_check.py`: the D13 rule of R11, called after the problems pass; wire it in
+- [X] T051 [US4] `_check.py`: the D13 rule of R11, called after the problems pass; wire it in
   `Remote.__init__`.
-- [ ] T052 [US4] Run green; mutation check (scratch): drop the D13 check; key the MCP rule on the wrong
+- [X] T052 [US4] Run green; mutation check (scratch): drop the D13 check; key the MCP rule on the wrong
   setting; let a plain tool warn; use `stacklevel=1`; make `app()` warn again. Each dies. Break the rebuild
   (new keys) and watch T048 fail.
-- [ ] T053 Verify and commit: `feat(007): restart tests and the in-memory warnings`.
+- [X] T053 Verify and commit: `feat(007): restart tests and the in-memory warnings`.
 
 **Checkpoint**: SC-006 and the restart half of SC-001 hold.
 
@@ -700,3 +700,28 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
   where a knob for "who answers" would live. A new field is then a decision, not a patch.
 - **Verify.** 21 tests in `test_remote_approvals.py` on 3.11, 3.12 and 3.13; with the files written ahead for
   phases 6 to 9 left out, the suite is 2712 on 3.13; `ruff` clean. No source file changed in this phase.
+
+### Phase 6 (2026-11-23)
+
+- **T050.** Thirteen of the 20 tests passed on their first run (T047 and T048 and the quiet cases of T049,
+  as the task expected, on the code of phases 3 to 5). The seven that failed are the warnings that must
+  exist, each for the expected reason: no warning was recorded (`0 == 1`).
+- **What D13 does for MCP is a little narrower than R11 wrote.** R11 says "a non-empty `approve=`". A mapping
+  whose every value is `False` asks nothing, so nothing can pause and a restart loses nothing: that case
+  does not warn (a test pins it). Every other value, a name in a list, `True` or an `Approve`, does. The
+  contract gets a dated note in phase 10.
+- **Where it lives.** `warning_texts(held)` in `_check.py` is a pure function that returns the texts, in
+  this order: the A2A door's, then the MCP door's. `Remote.__init__` is the one that calls `warnings.warn`,
+  once per text, so `stacklevel=2` is the owner's `Remote(...)` line (the test reads `warning.filename`).
+  `app()` warns nothing, and a refused `Remote` never gets there. Each text begins with the setting that
+  answers it (`a2a.task_store: `, `mcp.security: `), says a restart loses the paused work and names the
+  option class to use.
+- **The other test files needed no change.** They build with `quiet()` (a store and keys) or hold their own;
+  with `-W error::UserWarning` any other `Remote` would have failed, and none did.
+- **Mutation check.** Nineteen mutants, all died: the eight of the task (drop either check, key the MCP
+  rule on the wrong setting, a plain tool warns, `stacklevel=1`, `app()` warns again, and the two that lived in
+  phase 3, the task store and the request-state policy dropped, which T048 and T047 now kill) and eleven
+  more (`False` asks, a live source warns, the agent's own tool is not looked at, a refused `Remote` warns,
+  one warning for two doors, the other order, a text that does not name its setting or what to do).
+- **Verify.** 20 tests in `test_remote_restart.py`; with the files written ahead for phases 7 to 9 left out,
+  2732 on 3.11, 3.12 and 3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.

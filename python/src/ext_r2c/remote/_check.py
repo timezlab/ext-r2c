@@ -22,7 +22,7 @@ from ._doors import kinds
 from ._errors import RemoteError
 from ._options import A2AOptions, MCPOptions, owned_key_problems, path_problems
 
-__all__ = ["Checked", "check"]
+__all__ = ["Checked", "check", "warning_texts"]
 
 _ANSWERED_BY = ("person", "approver")  # never a model, and so never the caller's agent (principle V)
 
@@ -149,6 +149,35 @@ def check(
         skills=skills, resources=resources, prompts=prompts, middleware=middleware, a2a=a2a_options,
         mcp=mcp_options, limits=limits, clock=clock,
     )
+
+
+def warning_texts(held: Checked) -> list[str]:
+    """What a valid ``Remote`` says to its owner once, when it is built (R11), in this order: the A2A
+    door's restart warning, then the MCP door's. Each begins with the setting that answers it."""
+    texts = []
+    if "a2a" in held.doors and held.a2a.task_store is None:
+        texts.append(
+            "a2a.task_store: the A2A door keeps a paused task in memory, so a restart loses it and its caller can no "
+            "longer answer; pass A2AOptions(task_store=...) with a store that outlives the process, or ignore this "
+            "when losing a paused task on a restart is fine"
+        )
+    if "mcp" in held.doors and held.mcp.security is None and _can_pause(held):
+        texts.append(
+            "mcp.security: the MCP door can pause a call to ask for an approval, and with no fixed keys a restart "
+            "loses the paused call; pass MCPOptions(security=RequestStateSecurity(keys=[...])) with keys that are "
+            "the same in every process, or ignore this when a call lost on a restart is fine"
+        )
+    return texts
+
+
+def _can_pause(held: Checked) -> bool:
+    """Whether a call on the MCP door can be paused and retried: a tool that asks for an approval, or a
+    source of the checkpoint style (the agent's own tool included). A plain tool answers in one round,
+    and a live source needs the same process, which no key gives back."""
+    if any(setting is not False for setting in held.approve.values()):
+        return True
+    source_tool = held.loaded["mcp"].SourceTool
+    return any(isinstance(tool, source_tool) and tool.source.pause == "checkpoint" for tool in held.tools)
 
 
 def _is(argument: str, value: Any, kind: type | tuple[type, ...], what: str) -> None:
