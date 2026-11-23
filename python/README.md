@@ -44,11 +44,15 @@ has no `run()` and no command line. `Remote(...)` and `app()` start nothing: the
 app's lifespan, which every ASGI server runs, starts and stops both doors.
 
 As written the module warns twice, because both doors keep a paused call in
-memory; see *Durable state* below.
+memory; see *Durable state* below. A graph compiled with an in-memory
+checkpointer adds a third warning, the bridge's own (see *Limits to know* of the
+LangGraph bridge).
 
-`Remote`, `RemoteError`, `A2AOptions` and `MCPOptions` import with no extra
-installed. A door needs its extra (`ext-r2c[a2a]`, `ext-r2c[mcp]`): exposing one
-whose extra is missing is an `ImportError` that names it.
+`Remote`, `RemoteError`, `A2AOptions` and `MCPOptions` import from the package
+itself, with no extra installed: `from ext_r2c import A2AOptions, MCPOptions,
+Remote, RemoteError` (not from `ext_r2c.a2a` or `ext_r2c.mcp`). A door needs its
+extra (`ext-r2c[a2a]`, `ext-r2c[mcp]`): exposing one whose extra is missing is an
+`ImportError` that names it.
 
 | Argument | Served by | What it is |
 |---|---|---|
@@ -95,7 +99,8 @@ only those. The agent's own approvals (for example LangChain's
 `HumanInTheLoopMiddleware`) stay with the agent and reach the caller through
 either door. The two lists are separate on purpose. An approval is addressed to
 a person or an approver (`Approve(answer_by="approver")`), never to the caller,
-and nothing in `Remote` answers one.
+and nothing in `Remote` answers one. What a caller sends back is described under
+*Answering an approval*, in the MCP door.
 
 **Paths and the card.** The A2A JSON-RPC endpoint is `/` (`A2AOptions.path`),
 the card is always `/.well-known/agent-card.json`, and the MCP endpoint is
@@ -104,6 +109,31 @@ exactly `/mcp` (`MCPOptions.path`), with no redirect and no trailing slash.
 `https://remote.example.com/agents`, and the card's address is `url` +
 `a2a.path`. The card declares R2C with `required: false`. `skills=` is MCP
 Skills only: the skills on the A2A card are the ones of `CardInfo.skills`.
+
+**A card for what brings none.** Tools only, or an a2a-sdk executor, has no card
+of its own, so give `card=CardInfo(...)`; it also names the MCP server:
+
+```python
+from ext_r2c import Remote
+from ext_r2c.core import CardInfo
+
+app = Remote(expose=["mcp"], tools=[publish_page],
+             card=CardInfo(name="Handbook", description="Publishes handbook pages.",
+                           version="0.1.0")).app()
+```
+
+The card a `LangGraphAgent` brings is generic (the name `LangGraph`, no skills),
+and a2a-sdk logs a warning that a card without skills is not spec-compliant.
+Give the agent its own card, with at least one skill:
+
+```python
+from ext_r2c.core import CardInfo, CardSkill
+
+card = CardInfo(name="Stock report", description="Writes the stock report.", version="0.1.0",
+                skills=(CardSkill(id="report", name="Report", description="Writes a report.",
+                                  tags=("report",)),))
+agent = LangGraphAgent(graph, card=card)
+```
 
 **Inside a larger app.** Starlette's `Mount` does not run the lifespan of what
 it mounts, so run it yourself, and put the prefix in `url`:
@@ -151,16 +181,52 @@ a middleware (or `A2AOptions.owner_resolver`) gives it one, and without either
 every A2A caller is the same owner and shares one set of threads. And no
 warning says so, because that may be what you want.
 
+**Behind a proxy that names the caller.** A reverse proxy that authenticates
+callers and passes who they are in a header gives you the owner without a
+middleware: read the header on each door. On MCP the owner callable gets the
+SDK's request context, whose `request` is the HTTP request; on A2A the resolver
+gets a `ServerCallContext`, whose `state["headers"]` holds the request's headers
+(lower case). The A2A resolver must return a string, and a task store must use
+the same resolver:
+
+```python
+from a2a.server.tasks import InMemoryTaskStore
+
+def mcp_owner(ctx):
+    request = getattr(ctx, "request", None)
+    return request.headers.get("x-user-email") if request is not None else None
+
+def a2a_owner(ctx):
+    return ctx.state.get("headers", {}).get("x-user-email") or "anonymous"
+
+Remote(..., mcp=MCPOptions(owner=mcp_owner),
+       a2a=A2AOptions(owner_resolver=a2a_owner,
+                      task_store=InMemoryTaskStore(owner_resolver=a2a_owner)))
+```
+
+A header names the caller only when the proxy sets it and replaces any copy a
+caller sent, and only when nothing can reach the app without passing through the
+proxy. Otherwise anyone can claim to be anyone. A proxy that keeps the
+`Authorization` header to itself leaves the SDK's principal empty, which is why
+`MCPOptions.owner` is the way to name the owner there.
+
 **The host guard.** The MCP endpoint answers `421` to a request whose `Host` is
 not its default `127.0.0.1` until you name the public host. `Remote` does not
 guess it, and the guard covers `/mcp` only (the A2A door answers any `Host`):
 
 ```python
+from ext_r2c import MCPOptions
 from mcp.server.transport_security import TransportSecuritySettings
 
 MCPOptions(transport_security=TransportSecuritySettings(
-    enable_dns_rebinding_protection=True, allowed_hosts=["remote.example.com"]))
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=["remote.example.com", "127.0.0.1:*", "localhost:*"]))
 ```
+
+An entry is matched against the `Host` header exactly, port included, so a plain
+name matches a request that names no port. An entry ending in `:*` (`localhost:*`)
+accepts any port of that host. The guard reads `Host`, not `X-Forwarded-Host`:
+behind a proxy that rewrites `Host`, name what the app receives.
 
 **Durable state.** A pause survives a restart only when each layer keeps it:
 
@@ -316,6 +382,18 @@ await client.aclose()
 `fetch` downloads an artifact's file from the remote's own origin only (a
 page is never fetched: it comes back as a `Link`).
 
+To call a remote that wants credentials, give `connect` your own HTTP client: it
+fetches the card and sends every request, the stream included, so a header set on
+it goes everywhere. The keyword is `httpx_client=` here and `http_client=` on the
+MCP side (a different keyword raises `TypeError`):
+
+```python
+import httpx
+
+http = httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
+client = await R2CClient.connect("https://remote.example.com/", httpx_client=http)
+```
+
 Limits to know:
 
 - Without authentication every caller is the same anonymous owner, and only
@@ -363,6 +441,10 @@ app = server.streamable_http_app()   # serve with any ASGI server
   `edit` is offered only when the tool's arguments are flat (R2C-MCP-3).
 - A `ToolSpec` may return a `str`, a `ToolOutput` (text, structured data,
   artifacts, usage), or any JSON value.
+- A plain function becomes a tool by its signature: the type hints are the input
+  schema and the docstring is the description. A parameter with no hint gets no
+  type, and a function with no docstring gets an empty description. Nothing warns,
+  so hint every parameter and write the docstring.
 - Answers are checked before the source sees them: a response that does not
   fit is asked again with the problems; a response to another request, or
   after the request expired, is refused.
@@ -383,6 +465,11 @@ from mcp.server.request_state import RequestStateSecurity
 server = mcp_server("stock", extension, security=RequestStateSecurity(keys=[KEY]))
 ```
 
+`KEY` is a secret of at least 32 bytes of randomness that you keep outside the
+code (for example in the environment); a shorter one is refused. The first key
+seals and every key unseals, so to rotate put the new key first and keep the old
+one second until the old state has expired.
+
 Each round can be answered once: the door claims it in a `RoundLedger`. The
 default `MemoryLedger` lives in one process, so with several processes or
 across a restart, pass a shared `ledger=` to `R2CExtension`, or a state could
@@ -399,7 +486,7 @@ from ext_r2c.mcp import R2CClient, ReplyItem
 
 client = await R2CClient.connect("http://localhost:8000/mcp")
 async for item in client.call("report", {"message": "Write the stock report."}):
-    print(item)                     # ActivityItem, UsageItem, RequestItem
+    print(item)                     # ActivityItem, UsageItem, RequestItem, ReplyItem, ResultItem
 (request,) = client.pending.values()
 answer = Answer(id=request.request.id, outcome="answered",
                 answered_by=AnsweredBy(role="person"), value={"month": "2026-10"})
@@ -416,6 +503,39 @@ reads an artifact:
 from the block itself, through `resources/read`, or over http from the
 server's own origin only (another origin, or a `live` artifact, comes back as
 a `Link`).
+
+A tool that is not an `AgentSource` has no stream of its own: the text it returns
+is one `ReplyItem`, and a `ResultItem` ends every call (`is_error` says whether
+the call failed). To call a server that wants credentials, give `connect` your
+own HTTP client; its keyword is `http_client=` here and `httpx_client=` on the A2A
+side, and it takes the MCP SDK's own `httpx2.AsyncClient`:
+
+```python
+import httpx2
+
+http = httpx2.AsyncClient(headers={"Authorization": f"Bearer {token}"})
+client = await R2CClient.connect("https://remote.example.com/mcp", http_client=http)
+```
+
+**Answering an approval.** An approval's request lists the `decisions` it offers
+(`allow`, `deny`, and `edit` only when the tool's arguments are flat). The answer
+carries one of them in its `value`:
+
+```python
+allow = Answer(id=request.request.id, outcome="answered",
+               answered_by=AnsweredBy(role="approver"), value={"decision": "allow"})
+edit = {"decision": "edit", "args": {"item": "pen", "quantity": 2}}   # args must fit the tool's schema
+deny = {"decision": "deny", "reason": "Not this week."}               # the reason reaches the agent
+```
+
+`outcome="declined"` needs no `value` and counts as a `deny`. `answered_by.role` is
+`person`, `approver`, `policy` or `caller`, and it is the caller's own claim: the
+remote does not check who the caller is, nor that the role matches the one the
+approval was addressed to, because who may answer is the caller's logic. Two
+roles are refused. `caller` cannot answer an approval ("a model never answers an
+approval"). `policy`, a rule applied by code, cannot answer an approval addressed
+to an approver (`Approve(answer_by="approver")`), which asks every time; a rule can
+answer only an approval addressed to a person (the default).
 
 Limits to know:
 
@@ -636,6 +756,11 @@ Limits to know:
   one thread at once, or a tool can run twice.
 - The graph's thread is the thread id the door gives, which keys an owner and a
   context (a graph served to two callers keeps their conversations apart).
+- The only things the bridge puts in the graph's config are that thread id and
+  its own callback. A tool reads the conversation through LangGraph's own
+  `InjectedState`, and never sees the owner or the door of the call. What a tool
+  must know about the call, such as a depth counter against a loop of agents
+  calling each other, has to travel in the message text.
 - A URL part of the caller's message reaches the model as it was sent (the bridge
   reads, converts and drops nothing). If your model integration downloads URLs in
   your process, restrict the schemes and hosts there.
@@ -651,5 +776,17 @@ Limits to know:
 
 `Remote` has no extra of its own: it needs the extras of the doors it exposes,
 for example `ext-r2c[a2a,mcp,langgraph]` for a LangGraph agent on both doors.
+
+The extras bound their packages: `a2a-sdk>=1.3,<2`, `mcp>=2.3,<3`,
+`PyYAML>=6.0.3,<7`, `langchain>=1.4.6,<2`, `langchain-core>=1.6.10,<2` and
+`langgraph>=1.2.14,<2`. The test suite last ran with a2a-sdk 1.3.1, mcp 2.3.0,
+langchain 1.5.2 and langgraph 1.2.24.
+
+To install from a wheel file, the extras follow the path, and the same line works
+in a `requirements.txt` (pip reads a relative path from where it runs):
+
+```
+pip install "./ext_r2c-<version>-py3-none-any.whl[a2a,mcp,langgraph]"
+```
 
 See the [repository](https://github.com/timezlab/ext-r2c) for the standard.

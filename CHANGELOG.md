@@ -202,6 +202,12 @@ All notable changes to this project are recorded here. The format follows
   form in `not-activated.json` has its `description`; the reply block of
   `progress-activity.json` has `response: true`; `tool-result.json` names its
   embedded resource `urn:r2c:artifact:<id>`.
+- `python/README.md` says what a first-time user of `Remote` had to guess: where `A2AOptions` and
+  `MCPOptions` import from, a card for tools only and for a LangGraph agent, the keyword that takes
+  an authenticated HTTP client (`httpx_client=` on A2A, `http_client=` on MCP), the value of an
+  approval's answer and which roles may answer it, the owner behind a proxy that names the caller,
+  the host guard's `:*` form, the request-state key, a plain tool's items on the MCP client, a plain
+  function's loose schema, what a graph's tools can see of a call, and the bounds of the extras.
 
 ### Fixed
 
