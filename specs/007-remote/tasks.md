@@ -388,19 +388,19 @@ by `Remote`, none addressed to the caller.
 
 **Independent test**: `test_remote_executor.py`.
 
-- [ ] T062 [US6] `tests/remote_executor.py`: an `AgentExecutor` in the shape of the official Currency sample (a
+- [X] T062 [US6] `tests/remote_executor.py`: an `AgentExecutor` in the shape of the official Currency sample (a
   scripted pure-function "model"; asks in plain text with an `input-required` status; continues on the reply);
   it imports nothing of `ext_r2c`, and a test in T063 scans its source to prove it.
-- [ ] T063 [P] [US6] `tests/test_remote_executor.py`: `Remote(expose=["a2a"], agent=executor, card=..., url=...)`:
+- [X] T063 [P] [US6] `tests/test_remote_executor.py`: `Remote(expose=["a2a"], agent=executor, card=..., url=...)`:
   the card declares R2C with `required: false`; an activated `R2CClient` gets the text-only `input-required`
   and continues in text (SC-002); a caller that did not activate R2C works as before; the executor is the
   same object, with no attribute set; `expose=["mcp"]` with only an executor and `mcp_tool=True` with one are
   the problems of T032; `expose=["a2a", "mcp"]` with an executor and `tools=` serves the executor on A2A and the
   tools on MCP.
-- [ ] T064 [US6] Run T063. Expected: it passes on the earlier code (the executor kind and `build_a2a` came in
+- [X] T064 [US6] Run T063. Expected: it passes on the earlier code (the executor kind and `build_a2a` came in
   phase 3); if so, say so and prove it is not vacuous by mutation (serve the executor wrapped in
   `SourceExecutor`; skip the shape check). Fix anything it finds, test first.
-- [ ] T065 Verify and commit: `test(007): a hand-written executor through Remote`.
+- [X] T065 Verify and commit: `test(007): a hand-written executor through Remote`.
 
 **Checkpoint**: SC-002 holds.
 
@@ -745,3 +745,33 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
   and resources, prompts or skills dropped on the way to the server).
 - **Verify.** 19 tests in `test_remote_mcp_extras.py`; with the files written ahead for phases 8 and 9 left
   out, 2751 on 3.11, 3.12 and 3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.
+
+### Phase 8 (2026-11-23)
+
+- **T062, T063.** `remote_executor.py` is a `ConverterExecutor` in the shape of the Currency sample, written
+  with the a2a-sdk alone: an agent whose `stream` yields a status, then either a plain-text question or the
+  answer, and an executor that turns each into a status update, an `input-required`, or an artifact and a
+  completed task. Two tests prove it has never heard of R2C: its imports (a scan of its source) and a
+  child interpreter run with `-I` that loads no `ext_r2c` module. Ten tests at first; the eleventh came
+  from the mutation check (below).
+- **T064.** As expected the tests passed on the code of phase 3 apart from two: the event-for-event
+  comparison with the a2a-sdk serving the same executor alone failed because the SDK gives each artifact a
+  fresh `artifactId` per run, which the shared `wire()` keeps. It is dropped in the test file only
+  (`_same_wire`), not in the shared harness, so the other suites still compare artifact ids. Nothing in
+  `src/` changed. The problem lists I guessed for the build errors (`["agent"]`, `["agent", "tools"]`,
+  `["mcp_tool"]`) matched on the first run.
+- **Mutation check.** Eleven mutants. Nine died at once: the executor wrapped in `SourceExecutor`, no shape
+  check for an executor, any non-source taken as an executor (this one is held by `test_remote_errors.py`,
+  not by this file), an executor as an MCP tool not refused, an executor beside MCP only with nothing
+  to serve, the agent made a tool when it is an executor, an attribute set on the executor, the executor
+  copied deeply, and the agent inside the executor replaced. Two survived, both real gaps, both closed with a
+  test: (1) an executor with the MCP door only got the advice for an `AgentSource` ("set `mcp_tool=True`"),
+  which is no way out for an executor, because the problem list only named the argument; the test now reads
+  the text (it names the executor and the A2A door and never says `mcp_tool`). (2) The executor copied
+  *shallowly* ran unnoticed, since the copy shares the agent the test watched; a counting executor now counts
+  its own calls on itself, so a copy would count apart. Both died on the re-run; the eleven are 11 of 11.
+- **A killed run.** The first mutation run was killed by the machine (exit 137) while a mutant was
+  installed; the package in the test venv was compared with the source, found mutated, restored from the
+  source file and compared again (equal) before the run was repeated in the background.
+- **Verify.** 11 tests in `test_remote_executor.py`; with the file written ahead for phase 9 left out,
+  2762 on 3.11, 3.12 and 3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.
