@@ -357,26 +357,26 @@ by `Remote`, none addressed to the caller.
 
 **Independent test**: `test_remote_mcp_extras.py`.
 
-- [ ] T054 [P] [US5] `tests/test_remote_mcp_extras.py`, section 1 (skills): `skills=` as a folder, as a list of
+- [X] T054 [P] [US5] `tests/test_remote_mcp_extras.py`, section 1 (skills): `skills=` as a folder, as a list of
   folders, and as a ready `SkillsExtension` with `exclude`: each kept skill is listed and readable with
   `SkillsClient`; a bad folder fails `app()` with the unchanged `SkillsError` and the `Remote` is then consumed
   (a second `app()` is a `RuntimeError`); the A2A card JSON is identical with and without `skills=`; a card
   skill and an MCP skill of one name are unrelated (no error).
-- [ ] T055 [P] [US5] section 2 (the agent tool): with `mcp_tool=True` one more tool `agent` takes
+- [X] T055 [P] [US5] section 2 (the agent tool): with `mcp_tool=True` one more tool `agent` takes
   `{message, context_id?}` and completes a pause and an answer over MCP; without it there is none; a
   customised `SourceTool` in `tools=` works beside it; a `tools=` entry named `agent` with `mcp_tool=True` is
   the problem of T032.
-- [ ] T056 [P] [US5] section 3 (resources and prompts): a `TextResource` and a `Prompt.from_function` are
+- [X] T056 [P] [US5] section 3 (resources and prompts): a `TextResource` and a `Prompt.from_function` are
   listed, read and fetched as given; the A2A card is unchanged by them.
-- [ ] T057 [P] [US5] section 4 (no tools): `Remote(expose=["mcp"], skills=...)`, or only a resource or a
+- [X] T057 [P] [US5] section 4 (no tools): `Remote(expose=["mcp"], skills=...)`, or only a resource or a
   prompt, serves; `tools/list` is empty; the R2C key is declared.
-- [ ] T058 [US5] Run T054–T057: they fail because phase 3's `build_mcp` does not add them (expected: no
+- [X] T058 [US5] Run T054–T057: they fail because phase 3's `build_mcp` does not add them (expected: no
   skills, no resource, no prompt listed). Report.
-- [ ] T059 [US5] `_doors.build_mcp`: build `SkillsExtension` from a folder or a list (or use the given one) and
+- [X] T059 [US5] `_doors.build_mcp`: build `SkillsExtension` from a folder or a list (or use the given one) and
   pass it in `extensions=`; `add_resource` and `add_prompt` for each object; `_classify.normalise_skills`.
-- [ ] T060 [US5] Run green; mutation check (scratch): serve skills on the A2A card; drop `add_prompt`; build
+- [X] T060 [US5] Run green; mutation check (scratch): serve skills on the A2A card; drop `add_prompt`; build
   the skills extension twice. Each dies.
-- [ ] T061 Verify and commit: `feat(007): skills, resources, prompts and the agent tool`.
+- [X] T061 Verify and commit: `feat(007): skills, resources, prompts and the agent tool`.
 
 **Checkpoint**: the US5 scenarios hold.
 
@@ -725,3 +725,23 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
   one warning for two doors, the other order, a text that does not name its setting or what to do).
 - **Verify.** 20 tests in `test_remote_restart.py`; with the files written ahead for phases 7 to 9 left out,
   2732 on 3.11, 3.12 and 3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.
+
+### Phase 7 (2026-11-23)
+
+- **T058.** Thirteen of the 19 tests failed on their first run, for the expected reason: no skill, resource
+  or prompt was listed, and no scan happened. The six that passed are the four of section 2 (the agent as a
+  tool has been served since phase 3), "the A2A card is as it was" and "a ready extension is not built
+  again", both of which hold while nothing is served; T060 proves them.
+- **T059.** `build_mcp` takes `skills`, `resources` and `prompts`. A folder, or a list of folders, becomes
+  one `SkillsExtension` inside `app()` (so `Remote(...)` reads no file); one the owner built is used as it
+  is, with its own `include`/`exclude`; the extension goes in `extensions=` after R2C's; each resource and
+  prompt is added with the server's own `add_resource` and `add_prompt`. `normalise_skills` of the task is
+  `check_skills`, the type check of phase 4: there is nothing to normalise, the extension class does it.
+- **A bad folder** is the unchanged `SkillsError` from `app()`, and the `Remote` is then used up (R12); a
+  test compares type and text with the error the extension gives when built directly.
+- **Mutation check.** Twelve mutants, all died: the three of the task (skills reach the A2A card, no
+  `add_prompt`, the extension built twice) and nine more (no `add_resource`, skills never served, a ready
+  extension built again, folders read in `Remote(...)`, the agent a tool without `mcp_tool`, never a tool,
+  and resources, prompts or skills dropped on the way to the server).
+- **Verify.** 19 tests in `test_remote_mcp_extras.py`; with the files written ahead for phases 8 and 9 left
+  out, 2751 on 3.11, 3.12 and 3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.

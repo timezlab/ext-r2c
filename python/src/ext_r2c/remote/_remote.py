@@ -84,7 +84,8 @@ class Remote:
             a2a_app = build_a2a(held.loaded["a2a"], agent=held.agent, kind=held.kind, info=held.info, url=held.url,
                                 options=held.a2a, limits=held.limits, clock=held.clock)
         if "mcp" in held.doors:
-            mcp_app = build_mcp(held.loaded["mcp"], tools=held.tools, approve=held.approve, info=held.info,
+            mcp_app = build_mcp(held.loaded["mcp"], tools=held.tools, approve=held.approve, skills=held.skills,
+                                resources=held.resources, prompts=held.prompts, info=held.info,
                                 options=held.mcp, limits=held.limits, clock=held.clock)
         if a2a_app is not None and mcp_app is not None:
             check_no_collision(a2a_app, mcp_app, held.a2a.path)

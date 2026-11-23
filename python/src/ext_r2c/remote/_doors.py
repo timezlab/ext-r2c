@@ -102,11 +102,21 @@ def build_a2a(door: Any, *, agent: Any, kind: AgentKind, info: CardInfo, url: st
     return door.a2a_app(executor, card, rpc_url=options.path, **given)
 
 
-def build_mcp(door: Any, *, tools: Sequence[Any], approve: Mapping[str, Any], info: CardInfo, options: MCPOptions,
-              limits: Limits, clock: Callable[[], datetime] | None) -> Any:
-    """The MCP door's app: the tools behind the R2C extension, in a server named by the card."""
+def build_mcp(door: Any, *, tools: Sequence[Any], approve: Mapping[str, Any], skills: Any, resources: Sequence[Any],
+              prompts: Sequence[Any], info: CardInfo, options: MCPOptions, limits: Limits,
+              clock: Callable[[], datetime] | None) -> Any:
+    """The MCP door's app: the tools behind the R2C extension, in a server named by the card, and the
+    skills, resources and prompts the owner gave, served as they are given."""
     extension = door.R2CExtension(tools=tools, approve=approve, clock=clock, limits=limits, owner=options.owner)
-    server = door.mcp_server(info.name, extension, security=options.security, version=info.version,
-                             description=info.description, **options.server)
+    beside = []
+    if skills is not None:
+        # The folders are read here, once; an extension the owner built has read its own and is used as is.
+        beside.append(skills if isinstance(skills, door.SkillsExtension) else door.SkillsExtension(skills))
+    server = door.mcp_server(info.name, extension, security=options.security, extensions=beside,
+                             version=info.version, description=info.description, **options.server)
+    for resource in resources:
+        server.add_resource(resource)
+    for prompt in prompts:
+        server.add_prompt(prompt)
     return server.streamable_http_app(streamable_http_path=options.path,
                                       transport_security=options.transport_security, **options.http)
