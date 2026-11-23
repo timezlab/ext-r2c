@@ -243,13 +243,16 @@ Last updated 2026-11-22. Read this first in a new session.
     what the caller sees and what the graph gets back.
   - **Push** the local commits `a6929a7` (the rename of the three generic names of spec 005), `643f4d3`
     (spec 006), `3b26285` (its plan), the tasks commit after it and every commit of spec 006's ten phases.
-  - **Next, when the maintainer says go:** spec 007 (`007-remote`, `Remote`), the first adapter that takes
-    `agent=LangGraphAgent(graph)`.
+  - **Waiting for the maintainer's approval (the gate):** `specs/007-remote/spec.md` (drafted 2026-11-23;
+    `Remote`, the first adapter that takes `agent=LangGraphAgent(graph)`; no plan yet). It asks about two
+    decisions first: D3 (drop `mcp_server=`: the installed MCP SDK cannot add R2C to an existing server,
+    so the ADR's row cannot be built) and D5 (identity: one `middleware=` outside both doors, each door
+    reads its own owner, a warning when MCP callers cannot be told apart).
   - **Revisit, not scheduled:** a descriptor-based walk (`scandir(fd)`) of the skills folders, which
     closes a race that can show a folder's names (no file outside is served either way). Decided
     2026-11-22 to wait for `Remote(skills=...)` (spec 007); the reason is in `research.md` R17.
 
-## Spec sequence (001–006 built, 006 not pushed; 007 onward proposed)
+## Spec sequence (001–006 built, 006 not pushed; 007 specified, waiting for approval; 008 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -290,12 +293,13 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    after the advisory vet). One additive core
    piece (`PauseLost`), one core race fix (found in phase 3) and a structural change to the shared suite;
    ten delivery phases in the plan.
-7. **`007-remote`** — `Remote`, the only remote-side adapter, configured declaratively:
-   `expose` = A2A, MCP or both; one ASGI app; `agent=` (an `AgentSource` or an a2a-sdk
-   executor), `tools=`, `approve=`, `skills=` (folders, include / exclude), `resources=`,
-   `prompts=`, `mcp_server=`; `mcp_tool=True`; build-time errors for a door with nothing to
-   serve, something no door serves, or a missing extra. Success criteria 1–5 of the brief,
-   served by `Remote`, plus one agent through both doors in one process.
+7. **`007-remote`** (spec drafted 2026-11-23, waiting for approval) — `Remote`, the only remote-side
+   adapter, configured declaratively: `expose` (required) = A2A, MCP or both; one ASGI app; `agent=`
+   (an `AgentSource` or an a2a-sdk executor), `card=`, `url=`, `tools=`, `approve=`, `skills=`
+   (folders or a `SkillsExtension`), `resources=`, `prompts=`, `mcp_tool=True`, `middleware=`, and
+   `A2AOptions` / `MCPOptions` for each door's deployment; build-time errors for a door with nothing
+   to serve, something no door serves, or a missing extra. `mcp_server=` is proposed out (D3). Success
+   criteria 1–5 of the brief, served by `Remote`, plus one agent through both doors in one process.
 8. Later: `examples/langgraph_agent/`, bridges for other agent frameworks (Google ADK, OpenAI
    Agents SDK, Claude Agent SDK; the last one is a live-pause source), MCP Tasks for long agent
    runs over MCP, publishing to PyPI, a TypeScript SDK.
