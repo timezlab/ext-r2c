@@ -131,33 +131,33 @@ option classes; the lazy export; the import rule. Core-only stays green.
 **Independent test**: `test_a2a_serve.py`; `test_packaging.py`; `test_remote_errors.py` and
 `test_remote_options.py` (their first sections).
 
-- [ ] T010 [P] A1 test first, in `tests/test_a2a_serve.py`: spy on the request handler's `aclose`; (a) a
+- [X] T010 [P] A1 test first, in `tests/test_a2a_serve.py`: spy on the request handler's `aclose`; (a) a
   clean stop of `a2a_app`'s lifespan closes it once; (b) an exception thrown into the lifespan at its `yield`
   (inside `async with app.router.lifespan_context(app): raise ...`) closes it too and the exception
   propagates. Run: (b) fails because the handler stays open (this is the leak of research R2).
-- [ ] T011 A1 fix in `src/ext_r2c/a2a/app.py`: `try: yield` / `finally: await handler.aclose()`. Run the whole
+- [X] T011 A1 fix in `src/ext_r2c/a2a/app.py`: `try: yield` / `finally: await handler.aclose()`. Run the whole
   a2a suite and its replays unchanged.
-- [ ] T012 [P] `tests/test_remote_errors.py`, section 1: `RemoteError` is a `ValueError`; `problems` is a
+- [X] T012 [P] `tests/test_remote_errors.py`, section 1: `RemoteError` is a `ValueError`; `problems` is a
   non-empty tuple of `str`; `str(error)` begins `Remote cannot be built:` and lists one problem per line;
   building one with no problems raises `ValueError`.
-- [ ] T013 [P] `tests/test_remote_options.py`, section 1: `A2AOptions` and `MCPOptions` are frozen and
+- [X] T013 [P] `tests/test_remote_options.py`, section 1: `A2AOptions` and `MCPOptions` are frozen and
   keyword-only (a positional argument is a `TypeError`); defaults are those of `data-model.md` §3
   (`MCPOptions.server` and `.http` are empty read-only mappings that cannot be mutated); both import with
   `a2a` and `mcp` blocked (a child process with those names set to `None` in `sys.modules`).
-- [ ] T014 [P] `tests/test_packaging.py`: (a) the lazy export: `import ext_r2c` leaves `ext_r2c.remote` out of
+- [X] T014 [P] `tests/test_packaging.py`: (a) the lazy export: `import ext_r2c` leaves `ext_r2c.remote` out of
   `sys.modules` (child process); `from ext_r2c import Remote, RemoteError, A2AOptions, MCPOptions` works;
   the four names are in `ext_r2c.__all__`; an unknown attribute raises `AttributeError`; (b) the import
   rule of R13 for `src/ext_r2c/remote/`: module-level imports are the standard library, `ext_r2c.core` and
   `ext_r2c.remote`'s own modules; imports inside functions may also name `ext_r2c.a2a`, `ext_r2c.mcp`,
   `starlette`, `a2a`, `mcp`; no module names `ext_r2c.bridges`, `langgraph` or `langchain`; no module outside
   `ext_r2c/__init__.py` imports `ext_r2c.remote`. Add a unit test that the rule catches a bad snippet.
-- [ ] T015 Run T012–T014: each fails for the expected reason (the modules and names do not exist; A1 already
+- [X] T015 Run T012–T014: each fails for the expected reason (the modules and names do not exist; A1 already
   green). Report the reasons.
-- [ ] T016 Create `src/ext_r2c/remote/__init__.py`, `_errors.py`, `_options.py` (the dataclasses and the owned
+- [X] T016 Create `src/ext_r2c/remote/__init__.py`, `_errors.py`, `_options.py` (the dataclasses and the owned
   key sets of R8), and a `_remote.py` whose `Remote.__init__` raises `NotImplementedError` (replaced in phase
   3); the lazy export in `src/ext_r2c/__init__.py` (PEP 562 `__getattr__`, `__dir__`, `__all__`, and a
   `TYPE_CHECKING` import for type checkers). Run T012–T014 green.
-- [ ] T017 Verify and commit: `feat(007): the remote package, A1 and the lazy export`.
+- [X] T017 Verify and commit: `feat(007): the remote package, A1 and the lazy export`.
 
 **Checkpoint**: core-only green; `from ext_r2c import Remote` works with no extra.
 
@@ -575,3 +575,25 @@ whole suite runs there at the end of phases 1, 3 and 10, and wherever a task say
   of T018 needs no stand-in.
 - **T008.** 14 tests, all green on 3.11, 3.12 and 3.13. They pass on their first run by design: they pin
   facts of the installed SDKs and no production code exists yet.
+
+### Phase 2 (2026-11-23)
+
+- **T010, T015.** Red for the expected reasons before any code: the A1 test (b) failed with the handler
+  left open; the `RemoteError` and option tests failed at import (the names did not exist); the packaging
+  tests failed with "`ext_r2c/remote` is not in the installed wheel" and the missing names. Three tests
+  passed at once and are shown not to be vacuous by the mutation check: the clean stop (the door already
+  did that), "importing the package does not load `remote`" and "only the top package imports `remote`"
+  (guards).
+- **T014, a reading of R13.** The import rule lets a module of `remote/` name a door or an SDK under
+  `if TYPE_CHECKING:` as well as inside a function: neither runs when the module is loaded, and the
+  option classes then carry the SDK's real types for a type checker (`TaskStore`, `RequestStateSecurity`).
+  A bridge or its framework is refused everywhere, `TYPE_CHECKING` included. A test checks the rule
+  against fifteen bad snippets and seven good ones.
+- **T016, beyond the data model.** The two option classes check their own field types when built
+  (`path` is a `str`, `owner` and `owner_resolver` are callable, `server` and `http` are mappings with
+  `str` keys) and raise `TypeError`; what a value means for a `Remote` stays a collected problem. The two
+  mappings are copied and read-only, so a `dict` the owner changes later does not change the options.
+- **Mutation check.** 7 of 7 mutants died (A1's `finally` dropped; an eager export; a door imported at
+  load; the owner's `dict` kept; a mutable mapping; a `RemoteError` with no problems; an unknown name
+  that returns `None`).
+- **Verify.** 2555 tests on 3.13; core only, a2a only, mcp only and langgraph only ok; `ruff` clean.

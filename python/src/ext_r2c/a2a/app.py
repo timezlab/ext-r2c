@@ -111,8 +111,10 @@ def a2a_app(
 
     @contextlib.asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncIterator[None]:
-        yield
-        await handler.aclose()
+        try:
+            yield
+        finally:  # also when an app that composes this one throws into the lifespan (spec 007, A1)
+            await handler.aclose()
 
     app = Starlette(
         routes=[

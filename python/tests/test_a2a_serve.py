@@ -14,7 +14,7 @@ import pytest
 from a2a.types.a2a_pb2 import CancelTaskRequest, StreamResponse, TaskState
 from a2a.utils.errors import InternalError
 from ext_r2c import URI
-from ext_r2c.a2a import R2CTask, SourceExecutor, agent_card
+from ext_r2c.a2a import R2CRequestHandler, R2CTask, SourceExecutor, a2a_app, agent_card
 from ext_r2c.a2a._codec import read_artifact, read_part
 from ext_r2c.core import (
     Activity,
@@ -235,5 +235,46 @@ def test_the_extension_is_echoed() -> None:
             first = await _paused(tc, "Write the report")
             await answer(tc, first, _person(QUESTION, title="October"), QUESTION)
             assert tc.echoed() == [URI, URI]
+
+    run(go())
+
+
+# --- The app's lifespan closes the request handler, however it is left (spec 007, door change A1) ---
+
+
+@pytest.fixture
+def closed(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """One entry per call of the real request handler's `aclose`."""
+    seen: list[str] = []
+    real = R2CRequestHandler.aclose
+
+    async def spied(self: R2CRequestHandler) -> None:
+        seen.append("closed")
+        await real(self)
+
+    monkeypatch.setattr(R2CRequestHandler, "aclose", spied)
+    return seen
+
+
+def test_a_clean_stop_closes_the_request_handler_once(closed: list[str]) -> None:
+    async def go() -> None:
+        app = a2a_app(SourceExecutor(CheckpointFake({})), _card())
+        async with app.router.lifespan_context(app):
+            assert closed == []
+        assert closed == ["closed"]
+
+    run(go())
+
+
+def test_a_lifespan_left_by_an_exception_still_closes_the_request_handler(closed: list[str]) -> None:
+    """What an app that composes this one does when a later start fails, or when it fails while
+    serving: the exception is thrown into this lifespan at its `yield`."""
+
+    async def go() -> None:
+        app = a2a_app(SourceExecutor(CheckpointFake({})), _card())
+        with pytest.raises(RuntimeError, match="the parent failed"):
+            async with app.router.lifespan_context(app):
+                raise RuntimeError("the parent failed while serving")
+        assert closed == ["closed"], "the handler stays open when the lifespan is left by an exception"
 
     run(go())

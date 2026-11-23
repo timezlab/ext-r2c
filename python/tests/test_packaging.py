@@ -12,6 +12,8 @@ from importlib.metadata import metadata
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 
+import pytest
+
 ALLOWED_TOP_LEVEL = {"pydantic", "pydantic_core", "jsonschema", "ext_r2c"}
 FORBIDDEN = ("a2a", "mcp", "langchain", "langchain_core", "langgraph")
 # What the `langgraph` extra brings that the bridge may import (spec 006, research R18): the graph
@@ -198,28 +200,33 @@ def test_bridges_package_imports_nothing() -> None:
     assert not imports, [n.lineno for n in imports]
 
 
-def _mentions_a_bridge(node: ast.AST) -> bool:
-    """An import of `ext_r2c.bridges`, absolute, `from ext_r2c import bridges`, or relative."""
+def _mentions(node: ast.AST, package: str) -> bool:
+    """An import of `ext_r2c.<package>`, absolute, `from ext_r2c import <package>`, or relative."""
+    full = f"ext_r2c.{package}"
     if isinstance(node, ast.Import):
-        return any(a.name == "ext_r2c.bridges" or a.name.startswith("ext_r2c.bridges.") for a in node.names)
+        return any(a.name == full or a.name.startswith(full + ".") for a in node.names)
     if isinstance(node, ast.ImportFrom):
         module = node.module or ""
         if node.level == 0:
             return (
-                module == "ext_r2c.bridges"
-                or module.startswith("ext_r2c.bridges.")
-                or (module == "ext_r2c" and any(a.name == "bridges" for a in node.names))
+                module == full
+                or module.startswith(full + ".")
+                or (module == "ext_r2c" and any(a.name == package for a in node.names))
             )
-        return module.split(".")[0] == "bridges" or (not module and any(a.name == "bridges" for a in node.names))
+        return module.split(".")[0] == package or (not module and any(a.name == package for a in node.names))
     return False
 
 
+def _mentions_a_bridge(node: ast.AST) -> bool:
+    return _mentions(node, "bridges")
+
+
 def test_no_other_module_imports_a_bridge() -> None:
-    """Spec 006, FR-004 and constitution VIII: the core and the doors never import a bridge
-    (`Remote`, spec 007, will not either). The scans above already refuse any `ext_r2c` import
+    """Spec 006, FR-004 and constitution VIII: the core and the doors never import a bridge, and
+    neither does `Remote` (spec 007, FR-035). The scans above already refuse any `ext_r2c` import
     beyond core; this names the rule."""
     bad: list[str] = []
-    for package in ("core", "a2a", "mcp"):
+    for package in ("core", "a2a", "mcp", "remote"):
         folder = files("ext_r2c") / package
         assert folder.is_dir(), f"ext_r2c/{package} is not in the installed wheel"
         for name, item in _sources(folder):
@@ -268,3 +275,163 @@ def test_langgraph_import_without_the_extra_names_it() -> None:
         )
         out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, check=True)
         assert 'ext-r2c[langgraph]' in out.stdout, (blocked, out.stdout, out.stderr)
+
+
+# --- `ext_r2c.remote` (spec 007, research R13) ------------------------------------------------------
+
+REMOTE_NAMES = ("Remote", "RemoteError", "A2AOptions", "MCPOptions")
+# A module of `ext_r2c/remote/` imports the standard library, the core and its own modules where the
+# import runs when the module is loaded. A door and the two SDKs come in only inside a function (or
+# under `TYPE_CHECKING`, which never runs): that is how a door that is not exposed is never loaded.
+REMOTE_ONLY_IN_FUNCTIONS = ("ext_r2c.a2a", "ext_r2c.mcp", "starlette", "a2a", "mcp")
+REMOTE_NEVER = ("ext_r2c.bridges", "langgraph", "langchain", "langchain_core")
+
+
+def _within(name: str, package: str) -> bool:
+    return name == package or name.startswith(package + ".")
+
+
+def _is_type_checking(test: ast.expr) -> bool:
+    return (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+        isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+    )
+
+
+def _remote_imports(source: str, package: str = "ext_r2c.remote") -> list[tuple[int, str, bool]]:
+    """(line, absolute name, runs when the module is loaded) for every import in the source of a
+    module of `package`. A relative import is resolved; `from x import y` gives `x` and `x.y`, since
+    `y` may be a module."""
+    found: list[tuple[int, str, bool]] = []
+    parts = package.split(".")
+
+    def visit(node: ast.AST, at_load: bool) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            at_load = False
+        if isinstance(node, ast.If) and _is_type_checking(node.test):
+            for child in node.body:
+                visit(child, False)
+            for child in node.orelse:
+                visit(child, at_load)
+            return
+        if isinstance(node, ast.Import):
+            found.extend((node.lineno, alias.name, at_load) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = parts[: len(parts) - (node.level - 1)] if node.level else []
+            module = ".".join([*base, *([node.module] if node.module else [])])
+            found.append((node.lineno, module, at_load))
+            found.extend((node.lineno, f"{module}.{alias.name}", at_load) for alias in node.names)
+        for child in ast.iter_child_nodes(node):
+            visit(child, at_load)
+
+    visit(ast.parse(source), True)
+    return found
+
+
+def _breaks_the_remote_rule(source: str) -> list[str]:
+    bad: list[str] = []
+    for line, name, at_load in _remote_imports(source):
+        top = name.split(".")[0]
+        if any(_within(name, never) for never in REMOTE_NEVER):
+            bad.append(f"{line} {name} (a bridge, or a bridge's framework)")
+        elif top == "ext_r2c":
+            own = name == "ext_r2c" or _within(name, "ext_r2c.core") or _within(name, "ext_r2c.remote")
+            door = _within(name, "ext_r2c.a2a") or _within(name, "ext_r2c.mcp")
+            if not own and not (door and not at_load):
+                bad.append(f"{line} {name} (a door is loaded inside a function only)" if door else f"{line} {name}")
+        elif top in sys.stdlib_module_names:
+            continue
+        elif at_load or not any(_within(name, allowed) for allowed in REMOTE_ONLY_IN_FUNCTIONS):
+            bad.append(f"{line} {name}" + (" (inside a function only)" if at_load else ""))
+    return bad
+
+
+def test_remote_imports_follow_the_rule() -> None:
+    """Spec 007, FR-035: at load time the core and the standard library; a door inside a function;
+    a bridge never."""
+    folder = files("ext_r2c") / "remote"
+    assert folder.is_dir(), "ext_r2c/remote is not in the installed wheel"
+    bad = [
+        f"remote/{name}:{problem}"
+        for name, item in _sources(folder)
+        for problem in _breaks_the_remote_rule(item.read_text(encoding="utf-8"))
+    ]
+    assert not bad, "ext_r2c/remote breaks its import rule:\n" + "\n".join(bad)
+
+
+def test_the_remote_rule_sees_each_kind_of_bad_import() -> None:
+    """The scan above is only worth its name if it refuses what it should and nothing more."""
+    for source in (
+        "import a2a",
+        "import mcp.server",
+        "import starlette.applications",
+        "from ..a2a import a2a_app",
+        "from .. import mcp",
+        "from ext_r2c.mcp import R2CExtension",
+        "from .. import URI",
+        "import pydantic",
+        "class Options:\n    from starlette.routing import Mount",
+        "def build():\n    from ..bridges.langgraph import LangGraphAgent",
+        "def build():\n    from .. import bridges",
+        "def build():\n    import langgraph",
+        "def build():\n    import yaml",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from langchain_core.tools import BaseTool",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    pass\nelse:\n    import a2a",
+    ):
+        assert _breaks_the_remote_rule(source), source
+    for source in (
+        "import contextlib\nfrom collections.abc import Mapping",
+        "from ..core import Limits, ToolSpec",
+        "from ._errors import RemoteError",
+        "from . import _compose",
+        "def build():\n    from ..a2a import a2a_app\n    from starlette.routing import Mount",
+        "async def build():\n    import mcp.server\n    from ..mcp import R2CExtension",
+        "import typing\nif typing.TYPE_CHECKING:\n    from a2a.server.tasks import TaskStore",
+    ):
+        assert not _breaks_the_remote_rule(source), (source, _breaks_the_remote_rule(source))
+
+
+def test_only_the_top_package_imports_remote() -> None:
+    """The core, the doors and the bridges never import `Remote` (imports go one way)."""
+    bad: list[str] = []
+    for package in ("core", "a2a", "mcp", "bridges"):
+        for name, item in _sources(files("ext_r2c") / package):
+            for node in ast.walk(ast.parse(item.read_text(encoding="utf-8"), filename=name)):
+                if _mentions(node, "remote"):
+                    bad.append(f"{package}/{name}:{node.lineno}")
+    assert not bad, "remote is imported from:\n" + "\n".join(bad)
+    for source in ("import ext_r2c.remote", "from ext_r2c import remote", "from ..remote import Remote",
+                   "from .. import remote", "from ext_r2c.remote._options import A2AOptions"):
+        (node,) = ast.parse(source).body
+        assert _mentions(node, "remote"), source
+
+
+def _child(code: str) -> str:
+    out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    return out.stdout.strip()
+
+
+def test_importing_the_package_or_the_core_does_not_load_remote() -> None:
+    assert _child("import sys, ext_r2c, ext_r2c.core; print('ext_r2c.remote' in sys.modules)") == "False"
+
+
+def test_the_remote_names_are_exported_lazily_and_load_no_sdk() -> None:
+    """Spec 007, FR-001: `from ext_r2c import Remote` works with no extra, and loads no door."""
+    code = (
+        "import sys, ext_r2c\n"
+        "from ext_r2c import Remote, RemoteError, A2AOptions, MCPOptions\n"
+        "heavy = {'a2a', 'mcp', 'mcp_types', 'starlette', 'yaml', 'langgraph', 'langchain', 'langchain_core'}\n"
+        "print('ext_r2c.remote' in sys.modules, sorted({m.split('.')[0] for m in sys.modules} & heavy))\n"
+        "print(Remote.__module__.startswith('ext_r2c.remote'), ext_r2c.Remote is Remote)\n"
+    )
+    assert _child(code).splitlines() == ["True []", "True True"]
+
+
+def test_the_remote_names_are_public_and_an_unknown_name_is_an_attribute_error() -> None:
+    import ext_r2c
+
+    assert set(REMOTE_NAMES) <= set(ext_r2c.__all__)
+    assert set(REMOTE_NAMES) <= set(dir(ext_r2c))
+    assert {"URI", "MCP_KEY", "STANDARD_VERSION", "__version__"} <= set(ext_r2c.__all__), "the old names stay"
+    with pytest.raises(AttributeError, match="no_such_name"):
+        ext_r2c.no_such_name  # noqa: B018
