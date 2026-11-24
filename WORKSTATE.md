@@ -286,15 +286,19 @@ Last updated 2026-11-23. Read this first in a new session.
     to completion with an answerer, so each caller writes the loop (`peers.py`). **Maintainer's stated
     direction, 2026-11-23:** a CI job that builds the wheel on a release, then a first alpha or beta release
     for that adopter to integrate. That is spec 008.
-  - **Spec 008** (`specs/008-release/`, 2026-11-23): `spec.md` and its checklist are drafted, **waiting for
-    the maintainer's approval** (the gate): the first pre-release `0.1.0a1`, a tag-triggered job that
-    builds once, tests those bytes on 3.11, 3.12 and 3.13, scans and checks them, and attaches them to a
-    GitHub pre-release (a draft first), with no PyPI. Three decisions to confirm first: D3 (the PyPI name
-    is free for anyone, so the install line is always a full address), D5 (the private-token scan stays on
-    the maintainer's machine) and D11 (the publishing steps cannot be rehearsed before the first release).
-    No plan, no workflow, no tag.
+  - **Spec 008** (`specs/008-release/`, drafted 2026-11-23, **approved 2026-11-24** with D1–D11 as
+    written): the first pre-release `0.1.0a1`, a tag-triggered job that builds once, tests those bytes on
+    3.11, 3.12 and 3.13, scans and checks them, and attaches them to a GitHub pre-release (a draft first),
+    with no PyPI (D3: the name is free for anyone, so the install line is always a full address; D5: the
+    private-token scan stays on the maintainer's machine; D11: the publishing steps cannot be rehearsed).
+    **Plan written 2026-11-24** (`plan.md`, `research.md` R1–R15, `data-model.md`, `contracts/`,
+    `quickstart.md`): one reusable `wheel.yml` that CI and the release both call; scripts in
+    `scripts/release/` tested by path with a fake `gh`; six delivery phases, the last ending before the tag.
+    Five points for the maintainer are in the plan (lint of the workflows, the scan also in CI, pinning CI
+    to commit SHAs, the order of the first pushes, the README naming a release before its tag). No
+    workflow, no script, no tag yet; `tasks.md` follows.
 
-## Spec sequence (001–007 built and pushed; 008 drafted, at the gate; 009 onward proposed)
+## Spec sequence (001–007 built and pushed; 008 approved and planned, tasks next; 009 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -342,7 +346,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    `A2AOptions` / `MCPOptions` for each door's deployment; build-time errors for a door with nothing
    to serve, something no door serves, or a missing extra. There is no `mcp_server=` (D3). Success
    criteria 1–5 of the brief, served by `Remote`, plus one agent through both doors in one process.
-8. **`008-release`** (spec drafted 2026-11-23, waiting for approval) — the first pre-release `0.1.0a1`: a
+8. **`008-release`** (spec approved and plan written 2026-11-24) — the first pre-release `0.1.0a1`: a
    release job that builds the wheel and the sdist once, tests them on 3.11, 3.12 and 3.13, checks and
    scans them, and attaches them to a GitHub pre-release; release notes assembled from the repository;
    a manual run that publishes nothing; no PyPI. Pushing the first tag is the maintainer's own go.
