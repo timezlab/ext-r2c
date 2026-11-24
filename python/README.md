@@ -4,7 +4,9 @@ Python SDK for **R2C (Remote-to-Caller)**, an extension for A2A and MCP that
 lets a remote ask its caller a question, request an approval, and hand back
 artifacts.
 
-> Pre-alpha. The standard v1 is written (draft). This package ships its
+> Alpha (`0.1.0a1`, a GitHub release, not on PyPI). What it does not do yet is in the
+> [known limits](https://github.com/timezlab/ext-r2c/blob/main/docs/known-limits.md).
+> The standard v1 is written (draft). This package ships its
 > identifiers, its JSON Schemas, the protocol-free core (`ext_r2c.core`), the
 > A2A door (`ext_r2c.a2a`), the MCP door (`ext_r2c.mcp`), MCP Skills, which
 > is a separate MCP extension served by the same package, the LangGraph
@@ -770,6 +772,20 @@ Limits to know:
 
 ## Install
 
+The first pre-release is a GitHub release, not a PyPI package, and it needs Python 3.11 or newer. Install it by
+its full address; no `--pre` is needed:
+
+```
+pip install "ext-r2c[a2a,mcp,langgraph] @ https://github.com/timezlab/ext-r2c/releases/download/v0.1.0a1/ext_r2c-0.1.0a1-py3-none-any.whl"
+```
+
+The bare name `ext-r2c` on PyPI is not this project: PyPI has no package of that name today and anyone may
+register it, so never install it by the name alone. It becomes this project's only if the project publishes it
+there. What the release does not do yet is in the
+[known limits](https://github.com/timezlab/ext-r2c/blob/main/docs/known-limits.md).
+
+Each row below names what an extra brings in; give any of them to the address above in the brackets.
+
 | Install | Pulls in | For |
 |---|---|---|
 | `ext-r2c` | pydantic, jsonschema | the core: models, forms, checks, run events |
@@ -785,8 +801,10 @@ The extras bound their packages: `a2a-sdk>=1.3,<2`, `mcp>=2.3,<3`,
 `langgraph>=1.2.14,<2`. The test suite last ran with a2a-sdk 1.3.1, mcp 2.3.0,
 langchain 1.5.2 and langgraph 1.2.24.
 
-To install from a wheel file, the extras follow the path, and the same line works
-in a `requirements.txt` (pip reads a relative path from where it runs):
+To install from a wheel file you have downloaded or built (the file the address above names is
+`ext_r2c-0.1.0a1-py3-none-any.whl`), the extras follow the path, and the same line works in a
+`requirements.txt` (pip reads a relative path from where it runs). Here `<version>` is `0.1.0a1`, or the
+version in the name of your file:
 
 ```
 pip install "./ext_r2c-<version>-py3-none-any.whl[a2a,mcp,langgraph]"

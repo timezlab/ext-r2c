@@ -5,8 +5,17 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0a1] - 2026-11-24
+
 ### Added
 
+- The first pre-release, `0.1.0a1`, as a GitHub release with the wheel, the source archive and `SHA256SUMS`;
+  it is not on PyPI. One pushed tag starts `.github/workflows/release.yml`, which builds once, runs the tests
+  on Python 3.11, 3.12 and 3.13 against that one wheel (`.github/workflows/wheel.yml`, which CI calls too),
+  checks and scans the files, publishes a draft and makes it public only after it has read the files back,
+  then installs the public wheel. The scripts are in `scripts/release/` and are not part of the wheel. The
+  maintainer's steps are in `docs/releasing.md`, what the release does not do is in `docs/known-limits.md`,
+  and each README gives the one install line, by the full address of the wheel.
 - Repository skeleton: Python package `ext-r2c` exposing `URI`, `MCP_KEY` and
   `STANDARD_VERSION`, CI that tests the built wheel.
 - The R2C standard v1 (draft): the normative text in `standard/v1/README.md`,
@@ -156,7 +165,8 @@ All notable changes to this project are recorded here. The format follows
     (durable checkpointer, task store and request-state keys).
   - No `mcp_server=` and no `Skills(...)` class (`skills=` takes folders or a ready
     `SkillsExtension`), and `url=` is required when A2A is exposed: the ADR
-    [one remote, two doors](docs/design-docs/one-remote-two-doors.md) has the reasons.
+    [one remote, two doors](https://github.com/timezlab/ext-r2c/blob/main/docs/design-docs/one-remote-two-doors.md)
+    has the reasons.
 - `python/README.md` has a `Remote` section (a runnable example, what goes through which door,
   the warnings, running the app under a prefix) and the single-extra scripts check a `Remote`.
 - `examples/langgraph_agent/`: two LangChain agents served by `Remote` over A2A and MCP that call

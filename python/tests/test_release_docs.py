@@ -260,3 +260,32 @@ def test_the_notes_of_the_real_repository_have_the_three_parts(
     assert wheel_address(wheel_version) in text, "the status block holds the address of this wheel"
     last = text[text.index(changes) + len(changes) :]
     assert any(line.strip() and not line.startswith("#") for line in last.splitlines()), "the changes part is not empty"
+
+
+def python_floor() -> str:
+    """The oldest Python the installed wheel accepts, from its own metadata (`>=3.11` gives `3.11`)."""
+    spec = metadata("ext-r2c")["Requires-Python"]
+    assert spec.startswith(">="), f"expected a lower bound, got {spec!r}"
+    return spec[2:]
+
+
+@pytest.mark.parametrize("name", ["root", "python"])
+def test_both_readmes_name_the_python_they_need(name: str) -> None:
+    text = " ".join(read_doc(READMES[name]).split())
+    assert f"Python {python_floor()} or newer" in text, shown(READMES[name])
+
+
+def test_the_notes_name_the_python_they_need(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out = tmp_path / "notes.md"
+    code = load_script("notes").main(["--repository", REPOSITORY, "--out", str(out)])
+    assert code == 0, capsys.readouterr().err
+    assert f"Python {python_floor()} or newer" in " ".join(out.read_text().split())
+
+
+def test_the_notes_link_nothing_by_a_relative_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The notes are shown on the release page, where `docs/x.md` points nowhere: every link is a full address."""
+    out = tmp_path / "notes.md"
+    code = load_script("notes").main(["--repository", REPOSITORY, "--out", str(out)])
+    assert code == 0, capsys.readouterr().err
+    relative = [t for t in re.findall(r"\]\(([^)\s]+)", out.read_text()) if not t.startswith(("https://", "#"))]
+    assert not relative, f"links that a release page cannot follow: {relative}"

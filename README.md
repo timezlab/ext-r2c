@@ -19,11 +19,13 @@ them over A2A, MCP, or both (a setting), so the remote's own logic does not
 change. Everything travels on the protocol's own stream: A2A status and
 artifact updates, MCP progress notifications and tool results.
 
-> **Status: pre-alpha.** The standard (`standard/v1`) is written and in draft.
+> **Status: alpha.** The standard (`standard/v1`) is written and in draft.
 > The Python SDK has its core, the A2A door, the MCP door, MCP Skills, the
-> LangGraph bridge and `Remote` (see [`python/`](python/README.md)); it is not on
-> PyPI yet. [`examples/langgraph_agent/`](examples/langgraph_agent/README.md) shows
-> it in use. Names and shapes may change until `v1` leaves draft.
+> LangGraph bridge and `Remote` (see [`python/`](python/README.md)); its first
+> pre-release, `0.1.0a1`, is a GitHub release and is not on PyPI.
+> [`examples/langgraph_agent/`](examples/langgraph_agent/README.md) shows
+> it in use. Names and shapes may change until `v1` leaves draft. What this
+> release does not do is listed in [`docs/known-limits.md`](docs/known-limits.md).
 
 ## Identifiers
 
@@ -48,7 +50,24 @@ The normative text is [`standard/v1/README.md`](standard/v1/README.md). The
 [v1 design brief](docs/research/2026-11-20-r2c-v1-design-brief.md) with the ADRs in
 [`docs/design-docs/`](docs/design-docs/) records the reasons behind it.
 
+## Install
+
+The first pre-release is a GitHub release, not a PyPI package, and it needs Python 3.11 or newer. Install it by
+its full address; no `--pre` is needed:
+
+```bash
+pip install "ext-r2c[a2a,mcp,langgraph] @ https://github.com/timezlab/ext-r2c/releases/download/v0.1.0a1/ext_r2c-0.1.0a1-py3-none-any.whl"
+```
+
+The bare name `ext-r2c` on PyPI is not this project: PyPI has no package of that name today and anyone may
+register it, so never install it by the name alone. It becomes this project's only if the project publishes it
+there. Keep only the extras you need (`a2a`, `mcp`, `langgraph`); the table in
+[`python/README.md`](python/README.md#install) says what each one brings in. What the release does not do
+yet is in [`docs/known-limits.md`](docs/known-limits.md).
+
 ## Python
+
+To build and test the package from a checkout:
 
 ```bash
 cd python

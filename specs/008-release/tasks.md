@@ -336,7 +336,7 @@ and `preflight.py` and `notes.py` on the real tree.
   `ARCHITECTURE.md` (`scripts/release/`, the three workflows, and the rule that `scripts/` imports nothing
   from `ext_r2c` and the package nothing from it).
 - [X] T053 [US1] Commit the documents so far: `docs(008): the releasing runbook and the layout`.
-- [ ] T054 [US1] **The `0.1.0a1` commit**, one commit: `python/pyproject.toml` (`version = "0.1.0a1"`, the
+- [X] T054 [US1] **The `0.1.0a1` commit**, one commit: `python/pyproject.toml` (`version = "0.1.0a1"`, the
   classifier `Development Status :: 3 - Alpha`); the root `README.md` (the status paragraph says alpha and
   links `docs/known-limits.md`; a new *Install* part with the one address line and the sentence about the
   bare PyPI name); `python/README.md` (the same line and sentence above its Install table; its wheel-file
@@ -344,19 +344,23 @@ and `preflight.py` and `notes.py` on the real tree.
   line); `CHANGELOG.md` (`## [Unreleased]` becomes `## [0.1.0a1] - <date of the commit>`, a fresh empty
   `## [Unreleased]` above it, and a line under *Added* for the release tooling and the known limits).
   Nothing under `python/src/` or `standard/`.
-- [ ] T055 [US1] Rebuild, reinstall and run the whole suite on the `0.1.0a1` wheel (T050 now passes;
+- [X] T055 [US1] Rebuild, reinstall and run the whole suite on the `0.1.0a1` wheel (T050 now passes;
   `test_smoke` pins `ext_r2c.__version__`). Then, on the real tree: `preflight.py --event workflow_dispatch`
   prints `preflight ok: version 0.1.0a1`; `notes.py` writes the notes (read them once, whole, and say
   whether an outsider could follow them); `sums.py`, `content.py` and `scan.py` on the new build pass; and
   `git diff --stat 06ff099 -- python/src standard` is **empty** (SC-010). Write each in the notes.
-- [ ] T056 [US1] The reading check (SC-009): a fresh-context reader is given **only** the two READMEs and the
+- [X] T056 [US1] The reading check (SC-009): a fresh-context reader is given **only** the two READMEs and the
   generated notes and answers: what to type to install; whether the bare name `ext-r2c` on PyPI is this
   project; which limits to expect. Record its answers; SC-009 is **for the maintainer to confirm**, as SC-012
   of the earlier specs was; it is not claimed here.
-- [ ] T057 Verify and commit: `feat(008): set 0.1.0a1 and tie the install address to the wheel`.
+- [X] T057 Verify and commit: `feat(008): set 0.1.0a1 and tie the install address to the wheel`.
 
 **Checkpoint**: the repository is ready to be released; nothing has been pushed beyond phase 3, no tag
 exists, no release exists.
+
+> Note (2026-11-24): phase 5 is done (T050–T057). The version is `0.1.0a1`, the three READMEs and the notes
+> hold one install address that the tests tie to the wheel's name, and `preflight.py` passes on a manual start.
+> Still true: nothing pushed beyond phase 3, no tag, no release.
 
 ---
 
@@ -680,3 +684,34 @@ deviation from the plan, each with its reason.)*
   "`wheel.yml` is not named in `ARCHITECTURE.md`", survived even with its two mentions removed, because the file
   names it in four places; it is equivalent (the claim stays true), not a gap. The commit of T053 holds the
   tests red until T054 on purpose (the plan orders it so); nothing is pushed between.
+- **T054, the `0.1.0a1` set.** `python/pyproject.toml` changes two lines (`version = "0.1.0a1"`, the classifier
+  `Development Status :: 3 - Alpha`). The root README says alpha and links `docs/known-limits.md`, and has a new
+  *Install* part (the Python it needs, the one address line, the sentence about the bare PyPI name). The Python
+  README has the same sentences above its extras table, and its wheel-file lines name
+  `ext_r2c-0.1.0a1-py3-none-any.whl`. The example README's line 16 is the address line, with a paragraph on
+  running it from a checkout of the tag. `CHANGELOG.md` has a fresh empty `## [Unreleased]` above
+  `## [0.1.0a1] - 2026-11-24`, with a first bullet under *Added* for the release tooling. Nothing under
+  `python/src/` or `standard/`.
+- **T055, on the real tree.** The wheel and the sdist were rebuilt after the last edit of a README (the Python
+  README is in the wheel's metadata). On that build: `sums.py` writes and checks 2 files; `content.py` ok
+  `0.1.0a1`; `scan.py` scans 74 files of the wheel and 186 of the sdist, 0 hits; `preflight.py --event
+  workflow_dispatch` prints `preflight ok: version 0.1.0a1`; `notes.py` writes 18436 bytes;
+  `git diff --stat 06ff099 -- python/src standard` is **0 lines** (SC-010). I read the notes once, whole. They
+  hold the status, the install line, the checksum sentence, the known limits and the changelog section, in that
+  order, and an outsider can follow them. That reading found one real defect: the changelog section linked
+  `docs/design-docs/one-remote-two-doors.md` by a relative path, which is dead on a release page. Test first
+  (`test_the_notes_link_nothing_by_a_relative_path`, red), then the link became an absolute address (green).
+- **T056, the reading check (SC-009).** A fresh-context reader was given only the two READMEs and the notes. It
+  answered the install command, that the bare name on PyPI is not this project, and the limits to expect, all
+  correctly. Its findings: no page said which Python the package needs. Acted on, test first (3 red:
+  `test_both_readmes_name_the_python_they_need` for the two READMEs and `test_the_notes_name_the_python_they_need`),
+  then one sentence in each README and in `scripts/release/status-block.md`, and 4 mutants of those sentences
+  killed. Two further suggestions were **not** acted on: a how-to for checking the checksum in the notes, and
+  what a later `0.1.0a2` would use as its address. Both are small and belong to a later release. SC-009 is **for
+  the maintainer to confirm**; it is not claimed here, as SC-012 of the earlier specs was not.
+- **T057, verify.** 3161 passed, 0 skipped on 3.11 (109 s), 3.12 (113 s) and 3.13 (104 s), against the
+  installed `0.1.0a1` wheel (3136 before this phase: 25 new tests in `test_release_docs.py`); the four
+  single-extra scripts ok on all three; `ruff check --select F` on `src`, `tests` and `scripts` is clean. The
+  build the numbers come from: wheel `81ff75f9…9fb2` (183915 bytes), sdist `34cc6fe6…77ac` (497877 bytes). One
+  verify loop at a time, in its own folders. Nothing has run on GitHub for this phase: the three commits of
+  phases 4 and 5 are local (`origin/main` is at `6e2748d`), no tag exists, no release exists.

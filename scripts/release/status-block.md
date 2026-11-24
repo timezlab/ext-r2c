@@ -1,6 +1,6 @@
 This is **{{tag}}**, an alpha pre-release of the Python SDK (package version `{{version}}`). The standard it implements, `standard/v1`, is a draft until its first outside adopter, so names and shapes may change. The package's version and the standard's version are separate numbers.
 
-Install it by its full address. There is no version range that finds it, and no `--pre` is needed:
+It needs Python 3.11 or newer. Install it by its full address. There is no version range that finds it, and no `--pre` is needed:
 
 ```text
 ext-r2c[a2a,mcp,langgraph] @ {{address}}

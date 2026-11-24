@@ -13,10 +13,15 @@ code**. Each is wrapped by one `Remote(...)` and served over A2A and MCP from on
 ## Run it
 
 ```
-pip install "ext-r2c[a2a,mcp,langgraph]" uvicorn      # from the wheel: "./ext_r2c-<version>-py3-none-any.whl[a2a,mcp,langgraph]"
+pip install "ext-r2c[a2a,mcp,langgraph] @ https://github.com/timezlab/ext-r2c/releases/download/v0.1.0a1/ext_r2c-0.1.0a1-py3-none-any.whl" uvicorn
 python main.py --auto        # a scripted person answers: month 2026-10, then allow
 python main.py               # you answer
 ```
+
+Run it from this folder in a checkout of the tag `v0.1.0a1`; the example is not in the wheel. The first
+line installs the pre-release from its GitHub release page: the bare name `ext-r2c` on PyPI is not this
+project. To use a wheel file you already have, put its path in place of the address:
+`"./ext_r2c-<version>-py3-none-any.whl[a2a,mcp,langgraph]"`.
 
 No key and no network are needed: without `R2C_EXAMPLE_MODEL` the agents use a scripted stand-in for the
 model (`models.py`). To use a real one, name a LangChain `provider:model` whose package and key you have:
