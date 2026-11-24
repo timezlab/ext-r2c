@@ -1,0 +1,136 @@
+name: wheel
+
+# The one definition of the checks on a built wheel. CI (python.yml) calls it on every push; the release
+# workflow, written later, calls it too, so a tag is built and tested by exactly what CI runs.
+#
+# It builds once. Every leg of `checks` installs that one wheel, downloaded as an artifact; `inspect` reads the
+# same bytes. Values reach a script through `env:`, never through an expression written inside `run:`.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: python
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      - name: License copy matches the root
+        run: cmp LICENSE ../LICENSE
+      - name: Build the wheel and the sdist, once
+        run: uv build
+      - name: Record the checksums
+        run: python3 ../scripts/release/sums.py write --dir dist --summary
+      - name: Upload the build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: |
+            python/dist/*.whl
+            python/dist/*.tar.gz
+            python/dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+
+  checks:
+    name: checks (${{ matrix.python }})
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      - name: Download the build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: python/dist
+      - name: The files are the ones that were built
+        run: python3 ../scripts/release/sums.py check --dir dist
+      - name: Install the wheel into a clean venv
+        env:
+          PYTHON: ${{ matrix.python }}
+        run: |
+          uv venv --python "$PYTHON" ../.ci-venv
+          uv pip install --python ../.ci-venv dist/*.whl --group dev
+      - name: Test against the installed wheel
+        run: ../.ci-venv/bin/pytest
+      - name: The core alone works (wheel only, no dev group, no extra)
+        env:
+          PYTHON: ${{ matrix.python }}
+        run: |
+          uv venv --python "$PYTHON" ../.core-venv
+          uv pip install --python ../.core-venv dist/*.whl
+          ../.core-venv/bin/python -I tests/core_only.py
+      - name: The A2A door works with only its extra (wheel + [a2a], no dev group)
+        env:
+          PYTHON: ${{ matrix.python }}
+        run: |
+          uv venv --python "$PYTHON" ../.a2a-venv
+          uv pip install --python ../.a2a-venv "$(ls dist/*.whl)[a2a]"
+          ../.a2a-venv/bin/python -I tests/a2a_only.py
+      - name: The MCP door works with only its extra (wheel + [mcp], no dev group)
+        env:
+          PYTHON: ${{ matrix.python }}
+        run: |
+          uv venv --python "$PYTHON" ../.mcp-venv
+          uv pip install --python ../.mcp-venv "$(ls dist/*.whl)[mcp]"
+          ../.mcp-venv/bin/python -I tests/mcp_only.py
+      - name: The LangGraph bridge works with only its extra (wheel + [langgraph], no dev group)
+        env:
+          PYTHON: ${{ matrix.python }}
+        run: |
+          uv venv --python "$PYTHON" ../.lg-venv
+          uv pip install --python ../.lg-venv "$(ls dist/*.whl)[langgraph]"
+          ../.lg-venv/bin/python -I tests/langgraph_only.py
+      - name: The adopter's path works (wheel + the three extras + uvicorn, no dev group)
+        env:
+          PYTHON: ${{ matrix.python }}
+        run: |
+          uv venv --python "$PYTHON" ../.adopter-venv
+          uv pip install --python ../.adopter-venv "$(ls dist/*.whl)[a2a,mcp,langgraph]" uvicorn
+          ../.adopter-venv/bin/python -I tests/adopter_path.py
+
+  inspect:
+    name: inspect
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download the build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: python/dist
+      - name: The files are the ones that were built
+        run: python3 ../scripts/release/sums.py check --dir dist
+      - name: The wheel and the sdist hold what they should
+        run: python3 ../scripts/release/content.py --dir dist
+      - name: Nothing in them looks private
+        run: python3 ../scripts/release/scan.py dist/*.whl dist/*.tar.gz

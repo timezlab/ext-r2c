@@ -212,7 +212,7 @@ wheel (the adopter's path included), `inspect` reads the same bytes; `python.yml
 **Independent test**: `tests/test_release_workflows.py`, section 1; the local simulation of T032; then the
 real run on GitHub (T036–T037).
 
-- [ ] T026 [P] [US2] `tests/test_release_workflows.py`, section 1, written to fail: for **every** file under
+- [X] T026 [P] [US2] `tests/test_release_workflows.py`, section 1, written to fail: for **every** file under
   `.github/workflows/` the rules of [contracts/workflows.md](contracts/workflows.md) (no `${{` in any
   `run:`, every `uses:` a 40-hex SHA or a local path, `persist-credentials: false` on each checkout,
   `enable-cache: false` on each setup-uv, no `secrets`, no `pull_request_target` or `workflow_run`, names
@@ -220,30 +220,31 @@ real run on GitHub (T036–T037).
   `inspect`, the matrix of `3.11`, `3.12`, `3.13` only there, the four single-extra scripts, the adopter's
   step, and the `sums.py`, `content.py` and `scan.py` steps; `python.yml` keeps its triggers (`push` to
   `main`, `pull_request`), calls `wheel.yml` and holds no `uv build`, no `pytest` and no `*_only.py`.
-- [ ] T027 [P] [US1] `python/tests/adopter_path.py` (not collected) per the contract: asserts `pytest` is not
+- [X] T027 [P] [US1] `python/tests/adopter_path.py` (not collected) per the contract: asserts `pytest` is not
   importable, runs `python main.py --auto` in `examples/langgraph_agent` on two free ports with a 120 s
   timeout and no `R2C_EXAMPLE_MODEL`, asserts exit 0 and the two replies of the example's README, prints
   `adopter path: ok`; a failure prints the last lines of the output.
-- [ ] T028 [US1] Run the adopter's path by hand in a venv built as CI will build it (the wheel with
+- [X] T028 [US1] Run the adopter's path by hand in a venv built as CI will build it (the wheel with
   `[a2a,mcp,langgraph]` and `uvicorn`, no dev group), on 3.11 and 3.13: `adopter path: ok`. Then prove it can
-  fail: in a venv **without** `uvicorn` it fails with a clear message; in one with `pytest` installed it
-  refuses. Write the three outcomes in the notes.
-- [ ] T029 [US2] `.github/workflows/wheel.yml` per the contract and the SHAs of research R6, with `# vX.Y.Z`
+  fail: in a venv **without** the `langgraph` extra it fails with a clear message (the first draft said
+  "without `uvicorn`", which cannot fail: `mcp` brings `uvicorn`, see the notes); in one with `pytest`
+  installed it refuses. Write the three outcomes in the notes.
+- [X] T029 [US2] `.github/workflows/wheel.yml` per the contract and the SHAs of research R6, with `# vX.Y.Z`
   comments, `permissions: contents: read`, `ubuntu-24.04`, `enable-cache: false`, the matrix once, values
   in `env:` and not in `run:`.
-- [ ] T030 [US2] `.github/workflows/python.yml`: the triggers as today and one job that calls `wheel.yml`.
-- [ ] T031 [P] `.gitignore`: `.adopter-venv/` and `.release-dist/`.
-- [ ] T032 [US2] **Simulate the legs locally**, on 3.11, 3.12 and 3.13: build once; copy `dist` aside as an
+- [X] T030 [US2] `.github/workflows/python.yml`: the triggers as today and one job that calls `wheel.yml`.
+- [X] T031 [P] `.gitignore`: `.adopter-venv/` and `.release-dist/`.
+- [X] T032 [US2] **Simulate the legs locally**, on 3.11, 3.12 and 3.13: build once; copy `dist` aside as an
   artifact would arrive; run, in order, the steps of `checks` (the sums check; the clean venv with the wheel
   and the dev group, `pytest`; the four single-extra scripts; the adopter's path) and the steps of `inspect`
   (sums, content, scan). Expected: green on all three, with the same wheel checksum in each. Write the three
   checksums in the notes.
-- [ ] T033 [US2] If the maintainer allowed it (plan point 1, B): run `zizmor` 1.32.0 `--offline` (a throwaway
+- [X] T033 [US2] If the maintainer allowed it (plan point 1, B): run `zizmor` 1.32.0 `--offline` (a throwaway
   `uvx` environment, no token) and `actionlint`'s release binary (checksum compared) on `.github/workflows/`;
   fix each finding test first where a test can express it; record versions and the summary. If not allowed,
   write "lint not run (plan point 1, default A)" in the notes.
-- [ ] T034 [US2] Run T026: it passes. Run the whole suite on the wheel.
-- [ ] T035 Verify and commit: `ci(008): one reusable definition of the checks, and the adopter's path`.
+- [X] T034 [US2] Run T026: it passes. Run the whole suite on the wheel.
+- [X] T035 Verify and commit: `ci(008): one reusable definition of the checks, and the adopter's path`.
 - [ ] T036 **[GO]** Ask the maintainer to push. The push carries the unpushed `c9e7a7c`, `b307085`, `0a139b6`,
   the spec-008 documents and the commits of phases 1 to 3. After the go: `git push`, then watch the run of
   the pushed commit (`gh run list`, `gh run watch`).
@@ -518,3 +519,50 @@ deviation from the plan, each with its reason.)*
 - **T025, verify.** 3029 passed on 3.11, 3.12 and 3.13 (2923 before this phase, plus 106); the four single-extra
   scripts ok on all three; `ruff --select F src tests ../scripts` clean after removing one unused import in
   `test_release_docs.py` and merging two `pathlib` imports in `content.py`.
+
+### Phase 3 (2026-11-24)
+
+- **T026, red.** `tests/test_release_workflows.py` ran against the old `python.yml` alone, before `wheel.yml` and
+  the new `python.yml` existed: 20 failed, 4 passed and 1 skipped (reproduced again from the committed
+  `python.yml` before this commit, same counts). The four that passed are properties the old file already had:
+  no write to the environment files, no secret and no wide permission, no dangerous trigger, and the two
+  triggers kept. The skip is `release.yml`, which a later phase writes (the test skips by name, it does not
+  pass). The 20 failures are the missing top-level `contents: read`, actions pinned by tag, a checkout that
+  keeps its credentials, an expression inside `run:`, steps with no name, a runner image that floats, the
+  tests that read `wheel.yml` (the file does not exist), and a CI file that still builds, tests and holds the
+  matrix itself. None is an error in the test. With `wheel.yml` present the per-file tests run on it too, so
+  the file ends at 34 items: 33 pass, 1 skips.
+- **T027/T028, the adopter's path by hand.** In a venv built as CI builds it (the wheel with
+  `[a2a,mcp,langgraph]` and `uvicorn`, no dev group), `python -I tests/adopter_path.py` printed `adopter path:
+  ok` on 3.11 and on 3.13. It can fail in two ways, both shown: in a venv with pytest installed it refuses
+  before it starts the example, and in a venv without the `langgraph` extra it stops with the
+  `ModuleNotFoundError` for `langchain`, followed by the last lines of the example's output.
+- **One deviation: the planned failing case could not fail.** The task said to prove a failure in a venv
+  *without* `uvicorn`. `mcp` depends on `uvicorn` (`uvicorn>=0.31.1`), so the extra `[mcp]` always installs it,
+  and no venv with the wheel and the three extras lacks it. The explicit `uvicorn` in the install line is kept
+  because the example's README says it and it costs nothing, but it is not what makes the path work. The two
+  failing cases above replace it, and neither records a local path.
+- **T029–T031, green.** `wheel.yml` (three jobs: `build`, `checks` with the matrix, `inspect`), `python.yml`
+  (one job that calls it) and the two `.gitignore` lines. `release.yml` is not written.
+- **T032, the legs simulated locally.** A script runs the `run:` steps of `wheel.yml` in order, as the runner
+  would, with each `uses:` step replaced by a fresh copy of the tree and the one artifact of the build. The
+  build ran once; each leg and `inspect` read the same three files. The wheel's SHA-256 was
+  `d41c0c33cd8f00acaba000ae6c98b6d14c270c2b25b0bb4318fbe4d4785de296` on the build, on the 3.11 leg, on the 3.12
+  leg, on the 3.13 leg and in `inspect`. Each leg printed `sums ok: 2 files`, then 3062 passed and 1 skipped (99 s
+  on 3.11, 105 s on 3.12, 98 s on 3.13), the four single-extra scripts, and `adopter path: ok`. `inspect` printed
+  `sums ok: 2 files`, `content ok: 0.0.1` and `scan ok: 258 files, 0 hits`. This is a local simulation, not a
+  GitHub run: the `uses:` steps, the artifact transfer and the runner image are what T036/T037 prove.
+- **T033, lint.** Lint not run (plan point 1, default A). Plan point 1 has no answer from the maintainer yet, so
+  the default stands; the hygiene rules are held by T026's tests instead.
+- **Mutation check on the workflow tests** (20 mutants, each restored): a checkout that keeps its credentials,
+  a setup-uv that keeps its cache, an action pinned by a tag, an action with no version comment, the Python
+  version written inside `run:`, the adopter's step dropped, the adopter installing the dev group, the matrix
+  failing fast, a Python version removed from the matrix, `inspect` asking for write access, a second
+  `uv build` in `checks`, the sums check no longer first, the scan of the sdist dropped, a step with no name, a
+  floating runner image, an artifact allowed to be empty, `python.yml` keeping its own steps, losing its
+  `pull_request` trigger, naming a secret, and widening its top-level permission. All 20 killed on the first run,
+  each by the test that names the property. The harness gained an `nth` key for the checkouts, which appear
+  three times.
+- **T034/T035, verify.** 3062 passed and 1 skipped on 3.11 (92 s), 3.12 (96 s) and 3.13 (88 s), against the
+  installed 0.0.1 wheel (3029 before this phase, plus the 33 workflow tests; the skip is `release.yml`); the
+  four single-extra scripts ok on all three; `ruff --select F src tests ../scripts` clean.

@@ -15,5 +15,7 @@ uv.lock
 .core-venv/
 .a2a-venv/
 .wheel-venv/
+.adopter-venv/
+.release-dist/
 .claude/worktrees/
 .claude/settings.local.json

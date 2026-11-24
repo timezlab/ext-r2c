@@ -1,50 +1,18 @@
 name: python
 
+# CI. The checks themselves live in wheel.yml, the one definition the release workflow also calls.
+
 on:
   push:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   wheel:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ["3.11", "3.12", "3.13"]
-    defaults:
-      run:
-        working-directory: python
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - name: License copy matches the root
-        run: cmp LICENSE ../LICENSE
-      - name: Build wheel and sdist
-        run: uv build
-      - name: Install the wheel into a clean venv
-        run: |
-          uv venv --python ${{ matrix.python }} ../.ci-venv
-          uv pip install --python ../.ci-venv dist/*.whl --group dev
-      - name: Test against the installed wheel
-        run: ../.ci-venv/bin/pytest
-      - name: The core alone works (wheel only, no dev group, no extra)
-        run: |
-          uv venv --python ${{ matrix.python }} ../.core-venv
-          uv pip install --python ../.core-venv dist/*.whl
-          ../.core-venv/bin/python -I tests/core_only.py
-      - name: The A2A door works with only its extra (wheel + [a2a], no dev group)
-        run: |
-          uv venv --python ${{ matrix.python }} ../.a2a-venv
-          uv pip install --python ../.a2a-venv "$(ls dist/*.whl)[a2a]"
-          ../.a2a-venv/bin/python -I tests/a2a_only.py
-      - name: The MCP door works with only its extra (wheel + [mcp], no dev group)
-        run: |
-          uv venv --python ${{ matrix.python }} ../.mcp-venv
-          uv pip install --python ../.mcp-venv "$(ls dist/*.whl)[mcp]"
-          ../.mcp-venv/bin/python -I tests/mcp_only.py
-      - name: The LangGraph bridge works with only its extra (wheel + [langgraph], no dev group)
-        run: |
-          uv venv --python ${{ matrix.python }} ../.lg-venv
-          uv pip install --python ../.lg-venv "$(ls dist/*.whl)[langgraph]"
-          ../.lg-venv/bin/python -I tests/langgraph_only.py
+    name: wheel
+    permissions:
+      contents: read
+    uses: ./.github/workflows/wheel.yml
