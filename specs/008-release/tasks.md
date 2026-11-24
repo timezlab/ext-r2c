@@ -149,53 +149,55 @@ exist and are linked to the detail; on the real build the scan finds 0 and the c
 `tests/test_release_sums.py`, `tests/test_release_notes.py`, the first section of
 `tests/test_release_docs.py`.
 
-- [ ] T012 [P] [US3] `tests/test_release_content.py`, written to fail: a good fixture passes; one test per
+- [X] T012 [P] [US3] `tests/test_release_content.py`, written to fail: a good fixture passes; one test per
   id of the contract: a wheel member outside `ext_r2c/` and its dist-info; a `tests`, `examples` or
   `test_*.py` path inside; `ext_r2c/py.typed` missing; a binary member (`wheel-contents`); a wrong
   `Version:`, a missing `Name`, a missing `Provides-Extra` of `a2a`, `mcp` or `langgraph`
   (`wheel-metadata`); schema names that differ from `standard/v1/schema/` in one extra or one missing file
   (`schemas`); an sdist with a wrong root, a wrong `PKG-INFO` version, an `examples/` folder or no schema
   (`sdist-contents`); a missing wheel or sdist; the version defaulting to `pyproject.toml`.
-- [ ] T013 [P] [US3] `tests/test_release_scan.py`, written to fail: one planted hit for each category
+- [X] T013 [P] [US3] `tests/test_release_scan.py`, written to fail: one planted hit for each category
   (`home-path` for Linux, macOS and Windows shapes and the root folder; `private-address` for each RFC 1918
   range; `email`; `token` for each shape), found with member name, category and **the number of lines**
   (two matches on one line count once); wheel (zip) and sdist (tar) both read; a binary member is skipped
   and named; reserved domains pass (`example.com`, `.org`, `.net`, `.example`, `.test`, `.invalid`,
   `.localhost`); a near miss (a longer dotted number such as `10.0.0.1.2`) is not a hit; **no planted
   string, and no fragment of one, appears in the output**; exit codes 0 and 1.
-- [ ] T014 [P] [US3] `tests/test_release_sums.py`, written to fail: `write` makes the format of
+- [X] T014 [P] [US3] `tests/test_release_sums.py`, written to fail: `write` makes the format of
   [contracts/release-assets.md](contracts/release-assets.md) (two spaces, sorted, final newline, no line for
   itself); `sha256sum -c` accepts it (skipped if the binary is absent); `check` fails on an altered byte, a
   missing file, an extra wheel and a missing list; exactly one wheel and one sdist are required; `--summary`
   writes a table to the file named by `GITHUB_STEP_SUMMARY`.
-- [ ] T015 [P] [US5] `tests/test_release_notes.py`, written to fail: three parts in order with the headings
+- [X] T015 [P] [US5] `tests/test_release_notes.py`, written to fail: three parts in order with the headings
   `## Status`, `## Known limits`, `## Changes in V`; the four placeholders filled and an unknown `{{x}}`
   refused (`notes`); every line of the known-limits file after its title present verbatim and in order; the
   changelog part is the body of exactly that version's section (not `[Unreleased]`, not the next version);
   an empty or missing section is `changelog-section`; a missing or empty known-limits file or status block is
   `notes`.
-- [ ] T016 [P] [US5] `tests/test_release_docs.py`, section 1, written to fail: `docs/known-limits.md`
+- [X] T016 [P] [US5] `tests/test_release_docs.py`, section 1, written to fail: `docs/known-limits.md`
   exists, starts with one title line, has one bullet for each of the seven limits of FR-015 (found by a
-  word of each), and every link in it points at a heading that exists in `python/README.md`.
-- [ ] T017 Run T012–T016: each fails because the script or the file does not exist, and for no other
+  word of each), and every link in it points at a file and a heading that exist in the repository (most in
+  `python/README.md`; see the Phase 2 notes for the two that do not).
+- [X] T017 Run T012–T016: each fails because the script or the file does not exist, and for no other
   reason. Write the failure lines in the notes.
-- [ ] T018 [P] [US3] `scripts/release/content.py` until T012 passes.
-- [ ] T019 [P] [US3] `scripts/release/scan.py` until T013 passes (patterns spelled from fragments; the leak
+- [X] T018 [P] [US3] `scripts/release/content.py` until T012 passes.
+- [X] T019 [P] [US3] `scripts/release/scan.py` until T013 passes (patterns spelled from fragments; the leak
   scan of the commit must report 0 on the file).
-- [ ] T020 [P] [US3] `scripts/release/sums.py` until T014 passes.
-- [ ] T021 [US5] `docs/known-limits.md` (a title and the seven bullets of FR-015, each with a link to the
+- [X] T020 [P] [US3] `scripts/release/sums.py` until T014 passes.
+- [X] T021 [US5] `docs/known-limits.md` (a title and the seven bullets of FR-015, each with a link to the
   detail in `python/README.md`) and `scripts/release/status-block.md` (the status block of research R11 with
   its four placeholders) until T016 passes.
-- [ ] T022 [US5] `scripts/release/notes.py` until T015 passes.
-- [ ] T023 [US3] **Real bytes.** `uv build --out-dir ../.release-dist` from `python/`, then `sums.py write`,
-  `sums.py check`, `content.py` and `scan.py` on it. Expected and written in the notes: `content ok: 0.0.1`,
-  `scan ok: 74 files, 0 hits` and `scan ok: 173 files, 0 hits` (SC-006, SC-007). If the scan finds a
+- [X] T022 [US5] `scripts/release/notes.py` until T015 passes.
+- [X] T023 [US3] **Real bytes.** `uv build --out-dir <a folder outside the repository>` from `python/`, then
+  `sums.py write`, `sums.py check`, `content.py` and `scan.py` on it. Expected and written in the notes:
+  `content ok: 0.0.1`, the wheel's 74 files and the sdist's files (173 before this phase added tests, 182 after)
+  and `scan ok: 256 files, 0 hits` (SC-006, SC-007). If the scan finds a
   line, the **file and category** are read, not waved through: fix the text or, for an invented address, use
   `example.com`.
-- [ ] T024 [US3] Mutation check: remove one category from the scan, remove the reserved-domain allowance
+- [X] T024 [US3] Mutation check: remove one category from the scan, remove the reserved-domain allowance
   (the sdist's one baseline hit must reappear), drop the `py.typed` check, skip the sums comparison, skip
   the empty-section check in the notes; each makes a named test fail; restore.
-- [ ] T025 Verify and commit: `feat(008): content check, scan, checksums and release notes`.
+- [X] T025 Verify and commit: `feat(008): content check, scan, checksums and release notes`.
 
 **Checkpoint**: the scripts that read the built files and assemble the notes are tested; the known limits
 exist.
@@ -471,3 +473,48 @@ deviation from the plan, each with its reason.)*
   validated, sub-headings counted as a body.
 - **T011, verify.** 2923 passed on 3.11, 3.12 and 3.13 (2846 before this spec, plus 77); the four
   single-extra scripts ok on all three; `ruff --select F src tests ../scripts` clean.
+
+### Phase 2 (2026-11-24)
+
+- **T017, red.** The four script tests and the docs section ran before `content.py`, `scan.py`, `sums.py`,
+  `notes.py` and `docs/known-limits.md` existed: 105 errors (25 content, 50 scan, 14 sums, 13 notes, 3 docs).
+  Every one is `ModuleNotFoundError: No module named 'content'` (and the same for the others, raised by
+  `load_script`) or, for the docs, the fixture's `docs/known-limits.md is missing`; no other reason. As in
+  phase 1 they are errors at setup, not failures, because the module-scoped import is the first thing to fail.
+- **T018–T022, green on the first run.** 25, 50, 14 and 13 passed, and the 3 docs tests once the two files
+  existed. A first run with no red step in between is why T024 matters: each test below was shown able to
+  fail.
+- **One deviation: a leak the commit scan would have refused.** `scan.py` first held the Linux home prefix as
+  one literal, which the commit's own scan refuses (a home-directory prefix). It is spelled from two pieces now, the way the
+  test fixtures spell their planted strings; the scan reports 0 on the file.
+- **Two deviations in the known limits.** (1) Five of the seven bullets point at `python/README.md`. The
+  "one hop, no loop guard" limit has its detail only in
+  `examples/langgraph_agent/README.md` (*What this example does not do*), and the draft limit in
+  `standard/v1/README.md` §15, so T016 now checks that every link resolves to a file and a heading in the
+  repository, not that it is in `python/README.md`. (2) *Durable state*, *Identity* and *The host guard* are
+  bold paragraphs of `## Remote`, not headings, so three bullets link to `#remote`; the bullet names the
+  paragraph in its link text. I wrote the MCP Tasks bullet from what `python/README.md` says (a call longer than
+  the client's timeout fails on the client's side) after first writing a sentence the README does not support.
+- **T023, real bytes** (built outside the repository; `python/` untouched): `sums.py write` gave
+  `ext_r2c-0.0.1-py3-none-any.whl` 183493 bytes `d41c0c33…de296` and `ext_r2c-0.0.1.tar.gz` 481219 bytes
+  `450cc370…afb7`; `sums.py check` printed `sums ok: 2 files` and `sha256sum -c` printed `OK` for both;
+  `content.py` printed `content ok: 0.0.1`; `scan.py` printed `scanned …whl: 74 files`, `scanned …tar.gz: 182
+  files` and `scan ok: 256 files, 0 hits`. The sdist is 9 files larger than at T001 (173) because this phase
+  and the last added test files, which the sdist carries; their planted strings are spelled from fragments, so
+  they do not hit.
+- **T024, mutation check** (29 mutants, restored after each): the scan's reserved-domain allowance removed, the
+  home-path category emptied, 172.31 left out of the private range, the matched line printed, a binary member
+  not skipped, an sdist read as a wheel, the AWS key shape broken, a hit counted once per file; the content
+  check's `py.typed` requirement, examples folder, member outside the two folders, missing extra, wrong
+  `METADATA` version, missing schema, extra schema, wrong `PKG-INFO` version, binary member, dot-dot path and
+  `test_*.py` file, each removed; the sums comparison, the unlisted-file check, the sort, the bare-name rule
+  and the one-wheel rule; the notes' empty-limits check, unknown-placeholder check, title drop, title check and
+  final-version check. 28 killed by the named test on the first run. One survived, "a missing title line
+  passes": the `no-title` case had a single line, which the empty-body check refused anyway. I changed the case
+  to two bullets so that only the title check can refuse it, and the mutant is killed. The sums test for a name
+  with a path now also asserts the refusal says "bare file name", because it first passed for the wrong reason
+  (the file was missing). A test that the notes refuse a final version was written before the run, for the last
+  mutant of the list.
+- **T025, verify.** 3029 passed on 3.11, 3.12 and 3.13 (2923 before this phase, plus 106); the four single-extra
+  scripts ok on all three; `ruff --select F src tests ../scripts` clean after removing one unused import in
+  `test_release_docs.py` and merging two `pathlib` imports in `content.py`.
