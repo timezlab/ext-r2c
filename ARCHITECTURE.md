@@ -146,6 +146,32 @@ whose extra is missing fails with a message naming the extra. `test_packaging.py
 core's side (an `ast` scan of its imports, and a subprocess that imports it and loads no protocol
 SDK), and a CI step installs the wheel alone and runs `tests/core_only.py`.
 
+## Release tooling
+
+A release is one pushed tag `vX.YaN`; the steps the maintainer takes are in
+[docs/releasing.md](docs/releasing.md), and the reasons are in `specs/008-release/`.
+
+```
+.github/workflows/
+  wheel.yml          reusable: builds the wheel and the sdist once, runs the tests on 3.11, 3.12 and
+                     3.13 against that one wheel, then reads the same bytes (content, scan, sums)
+  python.yml         CI: one job that calls wheel.yml on every push
+  release.yml        a tag push (or a manual start): preflight, wheel.yml, publish, verify
+scripts/release/     plain Python, standard library only; not in the wheel
+  release_common.py  the version and tag grammar, the readers, the refusal line, the exit codes
+  preflight.py       gates before the build (tag, version, changelog, main, no published release)
+  sums.py content.py scan.py   the checks on the built files
+  notes.py           the release notes, from the changelog, docs/known-limits.md and status-block.md
+  publish.py         the one script that writes a release: a draft, read back, then public
+  verify.py          downloads from the public address, with no credential, and compares
+```
+
+The checks live only in `wheel.yml`, so a tag is built and tested by exactly what CI runs. Only the
+`publish` job holds write permission, and it installs and imports nothing it built. `scripts/` imports
+nothing from `ext_r2c`, and `ext_r2c` imports nothing from `scripts/`; `release_common.py` is the only
+module the scripts import from each other (they run the others as programs).
+`tests/test_release_*.py` load a script by path from the checkout and run against the installed wheel.
+
 ## How the schemas reach the wheel
 
 The schemas live in `standard/`, outside `python/`, but the installed package needs them at

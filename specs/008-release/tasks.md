@@ -316,7 +316,7 @@ published file" are tested against a fake `gh`; the workflow's permission rules 
 **Independent test**: `tests/test_release_docs.py` (all sections), the whole suite on the `0.1.0a1` wheel,
 and `preflight.py` and `notes.py` on the real tree.
 
-- [ ] T050 [P] [US1] `tests/test_release_docs.py`, sections 2 and 3, written to fail: the install address in
+- [X] T050 [P] [US1] `tests/test_release_docs.py`, sections 2 and 3, written to fail: the install address in
   the root README, `python/README.md` and the example's README equals
   `https://github.com/timezlab/ext-r2c/releases/download/v{V}/ext_r2c-{V}-py3-none-any.whl` for `V` the
   version of the **installed wheel**; no line that runs `pip install`, `uv pip install` or `uv add` names
@@ -325,17 +325,17 @@ and `preflight.py` and `notes.py` on the real tree.
   links it; the metadata classifier is not `Pre-Alpha` and, for an `aN` version, is `3 - Alpha`; the changelog
   has a dated, non-empty section for the installed version; `notes.py` on the real repository writes the
   three parts and the changes part is not empty.
-- [ ] T051 [US1] `docs/releasing.md`, in the order of research R8: the number; the version commit; the
+- [X] T051 [US1] `docs/releasing.md`, in the order of research R8: the number; the version commit; the
   maintainer's **own** private-token scan of the built files (the pattern is not in this repository; the step
   is a promise); push and wait for CI; the manual run (`gh workflow run release.yml --ref main`); the tag,
   annotated, and "tag in the same sitting as the push of the version commit"; what to read afterwards; a
   failed run (re-run the failed jobs, or delete the unpublished tag and the draft **without** cleaning up the
   tag by the release command); a published mistake (the next number; withdrawing is by hand and only for
   leaked data). Link `docs/known-limits.md` and the plan's gaps.
-- [ ] T052 [P] [US1] `AGENTS.md` (two rows of the Docs table; the file stays under 150 lines) and
+- [X] T052 [P] [US1] `AGENTS.md` (two rows of the Docs table; the file stays under 150 lines) and
   `ARCHITECTURE.md` (`scripts/release/`, the three workflows, and the rule that `scripts/` imports nothing
   from `ext_r2c` and the package nothing from it).
-- [ ] T053 [US1] Commit the documents so far: `docs(008): the releasing runbook and the layout`.
+- [X] T053 [US1] Commit the documents so far: `docs(008): the releasing runbook and the layout`.
 - [ ] T054 [US1] **The `0.1.0a1` commit**, one commit: `python/pyproject.toml` (`version = "0.1.0a1"`, the
   classifier `Development Status :: 3 - Alpha`); the root `README.md` (the status paragraph says alpha and
   links `docs/known-limits.md`; a new *Install* part with the one address line and the sentence about the
@@ -653,3 +653,30 @@ deviation from the plan, each with its reason.)*
   single-extra scripts ok on all three. A first attempt started two loops at once in the same folders; both
   were stopped and discarded, and these numbers are from one clean run per version. Nothing has run on GitHub
   yet: `release.yml` has not been pushed.
+
+### Phase 5 (2026-11-24)
+
+- **T050, red.** `test_release_docs.py` has 24 tests (3 from section 1, 21 new): 16 failed and 8 passed on the
+  0.0.1 wheel. Each of the 16 failed for the reason it names, read line by line: the three READMEs have no
+  install line for `v0.0.1` (3); neither the root nor the Python README holds the sentence about the bare PyPI
+  name (2) or links `docs/known-limits.md` (2) or stops saying pre-alpha (2); `docs/releasing.md` is missing
+  (2); `AGENTS.md` has no row for it (1); `ARCHITECTURE.md` does not name `scripts/release/` (1); the
+  classifier is `2 - Pre-Alpha` (1); `CHANGELOG.md` has no section `[0.0.1]` (1, refused `changelog-section`);
+  `notes.py` on the real tree is refused `prerelease-only`, because `0.0.1` is a final number (1). The 8 that
+  passed are the 3 of section 1, the check that the address the tests build is the one `release_common.address`
+  builds, and four guards that hold now because nothing breaks them yet: no README names another release's
+  address (3) and no install line names the bare package. They are checked by mutation after `0.1.0a1`.
+- **T051, T052.** `docs/releasing.md` has nine `##` headings in the order of research R8; it says the private
+  pattern is not in the repository; the tag step comes after the manual run and says "same sitting". `AGENTS.md`
+  is 72 lines (the limit is 150). `ARCHITECTURE.md` has a new *Release tooling* section with the three workflows,
+  the scripts and the import rule.
+- **T053, mutation check of what is green now.** 15 mutants of the runbook, `AGENTS.md` and `ARCHITECTURE.md`,
+  each run against the one test that owns it (running the whole file would stop at the first of the red tests
+  and kill every mutant for the wrong reason: my first run did exactly that, and I discarded it): three
+  headings renamed, two pairs of headings swapped, "same sitting" removed, `--ref main` removed, a `gh release
+  create` line added, the tag command placed before the manual run, the sentence about the pattern changed, the
+  link to the known limits removed, the two `AGENTS.md` rows removed one at a time, `AGENTS.md` padded past 150
+  lines, `release.yml` and `python.yml` unnamed in `ARCHITECTURE.md`. All 15 were killed. One further mutant,
+  "`wheel.yml` is not named in `ARCHITECTURE.md`", survived even with its two mentions removed, because the file
+  names it in four places; it is equivalent (the claim stays true), not a gap. The commit of T053 holds the
+  tests red until T054 on purpose (the plan orders it so); nothing is pushed between.

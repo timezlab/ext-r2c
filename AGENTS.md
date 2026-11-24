@@ -58,6 +58,8 @@ neutral data only (constitution VI).
 | Know why MCP Skills has a small YAML reader and the nearest `SKILL.md` wins | `docs/design-docs/skills-frontmatter-and-nesting.md` |
 | Know how a LangGraph pause becomes an ask and an answer returns to the graph | `docs/design-docs/langgraph-pause-to-ask.md` |
 | See the SDK in use (two LangGraph agents calling each other) | `examples/langgraph_agent/README.md`            |
+| Cut a pre-release (the maintainer's steps)       | `docs/releasing.md`                                         |
+| Know what a pre-release does not do yet          | `docs/known-limits.md`                                      |
 | Read the normative standard                      | `standard/v1/README.md`                                     |
 | Find active feature work                         | `specs/NNN-<name>/`                                         |
 
