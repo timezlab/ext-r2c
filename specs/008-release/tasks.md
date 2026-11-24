@@ -245,10 +245,10 @@ real run on GitHub (T036–T037).
   write "lint not run (plan point 1, default A)" in the notes.
 - [X] T034 [US2] Run T026: it passes. Run the whole suite on the wheel.
 - [X] T035 Verify and commit: `ci(008): one reusable definition of the checks, and the adopter's path`.
-- [ ] T036 **[GO]** Ask the maintainer to push. The push carries the unpushed `c9e7a7c`, `b307085`, `0a139b6`,
+- [X] T036 **[GO]** Ask the maintainer to push. The push carries the unpushed `c9e7a7c`, `b307085`, `0a139b6`,
   the spec-008 documents and the commits of phases 1 to 3. After the go: `git push`, then watch the run of
   the pushed commit (`gh run list`, `gh run watch`).
-- [ ] T037 [US2] The refactor's proof, written in the notes: `wheel / build`, the three `wheel / checks`
+- [X] T037 [US2] The refactor's proof, written in the notes: `wheel / build`, the three `wheel / checks`
   legs and `wheel / inspect` are green; each leg's log shows the build's checksum; each leg ends with `adopter
   path: ok`. A red leg is fixed here, as its own commit, before phase 4 begins.
 
@@ -566,3 +566,21 @@ deviation from the plan, each with its reason.)*
 - **T034/T035, verify.** 3062 passed and 1 skipped on 3.11 (92 s), 3.12 (96 s) and 3.13 (88 s), against the
   installed 0.0.1 wheel (3029 before this phase, plus the 33 workflow tests; the skip is `release.yml`); the
   four single-extra scripts ok on all three; `ruff --select F src tests ../scripts` clean.
+- **T036, the push.** The maintainer said "go" (2026-11-24, "push, tiếp tục các phase sau"); `git push` carried eight
+  commits, `a31da46..6e2748d`, to `main`. The go covers this push. The push after phase 6 (T062) and the manual
+  run (T063) are asked for again; the tag is never part of any of them.
+- **T037, the refactor's proof** (run 45351776466 of the pushed commit, all five jobs `success`, no workflow
+  warning in any log; the logs were read through the REST API, because `gh run view --log` printed nothing
+  with gh 2.45):
+  - `wheel / build`: `ext_r2c-0.0.1-py3-none-any.whl  183493 bytes  d41c0c33…de296` and
+    `ext_r2c-0.0.1.tar.gz  485567 bytes  4dbbbc1d…8bd9`; the artifact `dist` holds three files, 662357 bytes.
+    The wheel's checksum is the one measured locally at T023 and T032, so the build is reproducible across
+    machines.
+  - `wheel / checks (3.11)`, `(3.12)`, `(3.13)`: each printed `sums ok: 2 files` first, then 3062 passed and
+    1 skipped (81 s, 89 s, 55 s), `core only: ok`, `a2a only: ok`, `mcp only: ok`, `langgraph only: ok` and
+    `adopter path: ok`. The legs check the downloaded files against `SHA256SUMS`; they do not print the digest
+    itself, so "the same checksum" is shown by that check and by the build's own line, not by a line in each
+    leg.
+  - `wheel / inspect`: `sums ok: 2 files`, `content ok: 0.0.1`, `scan ok: 258 files, 0 hits`.
+  - Nothing was red, so no fix commit was needed. The local simulation of T032 predicted these lines, but the
+    `uses:` steps (checkout, setup-uv, the artifact upload and download) had never run before this run.
