@@ -91,29 +91,29 @@ change, and creates nothing; a manual start skips only the tag-bound checks.
 
 **Independent test**: `tests/test_release_common.py`, `tests/test_release_preflight.py`.
 
-- [ ] T001 [US3] Confirm the ground and the "no change" claims. Re-measure and write one dated line under
+- [X] T001 [US3] Confirm the ground and the "no change" claims. Re-measure and write one dated line under
   "Phase 1" in the notes of this file: PyPI answers `404` for `ext-r2c`; the default token permission is
   `read`; no tag and no release exists; `cmp python/LICENSE LICENSE` is silent; the wheel has 74 files and
   the sdist 173; **no dependency or extra changes** for this spec (`python/pyproject.toml` is touched only
   at T054). If a fact moved (a release or a tag appeared, the name is taken), stop and tell the maintainer.
-- [ ] T002 [P] [US3] `tests/release_fixtures.py` (a helper, not collected): `load_script(name)`;
+- [X] T002 [P] [US3] `tests/release_fixtures.py` (a helper, not collected): `load_script(name)`;
   `make_repo(tmp_path, version=, changelog=, same_license=)` writing the small repository of "Path
   conventions"; `make_git_repo(...)` (a temporary git repository with `main`, a commit and optional tag,
   author set by `-c`); `make_wheel(...)`, `make_sdist(...)` builders (used from phase 2); `planted(kind)`
   returning the strings the scan must find, **built from fragments**.
-- [ ] T003 [P] [US3] `tests/release_fakes.py` (a helper, not collected), first cut: an executable `gh`
+- [X] T003 [P] [US3] `tests/release_fakes.py` (a helper, not collected), first cut: an executable `gh`
   written into `tmp_path/bin` and put first on `PATH`, holding a JSON state, answering only `gh api
   repos/OWNER/NAME/releases/tags/TAG` (found as published, `HTTP 404` as absent, any other error) and
   refusing every other call with a non-zero exit and a line naming the call; it appends each call to a log
   the test can read. Phase 4 extends it with the table of research R3.
-- [ ] T004 [P] [US3] `tests/test_release_common.py`, written to fail: version grammar (accepted: `0.1.0a1`,
+- [X] T004 [P] [US3] `tests/test_release_common.py`, written to fail: version grammar (accepted: `0.1.0a1`,
   `0.1.0b2`, `1.2.3rc10`; `version-grammar`: `0.1.0a01`, `0.1.0.dev1`, `0.1.0a1.post2`, `01.0.0a1`, `0.1a1`,
   `v0.1.0a1`, `0.1.0-alpha.1`, a trailing space; `prerelease-only`: `0.1.0`, `1.0.0`); tag grammar (`v` +
   version exactly); `changelog_section` (found; empty; only `###` headings; missing; bad date; `[Unreleased]`
   is never a section; the next `## ` ends it; a section with a date in the future is accepted);
   `wheel_name`, `sdist_name`, `address`; `Refusal` prints exactly `refused [id]: what. change.`; `run_main`
   maps a `Refusal` to 1, any other exception to 2 and success to 0.
-- [ ] T005 [P] [US3] `tests/test_release_preflight.py`, written to fail, one test per row of
+- [X] T005 [P] [US3] `tests/test_release_preflight.py`, written to fail, one test per row of
   [contracts/scripts.md](contracts/scripts.md) (`preflight.py`): `event` (an unknown event; `push` on a
   branch ref); `version-grammar`; `prerelease-only` (message says a final release needs its own decision);
   `tag-matches-version` (message names both); `changelog-section` (missing, empty, bad date);
@@ -123,17 +123,17 @@ change, and creates nothing; a manual start skips only the tag-bound checks.
   that differ by one byte). Plus: a manual start passes a good fixture and prints `skipped [<id>]: manual
   start` for exactly the three tag-bound checks; a manual start with a bad version still refuses; **every
   refusal names the check and what to change, and the directory listing is the same before and after**.
-- [ ] T006 [US3] Run T004 and T005: they fail because `release_common` and `preflight` do not exist, and
+- [X] T006 [US3] Run T004 and T005: they fail because `release_common` and `preflight` do not exist, and
   for no other reason. Write the failure line in the notes.
-- [ ] T007 [US3] `scripts/release/release_common.py` (`Refusal`, the strict version regex of research R4,
+- [X] T007 [US3] `scripts/release/release_common.py` (`Refusal`, the strict version regex of research R4,
   `read_version`, `changelog_section`, `wheel_name`, `sdist_name`, `address`, `run_main`) until T004 passes.
-- [ ] T008 [US3] `scripts/release/preflight.py` per the contract, until T005 passes.
-- [ ] T009 [US3] Run `preflight.py --event workflow_dispatch` on the real tree. Expected today:
+- [X] T008 [US3] `scripts/release/preflight.py` per the contract, until T005 passes.
+- [X] T009 [US3] Run `preflight.py --event workflow_dispatch` on the real tree. Expected today:
   `refused [prerelease-only]` and exit `1` (the version is `0.0.1`). Write the line in the notes: the gate
   works on the real repository.
-- [ ] T010 [US3] Mutation check: change the `tag-matches-version` comparison, the `prerelease-only` test and
+- [X] T010 [US3] Mutation check: change the `tag-matches-version` comparison, the `prerelease-only` test and
   the `on-main` ancestry call, one at a time; each makes a named test fail; restore. Record the three.
-- [ ] T011 Verify (Python 3.11, then 3.12 and 3.13; `ruff` includes `../scripts`) and commit: `feat(008):
+- [X] T011 Verify (Python 3.11, then 3.12 and 3.13; `ruff` includes `../scripts`) and commit: `feat(008):
   release script core and pre-flight`.
 
 **Checkpoint**: pre-flight is a tested script; nothing in a workflow yet.
@@ -444,3 +444,30 @@ first manual run on GitHub, and a report. The phase ends **before the tag**.
 *(Dated lines go here as each phase runs: facts measured, the failure lines of the "fail for the expected
 reason" tasks, the mutation checks, the outcomes of the manual simulation and of the real runs, and every
 deviation from the plan, each with its reason.)*
+
+### Phase 1 (2026-11-24)
+
+- **T001, the ground.** PyPI answers `404` for `ext-r2c`; the default token permission is `read`; no tag
+  (`git ls-remote --tags origin` is empty) and no release; `cmp python/LICENSE LICENSE` is silent; a fresh
+  `uv build` of `0.0.1` gives a wheel of 74 files and an sdist of 173 files. Nothing moved. `python/pyproject.toml`
+  is touched only at T054.
+- **T006, red.** `tests/test_release_common.py` and `tests/test_release_preflight.py` ran before the scripts
+  existed: 76 errors, every one `the release scripts are not at .../scripts/release` (the missing production
+  directory, raised by `load_script`) and no other reason.
+- **T007/T008, green.** `scripts/release/release_common.py` and `preflight.py`; 76 passed, then 77 with the
+  capital-letter test below.
+- **T009, the real tree.** `preflight.py --event workflow_dispatch` prints `refused [prerelease-only]: the
+  version 0.0.1 is a final release. ...` and exits `1`; `--event schedule` prints `refused [event]` and exits
+  `1`; no arguments exits `2`.
+- **A test added after its fix.** The refusal line's second sentence was lower case ("remove it") when T009
+  ran, against the contract's `What to change.` I fixed the line in `Refusal.line()` and added
+  `test_what_to_change_starts_with_a_capital` afterwards, and the mutation check below proves it can fail. That
+  is the one place this phase wrote a fix before its test; the old `run_main` test expected the lower case
+  and was corrected with it.
+- **T010, mutation check** (a scratch harness, restored after each mutant; the first run was invalid because a
+  stale expectation made every mutant "die" on an already red test, so it was rerun after the fix): 7 of 7
+  killed by the test that names them: `tag-matches-version` never refuses, `prerelease-only` never refuses,
+  `on-main` never refuses, a `gh` error read as "not found", no capital on the change, the changelog date not
+  validated, sub-headings counted as a body.
+- **T011, verify.** 2923 passed on 3.11, 3.12 and 3.13 (2846 before this spec, plus 77); the four
+  single-extra scripts ok on all three; `ruff --select F src tests ../scripts` clean.
