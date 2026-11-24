@@ -295,10 +295,12 @@ Last updated 2026-11-23. Read this first in a new session.
     `quickstart.md`): one reusable `wheel.yml` that CI and the release both call; scripts in
     `scripts/release/` tested by path with a fake `gh`; six delivery phases, the last ending before the tag.
     Five points for the maintainer are in the plan (lint of the workflows, the scan also in CI, pinning CI
-    to commit SHAs, the order of the first pushes, the README naming a release before its tag). No
-    workflow, no script, no tag yet; `tasks.md` follows.
+    to commit SHAs, the order of the first pushes, the README naming a release before its tag). **Tasks
+    written 2026-11-24** (`tasks.md`: 65 tasks in the six phases, 24 parallel; three `[GO]` tasks for the
+    two pushes and the manual run). No workflow, no script, no tag yet; `/speckit-implement` needs the
+    maintainer's go, one phase per go.
 
-## Spec sequence (001–007 built and pushed; 008 approved and planned, tasks next; 009 onward proposed)
+## Spec sequence (001–007 built and pushed; 008 approved, planned and tasked, waiting for the go to implement; 009 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -346,7 +348,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    `A2AOptions` / `MCPOptions` for each door's deployment; build-time errors for a door with nothing
    to serve, something no door serves, or a missing extra. There is no `mcp_server=` (D3). Success
    criteria 1–5 of the brief, served by `Remote`, plus one agent through both doors in one process.
-8. **`008-release`** (spec approved and plan written 2026-11-24) — the first pre-release `0.1.0a1`: a
+8. **`008-release`** (spec approved, plan and tasks written 2026-11-24) — the first pre-release `0.1.0a1`: a
    release job that builds the wheel and the sdist once, tests them on 3.11, 3.12 and 3.13, checks and
    scans them, and attaches them to a GitHub pre-release; release notes assembled from the repository;
    a manual run that publishes nothing; no PyPI. Pushing the first tag is the maintainer's own go.
