@@ -164,6 +164,19 @@ def test_a_job_that_runs_on_a_runner_names_the_runner_image(path: Path) -> None:
             assert job["runs-on"] == "ubuntu-24.04"
 
 
+@each_file
+def test_every_job_on_a_runner_has_a_time_limit_and_a_calling_job_has_none(path: Path) -> None:
+    """A stuck step must not hold a runner (or the one job that writes) for the default six hours; and GitHub
+    rejects `timeout-minutes` on a job that calls a reusable workflow, so the limits live in `wheel.yml`."""
+    for job_id, job in load(path)["jobs"].items():
+        if "uses" in job:
+            assert "timeout-minutes" not in job, f"{path.name} job {job_id} calls a workflow: GitHub refuses a limit there"
+        else:
+            limit = job.get("timeout-minutes")
+            assert isinstance(limit, int) and not isinstance(limit, bool), f"{path.name} job {job_id} has no timeout-minutes"
+            assert 1 <= limit <= 60, f"{path.name} job {job_id}: {limit} minutes is not a limit worth having"
+
+
 @pytest.mark.parametrize("name", ["python.yml", "release.yml"])
 def test_only_wheel_yml_builds_tests_and_holds_the_matrix(name: str) -> None:
     path = WORKFLOWS / name

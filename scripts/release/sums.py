@@ -43,7 +43,7 @@ def write(folder: Path, summary: bool) -> int:
             "it must hold exactly one of each; clear it and build again",
         )
     rows = [(path.name, path.stat().st_size, digest(path)) for path in artifacts(folder)]
-    (folder / LIST_NAME).write_text("".join(f"{sha}  {name}\n" for name, _, sha in rows))
+    (folder / LIST_NAME).write_text("".join(f"{sha}  {name}\n" for name, _, sha in rows), encoding="utf-8")
     for name, size, sha in rows:
         print(f"{name}  {size} bytes  {sha}")
     target = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -60,10 +60,12 @@ def check(folder: Path) -> int:
     if not listing.is_file():
         raise Refusal("sums", f"the folder has no {LIST_NAME}", "write it with sums.py write before anything is tested")
     recorded: dict[str, str] = {}
-    for line in listing.read_text().splitlines():
+    for line in listing.read_text(encoding="utf-8").splitlines():
         match = LINE_RE.match(line)
         if not match:
             raise Refusal("sums", f"a line of {LIST_NAME} is not '<sha256>  <name>' with a bare file name", "write the list again with sums.py write")
+        if match["name"] in recorded:
+            raise Refusal("sums", f"{LIST_NAME} lists {match['name']} twice", "write the list again with sums.py write")
         recorded[match["name"]] = match["digest"]
     for name, sha in recorded.items():
         path = folder / name

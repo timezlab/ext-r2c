@@ -26,6 +26,11 @@ Plain Python, standard library only, Python 3.11 to 3.13, no import from `ext_r2
   `version-grammar` or `prerelease-only`), and `check_sums(folder, ident)`, which **runs** `sums.py check` and
   raises its refusal again under `ident` (so `publish.py` says `sums` and `verify.py` says `public-differs`,
   and `sums.py` stays the only place that reads the list).
+  *Changed after the outside review (phase 6, 2026-11-24, research R16):* the version, date and repository
+  grammars end in `\Z` and read ASCII digits only (a trailing newline or an Arabic-Indic digit is refused),
+  and every name read from an archive is printed through `printable` (a character that is not printable, such
+  as a newline, is spelled out), so a name cannot forge a line of the public log. Every script reads and
+  writes its text files as UTF-8, whatever the locale.
 
 ## `preflight.py`
 
@@ -50,12 +55,15 @@ Checks, in this order, each its own refusal id; the tag-bound ones are skipped o
    its own decision").
 4. `tag-matches-version` *(tag-bound)*: the tag equals `v` + the version; the message names both.
 5. `changelog-section`: `CHANGELOG.md` has a section `## [V] - DATE` with a valid date and a non-empty body.
-6. `on-main` *(tag-bound)*: `git merge-base --is-ancestor SHA origin/main` succeeds.
+6. `on-main` *(tag-bound)*: `git merge-base --is-ancestor SHA origin/main` succeeds. Exit status 1 of git is
+   "not on main"; any other status (a shallow checkout, no `origin/main`) is the same id with its own
+   message, "origin/main could not be read", so the maintainer looks at the fetch and not at the history.
 7. `no-published-release` *(tag-bound)*: `gh api repos/OWNER/NAME/releases/tags/TAG` answers not found (the
    API answers `404` for a draft and `200` only for a published release). A found
    release refuses ("a mistake in a published pre-release is fixed by the next number"); any other failure
    of `gh` (network, rate limit, a server error) also refuses, because the check cannot say yes.
-8. `license-copy`: `python/LICENSE` equals the root `LICENSE`, byte for byte.
+8. `license-copy`: `python/LICENSE` equals the root `LICENSE`, byte for byte; a copy that cannot be read is
+   the same refusal (not an exit 2).
 
 On success prints `preflight ok: version V` (and `tag TAG`). Needs `git` and, for check 7, `gh`.
 
@@ -70,10 +78,10 @@ content.py --dir DIR [--version V] [--root PATH]
 
 | Id | Refuses when |
 |---|---|
-| `wheel-contents` | a member is outside `ext_r2c/` and `ext_r2c-V.dist-info/`; a member path has a `tests` or `examples` folder or a file named `test_*.py`; `ext_r2c/py.typed` is missing; a member is binary |
+| `wheel-contents` | a member is outside `ext_r2c/` and `ext_r2c-V.dist-info/`; a member path has a `tests` or `examples` folder or a file named `test_*.py`; `ext_r2c/py.typed` is missing; a member is binary; a member is a symbolic link |
 | `wheel-metadata` | `METADATA` has no `Name: ext-r2c`, a `Version:` other than V, or lacks any of `Provides-Extra: a2a`, `mcp`, `langgraph` |
 | `schemas` | the schema files under `ext_r2c/schema/v1/` are not exactly the names in `ROOT/standard/v1/schema/` |
-| `sdist-contents` | the archive is not rooted at `ext_r2c-V/`; its `PKG-INFO` version is not V; it holds an `examples/` folder; `standard/v1/schema` is missing |
+| `sdist-contents` | the archive is not rooted at `ext_r2c-V/`; its `PKG-INFO` version is not V; it holds an `examples/` folder; `standard/v1/schema` is missing; a member is neither a plain file nor a folder (a symbolic or hard link, a device); a file member is not UTF-8 (the scan cannot read it) |
 
 The release's tag equals the version by `preflight` (check 4), and the version is the wheel's by
 `wheel-metadata`; there is no separate tag argument. Prints `content ok: V`.
@@ -89,6 +97,10 @@ for the four categories of research R10. Prints, for each hit, `scan: <member pa
 if any, the refusal `refused [scan]: N lines in M files. Remove the text or, if it is invented, use
 example.com.` Exit 1. Prints `scan ok: F files, 0 hits` otherwise. **Never prints, logs or raises a matched
 line**: a test plants one hit per category and asserts none of the planted text is in the output.
+*Changed after the outside review (phase 6, 2026-11-24, research R16):* a hit is found at the end of a line
+or a sentence (`10.0.0.5.`, a home path with nothing after the name) and in the doubled-backslash Windows
+form; the e-mail pattern bounds its local part, so a very long line is read in linear time. A planted hit
+per boundary shape is a test.
 
 ## `sums.py`
 
@@ -102,7 +114,8 @@ sums.py check --dir DIR
   in bytes and SHA-256. `--summary` also writes it as a Markdown table to the file named by
   `GITHUB_STEP_SUMMARY` if that is set.
 - `check`: every line of `SHA256SUMS` must match its file and the directory must hold no other `*.whl` or
-  `*.tar.gz`; otherwise `sums` and the first mismatching name.
+  `*.tar.gz`; otherwise `sums` and the first mismatching name. A name listed twice is `sums` too, even when
+  the last line is right (the list contradicts itself).
 
 ## `notes.py`
 
@@ -134,13 +147,23 @@ of research R3, in that order, and uses `--repo OWNER/NAME` on every call. Expec
 | `sums` | a file of `DIR` no longer equals `SHA256SUMS` (refused before any call) |
 | `upload-differs` | after the upload, the files read back from the draft are not exactly the three names with the recorded SHA-256 (stops before the publishing call; the draft stays) |
 | `published-differs` | a published release exists and an asset differs or is missing or is extra, or it is not marked pre-release (nothing is written) |
+| `release-ambiguous` | `gh release list` shows more than one release for the tag (drafts may share a tag name); refused before any write |
+| `not-a-draft` | the state read just before a write to the release no longer says draft (someone published it meanwhile); nothing more is written |
 | `not-public` | after the publishing call, the state read again does not say published, pre-release, not draft |
 | `gh` | a `gh` call fails (its standard error is passed on and the script stops; it makes no further call) |
 
-The calls, in order. A new release: `list`, `create`, `upload`, `download`, `edit --draft=false`, `list`. A
-leftover draft: `list`, `edit` (this run's notes), `view`, one `delete-asset` per stray, `upload`, `download`,
-`edit --draft=false`, `list`. A published release: `list`, `download`, and no write. The download goes to a
-clean temporary folder, never to `DIR`, which is only read.
+The calls, in order. A new release: `list`, `create`, `list`, `upload`, `download`, `list`,
+`edit --draft=false`, `list`. A leftover draft: `list`, `list`, `edit` (this run's notes), `view`, then a
+`list` and a `delete-asset` for each stray, `list`, `upload`, `download`, `list`, `edit --draft=false`,
+`list`. A published
+release: `list`, `download`, and no write. The download goes to a clean temporary folder, never to `DIR`,
+which is only read.
+
+*Changed after the outside review (phase 6, 2026-11-24, research R16):* every write to a release that
+exists (the notes, a `delete-asset`, `upload`, the publishing `edit`) is preceded by a `list` that must
+still say draft, so a draft that someone publishes in the middle is not written to; the few milliseconds
+between that read and the write cannot be closed with `gh`. `create` is the first write and has no release to
+read before it.
 
 A published release whose assets all equal the recorded sums is **success with no writes**. The publishing
 call (`gh release edit --draft=false`) is the last call of a normal run, and the script reads the state
@@ -160,8 +183,11 @@ Downloads `SHA256SUMS`, the wheel and the sdist from
 `sums.py check` on `DIR`), and refuses with `public-differs` on any difference or a failed download (the
 refusal names the file and the HTTP status, never what was read). A download that fails is asked again up to
 `--attempts` times (default 1) with `--pause` seconds between (default 10); the workflow passes 6 and 10 so a
-release that is a moment late is not a failure. `--base-url` (an `http://` or `https://` address; anything
-else is misuse) replaces the GitHub address, for the tests' local server. The tag is checked first
+release that is a moment late is not a failure. `--attempts` is 1 or more and `--pause` a finite number of
+0 or more (anything else is misuse, and no request is made). A body that is cut off, by an error or by
+ending before its `Content-Length`, is a failed download and is asked again, not a checksum mismatch.
+`--base-url` (an `http://` or `https://` address; anything else is misuse; a missing last `/` is added)
+replaces the GitHub address, for the tests' local server. The tag is checked first
 (`version-grammar`, `prerelease-only`), before any request. The workflow then installs the line
 `ext-r2c[a2a,mcp,langgraph] @ <address>` into a clean venv and asserts `ext_r2c.__version__` equals V.
 

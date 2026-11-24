@@ -206,6 +206,51 @@ def test_the_runbook_holds_the_commands_and_the_promises_it_makes() -> None:
     assert text.index("gh workflow run release.yml") < text.index("git tag -a v"), "the manual run comes before the tag"
 
 
+def runbook_section(heading_pattern: str) -> str:
+    """The text of the `##` section of the runbook whose heading matches, up to the next `##` heading."""
+    sections = re.split(r"^## ", read_doc(RELEASING), flags=re.M)
+    found = [s for s in sections if re.search(heading_pattern, s.splitlines()[0], flags=re.I)]
+    assert len(found) == 1, f"docs/releasing.md has {len(found)} sections for {heading_pattern!r}"
+    return " ".join(found[0].split())
+
+
+# How the runbook says each category of the generic scan; a new category in `scan.py` must be said here too.
+SCAN_WORDS = {
+    "home-path": "home-directory prefixes",
+    "private-address": "private address ranges",
+    "email": "e-mail addresses",
+    "token": "token shapes",
+}
+
+
+def test_the_runbook_names_every_category_the_generic_scan_looks_for() -> None:
+    assert set(SCAN_WORDS) == set(load_script("scan").PATTERNS), "a category was added or removed in scan.py"
+    step = runbook_section(r"\bscan\b")
+    for category, words in SCAN_WORDS.items():
+        assert words in step, f"the runbook's scan step does not say the scan looks for {words} ({category})"
+
+
+def test_the_runbook_says_what_verify_installs_and_it_is_not_the_notes() -> None:
+    """`verify` builds the address from the tag and the repository; it does not read the notes."""
+    text = " ".join(read_doc(RELEASING).split())
+    assert "installs the public wheel address" in text
+    assert "install line of the release notes" not in text
+
+
+def test_the_runbook_lists_the_github_calls_that_only_the_first_real_run_proves() -> None:
+    """The release calls were tried against a fake `gh`; the first tag is the first time GitHub answers them."""
+    step = runbook_section(r"\bafterwards\b")
+    for verb in ("list", "create", "upload", "download", "edit"):
+        assert f"the `{verb}` call" in step, f"step 7 does not ask the maintainer to look for the `{verb}` call in the first run"
+    assert "first tag" in step and "unauthenticated" in step, "and for the downloads that verify makes without a credential"
+
+
+def test_the_runbook_says_which_jobs_to_re_run_once_a_release_is_public() -> None:
+    step = runbook_section(r"\bfails\b")
+    assert "re-running all jobs" in step and "preflight" in step, "re-running everything stops at the first job"
+    assert "only the failed `verify`" in step
+
+
 def test_agents_md_links_the_runbook_and_the_known_limits_and_stays_short() -> None:
     text = read_doc(AGENTS)
     for path in ("docs/releasing.md", "docs/known-limits.md"):
@@ -282,10 +327,34 @@ def test_the_notes_name_the_python_they_need(tmp_path: Path, capsys: pytest.Capt
     assert f"Python {python_floor()} or newer" in " ".join(out.read_text().split())
 
 
+LINK_FORMS = (
+    r"\]\(\s*<?([^)\s>]+)",  # [text](target) and [text](<target>)
+    r"^ {0,3}\[[^\]]+\]:\s*<?(\S+?)>?\s*$",  # [label]: target
+    r"""\b(?:href|src)\s*=\s*["']([^"']+)""",  # <a href="target"> and <img src="target">
+    r"<((?:https?|ftp)://[^>\s]+|\.{1,2}/[^>\s]+)>",  # <target>
+)
+
+
+def link_targets(markdown: str) -> list[str]:
+    """Every target a Markdown text links to, in the four forms a release page renders."""
+    return [t for form in LINK_FORMS for t in re.findall(form, markdown, flags=re.M)]
+
+
+def test_the_link_finder_sees_all_four_forms() -> None:
+    sample = (
+        "inline [a](docs/a.md) and angle [b](<docs/b.md>)\n"
+        "reference [c][ref] and [d]\n"
+        "[ref]: ../c.md\n"
+        '<a href="docs/e.md">e</a> <img src=\'f.png\'>\n'
+        "auto <./g.md>\n"
+    )
+    assert sorted(link_targets(sample)) == sorted(["docs/a.md", "docs/b.md", "../c.md", "docs/e.md", "f.png", "./g.md"])
+
+
 def test_the_notes_link_nothing_by_a_relative_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """The notes are shown on the release page, where `docs/x.md` points nowhere: every link is a full address."""
     out = tmp_path / "notes.md"
     code = load_script("notes").main(["--repository", REPOSITORY, "--out", str(out)])
     assert code == 0, capsys.readouterr().err
-    relative = [t for t in re.findall(r"\]\(([^)\s]+)", out.read_text()) if not t.startswith(("https://", "#"))]
+    relative = [t for t in link_targets(out.read_text()) if not t.startswith(("https://", "#"))]
     assert not relative, f"links that a release page cannot follow: {relative}"

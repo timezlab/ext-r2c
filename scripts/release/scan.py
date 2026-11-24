@@ -19,24 +19,30 @@ from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
-from release_common import Refusal, run_main
+from release_common import Refusal, printable, run_main
 
 _FENCE = r"(?<![A-Za-z0-9._-])"
 # The Linux prefix is spelled in two pieces so that this file does not trip the repository's own commit scan.
 _LINUX_HOME = "/ho" + "me/"
+# A hit ends where a name ends, so a path at the end of a line or before a quote counts, and so does an address
+# at the end of a sentence; a doubled backslash is how a Windows path looks in source text. Every part of every
+# pattern is bounded (an e-mail address has at most 64 characters before the @, labels of at most 63), so one
+# very long line costs a time proportional to its length and cannot stall the job (outside review, T058).
 PATTERNS: dict[str, re.Pattern[str]] = {
     "home-path": re.compile(
-        _FENCE + _LINUX_HOME + r"[A-Za-z0-9._-]+/"
-        "|" + _FENCE + r"/Users/[A-Za-z0-9._-]+/"
-        "|[A-Za-z]:\\\\Users\\\\[A-Za-z0-9._-]+"
+        _FENCE + _LINUX_HOME + r"[A-Za-z0-9._-]+"
+        "|" + _FENCE + r"/Users/[A-Za-z0-9._-]+"
+        r"|[A-Za-z]:\\{1,2}Users\\{1,2}[A-Za-z0-9._-]+"
         "|" + _FENCE + r"/root/"
     ),
     "private-address": re.compile(
         r"(?<![\d.])(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
         r"|192\.168\.\d{1,3}\.\d{1,3}"
-        r"|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(?![\d.])"
+        r"|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(?!\d|\.\d)"
     ),
-    "email": re.compile(r"[A-Za-z0-9._%+-]+@(?P<domain>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})"),
+    "email": re.compile(
+        r"[A-Za-z0-9._%+-]{1,64}@(?P<domain>[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24})"
+    ),
     "token": re.compile(
         r"(?:ghp_|gho_|ghs_|github_pat_)[A-Za-z0-9_]{20,}"
         r"|AKIA[0-9A-Z]{16}"
@@ -97,7 +103,7 @@ def body(argv: list[str] | None) -> int:
             try:
                 text = data.decode("utf-8")
             except UnicodeDecodeError:
-                print(f"skipped binary member {name}")
+                print(f"skipped binary member {printable(name)}")
                 continue
             here += 1
             for line in text.splitlines():
@@ -107,10 +113,10 @@ def body(argv: list[str] | None) -> int:
                     hit_files.add(f"{path.name}:{name}")
                     for category in found:
                         counts[(name, category)] += 1
-        print(f"scanned {path.name}: {here} files")
+        print(f"scanned {printable(path.name)}: {here} files")
         scanned += here
     for (name, category), count in sorted(counts.items()):
-        print(f"scan: {name} {category} {count}")
+        print(f"scan: {printable(name)} {category} {count}")
     if hit_lines:
         raise Refusal(
             "scan",

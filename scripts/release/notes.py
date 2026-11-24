@@ -45,7 +45,7 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
 def read_part(path: Path, name: str) -> str:
     if not path.is_file():
         raise Refusal("notes", f"{name} is missing", f"write {name}; the notes are made of it")
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     if not text.strip():
         raise Refusal("notes", f"{name} is empty", f"write {name}; the notes are made of it")
     return text
@@ -84,9 +84,9 @@ def body(argv: list[str] | None) -> int:
     version = check_version(args.version or read_version(args.root))
     status = status_block(args.root, version, args.repository)
     limits = known_limits(args.root)
-    changes = changelog_section((args.root / "CHANGELOG.md").read_text(), version).strip("\n")
+    changes = changelog_section((args.root / "CHANGELOG.md").read_text(encoding="utf-8"), version).strip("\n")
     text = f"## Status\n\n{status}\n\n## Known limits\n\n{limits}\n\n## Changes in {version}\n\n{changes}\n"
-    args.out.write_text(text)
+    args.out.write_text(text, encoding="utf-8")
     print(f"notes ok: {args.out.stat().st_size} bytes")
     return 0
 

@@ -46,6 +46,21 @@ def test_write_makes_the_sha256sum_format(sums, dist: Path) -> None:
     assert names[0].endswith(".whl"), "sorted by name, the wheel first"
 
 
+def test_a_file_named_twice_in_the_list_is_refused_even_when_the_last_line_is_right(sums, dist: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    sums.main(["write", "--dir", str(dist)])
+    listing = dist / "SHA256SUMS"
+    lines = listing.read_text().splitlines()
+    wheel_line = next(line for line in lines if line.endswith(".whl"))
+    wrong = "0" * 64 + wheel_line[64:]
+    listing.write_text("\n".join([wrong, *lines]) + "\n")  # a wrong line first, the right one after it
+    err = refused(sums, ["check", "--dir", str(dist)], capsys)
+    assert "twice" in err and ".whl" in err
+
+
+def test_the_list_name_is_the_one_every_script_uses(sums) -> None:
+    assert sums.LIST_NAME == load_script("release_common").SUMS_LIST
+
+
 @pytest.mark.skipif(shutil.which("sha256sum") is None, reason="no sha256sum on this machine")
 def test_sha256sum_accepts_the_list(sums, dist: Path) -> None:
     sums.main(["write", "--dir", str(dist)])

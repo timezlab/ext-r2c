@@ -35,6 +35,8 @@ class Public:
         self.files = dict(files)
         self.requests: list[tuple[str, dict[str, str]]] = []
         self.fail_first: dict[str, int] = {}  # name -> how many of its first requests answer 503
+        self.cut_first: dict[str, int] = {}  # name -> how many of its first requests are cut off in the middle
+        self.short_first: dict[str, int] = {}  # name -> how many of its first requests promise 100 bytes and send 5
         owner = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -44,6 +46,22 @@ class Public:
                 if owner.fail_first.get(name, 0) > 0:
                     owner.fail_first[name] -= 1
                     self.send_error(503)
+                elif owner.cut_first.get(name, 0) > 0:
+                    owner.cut_first[name] -= 1
+                    self.send_response(200)
+                    self.send_header("Transfer-Encoding", "chunked")
+                    self.end_headers()
+                    self.wfile.write(b"20\r\nshort")  # a chunk of 32 bytes is announced, 5 arrive, the line closes
+                    self.wfile.flush()
+                    self.close_connection = True
+                elif owner.short_first.get(name, 0) > 0:
+                    owner.short_first[name] -= 1
+                    self.send_response(200)
+                    self.send_header("Content-Length", "100")
+                    self.end_headers()
+                    self.wfile.write(b"short")  # urllib's read(n) hands these 5 bytes over without an error
+                    self.wfile.flush()
+                    self.close_connection = True
                 elif name in owner.files and self.path == f"/releases/download/{TAG}/{name}":
                     body = owner.files[name]
                     self.send_response(200)
@@ -203,6 +221,38 @@ def test_a_file_that_answers_late_is_asked_again(verify, public: Public, tmp_pat
     assert [path.rsplit("/", 1)[-1] for path, _ in public.requests].count(SUMS) == 2
 
 
+def test_a_body_that_is_cut_off_is_asked_again(verify, public: Public, tmp_path: Path) -> None:
+    public.cut_first[SUMS] = 1
+    assert verify.main(argv(public, tmp_path / "public", **{"--attempts": "2"})) == 0
+    assert [path.rsplit("/", 1)[-1] for path, _ in public.requests].count(SUMS) == 2
+
+
+def test_a_body_that_is_cut_off_on_the_last_attempt_is_a_refusal_not_a_crash(
+    verify, public: Public, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    public.cut_first[SUMS] = 1
+    err = refused(verify, argv(public, tmp_path / "public"), capsys)
+    assert SUMS in err and "could not download" in err
+
+
+def test_a_body_shorter_than_it_promised_is_asked_again(verify, public: Public, tmp_path: Path) -> None:
+    public.short_first[WHEEL] = 1
+    assert verify.main(argv(public, tmp_path / "public", **{"--attempts": "2"})) == 0
+    assert [path.rsplit("/", 1)[-1] for path, _ in public.requests].count(WHEEL) == 2
+
+
+def test_a_body_shorter_than_it_promised_is_a_download_failure_not_a_checksum_mismatch(
+    verify, public: Public, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    public.short_first[WHEEL] = 1
+    err = refused(verify, argv(public, tmp_path / "public"), capsys)
+    assert WHEEL in err and "could not download" in err and "cut off" in err
+
+
+def test_an_address_without_its_last_slash_still_names_the_files(verify, public: Public, tmp_path: Path) -> None:
+    assert verify.main(argv(public, tmp_path / "public", **{"--base-url": public.base_url.rstrip("/")})) == 0
+
+
 def test_one_attempt_is_one_attempt(verify, public: Public, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     public.fail_first[SUMS] = 1
     refused(verify, argv(public, tmp_path / "public"), capsys)
@@ -212,7 +262,18 @@ def test_one_attempt_is_one_attempt(verify, public: Public, tmp_path: Path, caps
 # --- misuse ------------------------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("bad", [{"--repository": "owner"}, {"--base-url": "file:///etc/"}, {"--attempts": "0"}])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"--repository": "owner"},
+        {"--repository": "owner/name\n"},
+        {"--base-url": "file:///etc/"},
+        {"--attempts": "0"},
+        {"--pause": "nan"},
+        {"--pause": "inf"},
+        {"--pause": "-1"},
+    ],
+)
 def test_bad_arguments_are_misuse_and_make_no_request(
     verify, public: Public, tmp_path: Path, bad: dict[str, str]
 ) -> None:

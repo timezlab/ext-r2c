@@ -25,6 +25,7 @@ jobs:
   preflight:
     name: preflight
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -70,6 +71,7 @@ jobs:
     needs: [preflight, wheel]
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -99,6 +101,7 @@ jobs:
     needs: publish
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:

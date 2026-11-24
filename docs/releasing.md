@@ -16,7 +16,7 @@ What the workflow does after a tag is pushed, in order:
    them back, compares the bytes with the tested ones, and only then makes the release public, marked as a
    pre-release. It runs no built code.
 4. `verify` downloads the files from the public address with no credential, compares them with the list, and
-   installs the install line of the release notes into a clean environment.
+   installs the public wheel address (the address the notes' install line gives) into a clean environment.
 
 No version of the package goes to PyPI: the bare name `ext-r2c` on PyPI is not this project. What a release
 does not do is written in [`known-limits.md`](known-limits.md), and the release notes quote that file whole.
@@ -51,8 +51,8 @@ a README names a different wheel than the installed one, or when the changelog h
 
 ## 3. Scan the built files with your own pattern
 
-CI runs a generic scan (home-directory prefixes, private address ranges, token shapes) and prints only a file,
-a category and a count. It cannot know what is private to you. This step is a promise, not a gate: nothing
+CI runs a generic scan (home-directory prefixes, private address ranges, e-mail addresses, token shapes) and
+prints only a file, a category and a count. It cannot know what is private to you. This step is a promise, not a gate: nothing
 checks that it was done.
 
 Build the files, unpack them, and search them with the pattern you keep **outside this repository**. The
@@ -122,8 +122,21 @@ gh release view v0.1.0a1
 - The notes have the three parts: the status and the install line, the known limits, and the changes.
 - From a clean environment, the install line works as written, with no `--pre`.
 
-The seven publishing calls and `verify` run for real only at the first tag, so read the first run slowly. What
-else the build did not prove is listed in the plan's
+The publishing calls and `verify` were tried against a fake `gh` and a local server. They run against GitHub for
+real only at the first tag, so read the first run slowly. The job makes five kinds of `gh release` call, and
+the workflow runs them; none is typed by hand. In the log of `publish`, look for each of these to succeed on
+the draft:
+
+- the `list` call shows the draft the job has just made, to the workflow's own token;
+- the `create` call accepts the pushed tag (`--verify-tag`) and the notes file;
+- the `upload` call replaces nothing and stores the three files;
+- the `download` call brings back the same three files;
+- the `edit` call with `--draft=false` makes it public, and the `list` call after it says published and
+  pre-release.
+
+In the log of `verify`, the three downloads are unauthenticated: they succeed with no token. If one of these
+fails at the first tag, the draft is still a draft: read the refusal, fix it on `main`, and go on from step 8.
+What else the build did not prove is listed in the plan's
 [gaps](../specs/008-release/research.md#r15-gaps-stated-not-hidden).
 
 ## 8. When a run fails
@@ -144,8 +157,11 @@ Nothing is public before the last call of `publish`, so a red run before it leav
 
   Check first that the release is a draft, with `gh release view v0.1.0a1 --json isDraft`. Never delete a
   release that is public (step 9).
-- **`verify` is red and the release is public**: the files may not have been served yet. Re-run `verify` once.
-  If it is red again, treat the release as a published mistake.
+- **`verify` is red and the release is public**: the files may not have been served yet. Re-run only the failed
+  `verify` job, once (`gh run rerun RUN_ID --failed`, or "Re-run failed jobs" on the run's page). Do not use
+  "Re-run all jobs": re-running all jobs starts again at `preflight`, which refuses a tag that already has a
+  published release, so nothing after it would run. If `verify` is red again, treat the release as a published
+  mistake.
 
 ## 9. When a published release is wrong
 

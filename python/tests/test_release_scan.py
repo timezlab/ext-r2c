@@ -7,6 +7,7 @@ commit scan refuses the whole string. The scan prints a file, a category and a c
 from __future__ import annotations
 
 import tarfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -146,3 +147,71 @@ def test_no_arguments_is_misuse(scan) -> None:
     with pytest.raises(SystemExit) as caught:
         scan.main([])
     assert caught.value.code == 2
+
+
+# --- where a hit ends: the end of a sentence, of a line, a quote, the doubled backslash of source text ---------
+
+HOME_LINUX_BARE = "/".join(planted("home-linux").split("/")[:3])  # the path up to the user's name
+HOME_MAC_BARE = "/".join(planted("home-mac").split("/")[:3])
+BOUNDARY = {
+    "address-full-stop": (f"the server is at {planted('address-10')}.", "private-address"),
+    "address-ellipsis": (f"reach {planted('address-10')}...", "private-address"),
+    "address-parenthesis": (f"({planted('address-192')})", "private-address"),
+    "home-end-of-line": (HOME_LINUX_BARE, "home-path"),
+    "home-in-quotes": (f'"{HOME_LINUX_BARE}"', "home-path"),
+    "home-before-colon": (f"PATH={HOME_LINUX_BARE}:/usr/bin", "home-path"),
+    "home-mac-end-of-line": (HOME_MAC_BARE, "home-path"),
+    "windows-doubled-backslash": ("C:" + "\\\\" + "Users" + "\\\\alice", "home-path"),
+}
+
+
+@pytest.mark.parametrize("line", [pair[0] for pair in BOUNDARY.values()], ids=list(BOUNDARY))
+def test_a_hit_at_the_end_of_a_sentence_or_a_line_is_found(
+    scan, tmp_path: Path, capsys: pytest.CaptureFixture[str], line: str
+) -> None:
+    category = next(c for text, c in BOUNDARY.values() if text == line)
+    wheel = wheel_with(tmp_path, line + "\n")
+    assert scan.main([str(wheel)]) == 1
+    assert f"scan: {MEMBER} {category} 1" in capsys.readouterr().out
+
+
+# --- a long line must not stall the job that runs the scan ---------------------------------------------------
+
+LONG_LINES = {
+    "one long word": "a" * 60_000,
+    "dots": "a." * 30_000,
+    "at signs": "a@" * 30_000,
+    "address digits": "10." * 20_000,
+    "folder slashes": ("/" + "ho" + "me/") * 10_000,
+    "dashes": "-" * 60_000,
+}
+
+
+@pytest.mark.parametrize("line", list(LONG_LINES.values()), ids=list(LONG_LINES))
+def test_a_very_long_line_is_read_in_linear_time(scan, tmp_path: Path, capsys: pytest.CaptureFixture[str], line: str) -> None:
+    wheel = wheel_with(tmp_path, line + "\n")
+    started = time.perf_counter()
+    scan.main([str(wheel)])
+    capsys.readouterr()
+    assert time.perf_counter() - started < 1.5, "the scan must stay far from a quadratic cost on one line"
+
+
+def test_a_local_part_longer_than_the_rfc_limit_is_still_found(scan, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    wheel = wheel_with(tmp_path, "x" * 100 + planted("email") + "\n")
+    assert scan.main([str(wheel)]) == 1
+    assert f"scan: {MEMBER} email 1" in capsys.readouterr().out
+
+
+# --- a name inside the archive is data: it never becomes a line of its own in the log ----------------------
+
+
+def test_a_member_name_with_a_newline_cannot_forge_a_log_command(scan, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    name = "ext_r2c/a\n::add-mask::secret.txt"
+    wheel = make_wheel(
+        tmp_path,
+        extra={name: planted("email").encode(), "ext_r2c/b\n::stop-commands::x.bin": bytes([0xFF, 0xFE, 0x80])},
+    )
+    assert scan.main([str(wheel)]) == 1
+    out = capsys.readouterr().out
+    assert [line for line in out.splitlines() if line.startswith("::")] == []
+    assert "\n::" not in out

@@ -66,6 +66,17 @@ if state.get("network_down"):
 
 releases = state.setdefault("releases", {})
 
+meanwhile = state.get("publish_meanwhile_at")
+if meanwhile is not None and state["calls"] == meanwhile:
+    for release in releases.values():  # someone else (a click on the website) publishes every draft, between two calls
+        release["draft"] = False
+    save()
+
+vanishes = state.get("delete_meanwhile_at")
+if vanishes is not None and state["calls"] == vanishes:
+    releases.clear()  # someone else deletes the release (a click on the website) between two calls
+    save()
+
 
 def api(path):
     # repos/OWNER/NAME/releases/tags/TAG : 200 only for a published release, 404 for a draft or none.
@@ -130,7 +141,7 @@ def asset_names(release):
 
 if sub == "list" and len(positional) == 1 and flags == {"--limit": "200", "--json": "tagName,isDraft,isPrerelease"}:
     rows = [{"tagName": tag, "isDraft": r["draft"], "isPrerelease": r["prerelease"]} for tag, r in releases.items()]
-    print(json.dumps(rows))
+    print(json.dumps(rows + state.get("extra_rows", [])))
 elif sub == "create" and len(positional) == 2:
     tag = positional[1]
     notes = flags.get("--notes-file")
@@ -267,6 +278,20 @@ class FakeGh:
     def publish_does_nothing(self) -> None:
         """`release edit --draft=false` succeeds and the release stays a draft."""
         self.update(publish_is_noop=True)
+
+    def publish_meanwhile(self, call_number: int) -> None:
+        """At the start of this 1-based call, someone else publishes every draft (a click on the website)."""
+        self.update(publish_meanwhile_at=call_number)
+
+    def delete_meanwhile(self, call_number: int) -> None:
+        """At the start of this 1-based call, someone else deletes every release (a click on the website)."""
+        self.update(delete_meanwhile_at=call_number)
+
+    def add_row(self, tag: str, *, draft: bool = True, prerelease: bool = True) -> None:
+        """A second row for the same tag in `release list` (GitHub lets several drafts share a tag name)."""
+        state = self.state()
+        state.setdefault("extra_rows", []).append({"tagName": tag, "isDraft": draft, "isPrerelease": prerelease})
+        self.state_path.write_text(json.dumps(state))
 
     def call_count(self) -> int:
         return int(self.state().get("calls", 0))

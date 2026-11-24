@@ -73,11 +73,17 @@ def check_on_main(root: Path, sha: str) -> None:
         capture_output=True,
         text=True,
     )
-    if done.returncode != 0:
+    if done.returncode == 1:  # git's answer for "not an ancestor"; any other status means git could not tell
         raise Refusal(
             "on-main",
             "the tagged commit is not on main",
             "merge it into main and tag the commit that is there",
+        )
+    if done.returncode != 0:
+        raise Refusal(
+            "on-main",
+            "origin/main could not be read to tell whether the tagged commit is on main",
+            "fetch main in full (a checkout with fetch-depth 0) and run it again",
         )
 
 
@@ -103,7 +109,13 @@ def check_no_published_release(repository: str, tag: str) -> None:
 
 
 def check_license_copy(root: Path) -> None:
-    if (root / "python" / "LICENSE").read_bytes() != (root / "LICENSE").read_bytes():
+    copies = []
+    for name in ("python/LICENSE", "LICENSE"):
+        try:
+            copies.append((root / name).read_bytes())
+        except OSError:
+            raise Refusal("license-copy", f"{name} cannot be read", "keep the root LICENSE and its copy python/LICENSE") from None
+    if copies[0] != copies[1]:
         raise Refusal(
             "license-copy",
             "python/LICENSE differs from the root LICENSE",
@@ -123,7 +135,7 @@ def body(argv: list[str] | None) -> int:
         skip("tag-matches-version")
     else:
         check_tag_matches(args.tag, version)
-    changelog_section((args.root / "CHANGELOG.md").read_text(), version)
+    changelog_section((args.root / "CHANGELOG.md").read_text(encoding="utf-8"), version)
     if manual:
         skip("on-main")
         skip("no-published-release")

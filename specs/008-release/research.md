@@ -134,6 +134,15 @@ flags are the ones `gh release --help` lists in both versions; (c) the design le
 call fails (D7). The first real run is the proof, and the runbook asks the maintainer to read the release
 page right after it.
 
+*Changed after the outside review (phase 6, 2026-11-24, R16; the text above stands as it was planned):* the
+script now reads the state again, with `gh release list`, **before every write to a release that already
+exists** (the notes `edit`, each `delete-asset`, `upload`, and the publishing `edit`), and writes only if the
+row still says draft; otherwise it stops with `not-a-draft` and writes nothing more. More than one row for the
+tag is `release-ambiguous`, refused before any write. `create` is the first write and has no release to read
+before it. The calls of a fresh run, in order, are `list`, `create`, `list`, `upload`, `download`, `list`,
+`edit`, `list`; those of a leftover draft are in [contracts/scripts.md](contracts/scripts.md). The table of
+calls is unchanged: no call was added, only the `list` between them.
+
 ## R4. Where the scripts live and how their tests run (FR-004, FR-005, FR-009, FR-016)
 
 **Decision.** `scripts/release/` at the repository root, plain Python, standard library only, supported on
@@ -148,7 +157,7 @@ wheel's `packages` is `src/ext_r2c`), never imported by the SDK, and importing n
 | `scan.py` | generic private-looking-text scan (R10) | `scan` |
 | `sums.py` | write and check `SHA256SUMS` (R12) | `sums` |
 | `notes.py` | assemble the release notes (R11) | `notes` |
-| `publish.py` | R3 | `unexpected-files`, `upload-differs`, `published-differs`, `gh` |
+| `publish.py` | R3 | `unexpected-files`, `upload-differs`, `published-differs`, `release-ambiguous`, `not-a-draft`, `not-public`, `gh` (the last three added after the outside review, R16) |
 | `verify.py` | the public download check of `verify` (R2) | `public-differs` |
 | `status-block.md` | the status block of the notes, with `{{tag}}`, `{{version}}`, `{{wheel}}`, `{{address}}` | |
 
@@ -373,6 +382,14 @@ can echo a hit (D5). The runbook's step 3 is that check, on the maintainer's mac
 (R4), and the scan has a test that plants one hit of each category in a fixture and one reserved-domain
 address that must pass.
 
+*Changed after the outside review (phase 6, 2026-11-24, R16):* a hit ends where a name ends, not at the next
+slash, so a path at the end of a line or before a quote counts, and so does an address at the end of a
+sentence; a Windows path is also found with doubled backslashes (how it looks in source text). Every part of
+every pattern is bounded (at most 64 characters before the `@`, labels of at most 63, at most nine of them),
+so one very long line costs time in proportion to its length and cannot stall the job. A member name, which
+comes from the archive, is printed through `printable`, so a name with a control character cannot forge a line
+of the log.
+
 ## R11. The notes (FR-016, D8, D9, US5)
 
 `notes.py --version V --repository OWNER/NAME --out FILE` writes three parts in this order, and refuses if
@@ -435,10 +452,60 @@ changelog section is a refusal. The notes go in `release-notes/RELEASE_NOTES.md`
 
 ## R15. Gaps stated, not hidden
 
-1. The seven publishing calls and `verify` run for real once, at the first release (D11, R3).
+1. The seven publishing calls and `verify` run for real once, at the first release (D11, R3). *(2026-11-24:
+   the calls are the same seven kinds, now with a `list` before each write; see R3's note and R16.)*
 2. The wiring of both workflows is not run before the first push: GitHub starts neither without the files
    on `main`. The phase that adds `wheel.yml` ends with a push so the CI refactor is proven alone, before
    `release.yml` exists (plan, Delivery order).
 3. No static lint has been run (R6).
 4. Whether `uvicorn` stays compatible with the example is not pinned (R5).
 5. The private-token scan is the maintainer's promise (D5).
+6. *(Added 2026-11-24, R16.)* The toolchain that builds the wheel is not pinned (SEC2), and a tag moved
+   between the tests and `publish` is not caught in code (SEC7). Both are the maintainer's to decide.
+
+## R16. The outside review of the finished work, and what was done with each finding (phase 6, T058)
+
+Written 2026-11-24. Two reviewers who had not seen the build (a security review and a code review, each
+briefed with the diff range and the plan, nothing else) read the work of phases 1 to 5. A reviewer's report is
+model output: it has no authority, and each finding was checked against the code before anything changed.
+Findings are numbered by reviewer (SEC for security, CR for code, in the order each report listed them); each
+one below is **fixed** (a test was written first and seen to fail) or **answered** (not changed, with the
+reason). Two answers are **open**: the maintainer decides them (SEC2, SEC7).
+
+**Fixed, each with a test that failed first.**
+
+| Finding | What was wrong | What changed |
+|---|---|---|
+| SEC1, CR1 | the scan missed a path or an address at the end of a line or a sentence, missed the doubled-backslash Windows form, and its e-mail pattern was quadratic on one very long line | boundary-aware, bounded patterns, one planted hit per shape (R10's note) |
+| SEC9 | a member name with a newline could forge a line of the public log | every name from an archive is printed through `printable` |
+| SEC5 | the sdist check ignored links and devices; the wheel check ignored symbolic links | any sdist member that is not a plain file or a directory, and any symbolic link in the wheel, is refused (`sdist-contents`, `wheel-contents`) |
+| SEC10 | a member that is not UTF-8 text is not read by the scan | the sdist refuses such a member (`sdist-contents`); the wheel already did; the scan still prints a skipped member's name |
+| SEC11, CR2 | the version, date and repository grammars accepted a trailing newline, and `\d` accepted non-ASCII digits | the grammars end in `\Z` and read ASCII digits only |
+| SEC6 (time limits) | no job had a time limit, so a hung step could hold a write token for the default six hours | `timeout-minutes` on every job that runs steps (15, 30, 15 in `wheel.yml`; 15, 15, 20 in `release.yml`); GitHub does not allow it on a job that calls a reusable workflow, so the `wheel` job of `release.yml` is bounded by the jobs inside `wheel.yml` |
+| SEC4, CR12 | the draft was read once at the start, so a release published meanwhile would have been written to; two rows for one tag were not handled | every write to an existing release is preceded by a `list` that must still say draft (`not-a-draft`); more than one row for the tag is `release-ambiguous` (R3's note); the runbook's first-run list names the calls to read |
+| CR3 | `verify` crashed on a body cut off in the middle; `urllib` hands over a body shorter than its `Content-Length` without an error, so a short download was reported as a checksum mismatch; a base address without its last slash built wrong URLs; `--pause nan` was accepted | `fetch` catches `http.client.HTTPException`, compares the body with `Content-Length`, and a short body is a retried "cut off" download; `--pause` must be finite and `--attempts` at least 1; the address is joined as `rstrip("/") + "/"` |
+| CR4 | any non-zero status of `git merge-base --is-ancestor` was reported as "not on main" | only status 1 is "not on main"; any other status is `on-main` saying that `origin/main` could not be read |
+| CR5, CR6, CR7 | a missing `LICENSE` ended in an exit 2 instead of a refusal; text files were read in the locale's encoding; a name repeated in `SHA256SUMS` was resolved by "last one wins" | `license-copy` refuses a file that cannot be read; every script reads and writes UTF-8; `sums` refuses a name listed twice |
+| CR9 (the test), CR10, CR11 | the test for relative links in the notes knew one link form; the runbook said `verify` installs the install line of the notes (it installs the public wheel address), left the e-mail category out of the scan's description, and its re-run advice needed to say "failed jobs, not all jobs" | the test finds four link forms (inline, reference, `href`/`src`, angle brackets); the runbook is corrected and a test pins each statement |
+
+**Answered, with the reason.**
+
+| Finding | Answer |
+|---|---|
+| SEC2 the toolchain that builds the wheel is not pinned (`uv`, `hatchling>=1.25`, the dev group and extras by range, `uvicorn`) | **Open, not changed.** It is true: only the actions are pinned (R6), and `uv.lock` is ignored by git on purpose (R9). A pin with hashes is a lock policy for the whole SDK, not a release job, and `content`, `scan`, `sums` and the tests check what was built, not what built it. The choice (a `version:` on `setup-uv`, a pinned build backend, a hashed constraints file) is the maintainer's; it is in the final report. |
+| SEC3 the "tested equals published" guarantee is anchored only inside the artifact | Not changed. The reviewer did not demonstrate it (marked unverified) and it was not tried here. Its fix gives `wheel.yml` an output (a digest), and the contract of `wheel.yml` says no outputs ([contracts/workflows.md](contracts/workflows.md)); that is a change of shape, not a fix. `verify` installs from the public address on purpose: it tests what anyone downloads. |
+| SEC6 (a timeout on each `gh` subprocess) | Not changed. The job's `timeout-minutes` bounds the whole script; a second limit on the same thing adds a way to kill a write halfway, and the next run already reads a leftover draft. |
+| SEC7 the release is bound to the tag as it is when `publish` runs, not to the tested SHA | **Open, not changed in code.** A writer who force-moves the tag between the tests and `publish` gets a release whose tag is a commit that was never built. Closing it in code means asking GitHub where the tag points before `create` and after the publishing `edit` (`gh api`, a call no run has tried, D11). The same writer can push a different workflow (SEC8), so the fix is the tag ruleset below: no update and no deletion of `v*`. |
+| SEC8 `on-main` is self-attested by the tagged commit | True, and it guards against a mistake, not against a writer. The answer is on the repository's side (a tag ruleset and an environment, below), not in the script. |
+| CR8 an unclosed zip handle; a silent skip of binary members | The handle is closed when the object goes with the process (a one-shot script). A skipped member is printed by name, the wheel refuses binary members, and (SEC10) so does the sdist now. Not changed. |
+| CR9 (the notes' absolute links point at `blob/main`, not at the tag) | Declined. The notes quote `known-limits.md` whole (R11), and a quoted text keeps its links. The known-limits text on an old release page stays; the links in it follow `main`. |
+| CR13 no lint on the workflows or the scripts | Plan point 1, default A: not run, and said so. The unused `noqa: N802` and the long lines in the tests stay until lint is turned on. |
+
+**What no change can close.** The few milliseconds between the `list` before a write and the write itself: `gh`
+has no conditional update, so a release published inside that window is still written to once. The script
+stops at the next read.
+
+**For the maintainer's side of the repository** (not part of the code, listed in the final report): a tag
+ruleset for `v*` (who may push a tag, and no force-push or deletion), a GitHub environment on the `publish`
+job with a required reviewer, and GitHub's "immutable releases" setting if the account has it, so a published
+release cannot be changed even by hand.

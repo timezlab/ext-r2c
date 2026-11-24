@@ -40,12 +40,33 @@ def test_a_normal_form_pre_release_passes(common, version: str) -> None:
         "0.1.0c1",
         "0.1.0a1+local",
         "1!0.1.0a1",
+        "0.1.0a1\n",  # `$` alone would let a trailing newline through
+        "0.1.0\n",  # not a final release either: the grammar refuses it first
+        "0.1.0a1١",  # a digit that is not 0-9, after a digit that is
+        "1١.0.0a1",
     ],
 )
 def test_any_other_spelling_is_the_version_grammar_refusal(common, version: str) -> None:
     with pytest.raises(common.Refusal) as caught:
         common.check_version(version)
     assert caught.value.id == "version-grammar"
+
+
+@pytest.mark.parametrize("tag", ["v0.1.0a1\n", "v0.1.0a1١"])
+def test_a_tag_with_a_stray_character_is_refused_before_any_use(common, tag: str) -> None:
+    with pytest.raises(common.Refusal) as caught:
+        common.version_from_tag(tag)
+    assert caught.value.id == "version-grammar"
+
+
+@pytest.mark.parametrize("repository", ["owner/name\n", "owner/name ", "owner", "a/b/c", "/name", "owner/"])
+def test_a_repository_is_owner_slash_name_and_nothing_else(common, repository: str) -> None:
+    assert common.REPOSITORY_RE.match(repository) is None
+
+
+@pytest.mark.parametrize("repository", ["owner/name", "Owner-1/na.me_2"])
+def test_a_plain_repository_matches(common, repository: str) -> None:
+    assert common.REPOSITORY_RE.match(repository)
 
 
 @pytest.mark.parametrize("version", ["0.1.0", "1.0.0", "10.2.3"])
@@ -150,6 +171,26 @@ def test_run_main_maps_any_other_error_to_two(common, capsys: pytest.CaptureFixt
 
     assert common.run_main(broken) == 2
     assert "no such file" in capsys.readouterr().err
+
+
+def test_a_refusal_with_a_newline_in_what_is_still_one_line(common) -> None:
+    line = common.Refusal("x", "the member a\n::add-mask::b is odd", "rename\rit").line()
+    assert "\n" not in line and "\r" not in line
+    assert line == r"refused [x]: the member a\n::add-mask::b is odd. Rename\rit."
+
+
+def test_an_unexpected_error_with_a_newline_is_still_one_line(common, capsys: pytest.CaptureFixture[str]) -> None:
+    def broken() -> int:
+        raise ValueError("first\n::add-mask::second")
+
+    assert common.run_main(broken) == 2
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1, err
+
+
+def test_printable_spells_out_what_is_not_printable(common) -> None:
+    assert common.printable("plain text, 100% é") == "plain text, 100% é"
+    assert common.printable("a\nb\tc\x1b[0m") == r"a\nb\tc\x1b[0m"
 
 
 def test_run_main_passes_a_success_through(common) -> None:

@@ -17,6 +17,10 @@ SHAs of research R6; `runs-on` is `ubuntu-24.04` everywhere.
 7. Every workflow and job has a `name:`.
 8. The checks live only in `wheel.yml`: `python.yml` and `release.yml` contain no `uv build`, no `pytest`
    and no `tests/*_only.py` step.
+9. *(Added after the outside review, phase 6, 2026-11-24, research R16.)* Every job that runs steps has
+   `timeout-minutes`, between 1 and 60: `build` 15, `checks` 30, `inspect` 15 in `wheel.yml`; `preflight` 15,
+   `publish` 15, `verify` 20 in `release.yml`. A job that only calls a workflow (`wheel` in `release.yml`, `wheel` in
+   `python.yml`) has none, because GitHub refuses the key there: its limits are the jobs inside `wheel.yml`.
 
 ## `wheel.yml` (reusable)
 

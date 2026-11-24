@@ -9,6 +9,7 @@ refusal names a member's path, never text read from a member. Nothing here write
 from __future__ import annotations
 
 import argparse
+import stat
 import sys
 import tarfile
 import zipfile
@@ -72,6 +73,9 @@ def check_wheel_contents(wheel: Path, version: str) -> zipfile.ZipFile:
         raise Refusal("wheel-contents", f"there is no {wheel.name} in the folder", "build the wheel there with uv build")
     archive = zipfile.ZipFile(wheel)
     dist_info = f"ext_r2c-{version}.dist-info"
+    for info in archive.infolist():
+        if stat.S_ISLNK(info.external_attr >> 16):
+            raise Refusal("wheel-contents", f"the wheel has the member {info.filename}, a symbolic link", "a wheel holds plain files only")
     members = [name for name in archive.namelist() if not name.endswith("/")]
     for name in members:
         parts = PurePosixPath(name).parts
@@ -119,6 +123,9 @@ def check_sdist(sdist: Path, version: str, root: Path) -> None:
         raise Refusal("sdist-contents", f"there is no {sdist.name} in the folder", "build the sdist there with uv build")
     top = f"ext_r2c-{version}"
     with tarfile.open(sdist) as archive:
+        for member in archive.getmembers():
+            if not (member.isfile() or member.isdir()):
+                raise Refusal("sdist-contents", f"the sdist has the member {member.name}, which is not a plain file", "an sdist holds plain files only")
         members = [m.name for m in archive.getmembers() if m.isfile()]
         for name in members:
             if unsafe(name):
@@ -127,6 +134,13 @@ def check_sdist(sdist: Path, version: str, root: Path) -> None:
                 raise Refusal("sdist-contents", f"the sdist has the member {name}, outside {top}/", "build it again with uv build")
             if "examples" in PurePosixPath(name).parts[:-1]:
                 raise Refusal("sdist-contents", f"the sdist has the example file {name}", "the examples are run from the tagged source, not shipped")
+        for name in members:  # the scan reads text only, so a member that is not text would pass it unseen
+            data = archive.extractfile(name)
+            assert data is not None
+            try:
+                data.read().decode("utf-8")
+            except UnicodeDecodeError:
+                raise Refusal("sdist-contents", f"the sdist has the binary member {name}", "the first pre-release ships text only") from None
         info = f"{top}/PKG-INFO"
         if info not in members:
             raise Refusal("sdist-contents", f"the sdist has no {info}", "build it again with uv build")

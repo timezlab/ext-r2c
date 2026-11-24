@@ -6,6 +6,7 @@ the `inspect` job of `wheel.yml` on every push.
 
 from __future__ import annotations
 
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -165,6 +166,40 @@ def test_a_schema_the_wheel_lacks_is_refused(content, dist: Path, root: Path, ca
 def test_a_wrong_sdist_is_refused(content, dist: Path, root: Path, capsys: pytest.CaptureFixture[str], kwargs: dict) -> None:
     rebuild_sdist(dist, **kwargs)
     refused(content, dist, root, capsys, "sdist-contents")
+
+
+TOP = f"ext_r2c-{DEFAULT_VERSION}"
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [tarfile.SYMTYPE, tarfile.LNKTYPE],
+    ids=["symbolic-link", "hard-link"],
+)
+def test_an_sdist_member_that_is_a_link_is_refused(
+    content, dist: Path, root: Path, capsys: pytest.CaptureFixture[str], kind: bytes
+) -> None:
+    rebuild_sdist(dist, links={f"{TOP}/src": (kind, "../../../../outside")})
+    refused(content, dist, root, capsys, "sdist-contents")
+
+
+def test_an_sdist_with_a_binary_member_is_refused(content, dist: Path, root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The wheel has always refused one; the scan skips what does not decode, so the sdist may not hold one either."""
+    rebuild_sdist(dist, extra={f"{TOP}/src/blob.bin": bytes([0xFF, 0xFE, 0x80])})
+    err = refused(content, dist, root, capsys, "sdist-contents")
+    assert "blob.bin" in err
+
+
+def test_a_wheel_member_that_is_a_symbolic_link_is_refused(content, dist: Path, root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rebuild(dist, symlinks={"ext_r2c/escape.py": "../../outside"})
+    refused(content, dist, root, capsys, "wheel-contents")
+
+
+def test_a_member_name_with_a_newline_is_one_line_of_refusal(content, dist: Path, root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rebuild(dist, extra={"elsewhere/a\n::add-mask::x.py": b""})
+    err = refused(content, dist, root, capsys, "wheel-contents")
+    assert "\n" not in err
+    assert "::add-mask::x" in err, "the name is shown, spelled out"
 
 
 def test_a_missing_sdist_is_refused(content, dist: Path, root: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import importlib
 import io
+import os
 import subprocess
 import sys
 import tarfile
@@ -90,6 +91,17 @@ def make_repo(
     return root
 
 
+def run_in_plain_locale(script: str, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run `scripts/release/SCRIPT.py` in a process whose default text encoding is ASCII, as on a machine whose
+    locale is not UTF-8. A script that reads or writes text without naming the encoding fails there."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("LC_", "LANG", "PYTHON"))}
+    env.update({"LC_ALL": "C", "LANG": "C", "PYTHONCOERCECLOCALE": "0", "PYTHONUTF8": "0"})
+    done = subprocess.run([sys.executable, str(SCRIPTS / f"{script}.py"), *args], capture_output=True, env=env)
+    return subprocess.CompletedProcess(
+        done.args, done.returncode, done.stdout.decode("utf-8", "replace"), done.stderr.decode("utf-8", "replace")
+    )
+
+
 def git(root: Path, *args: str) -> str:
     done = subprocess.run(
         ["git", "-c", "user.name=alice", "-c", "user.email=alice@example.com", "-C", str(root), *args],
@@ -151,6 +163,7 @@ def make_wheel(
     extra: dict[str, bytes] | None = None,
     drop: tuple[str, ...] = (),
     metadata: str | None = None,
+    symlinks: dict[str, str] | None = None,
 ) -> Path:
     members = wheel_members(version, metadata=metadata)
     members.update(extra or {})
@@ -160,6 +173,11 @@ def make_wheel(
     with zipfile.ZipFile(path, "w") as z:
         for name, data in sorted(members.items()):
             z.writestr(name, data)
+        for name, target in sorted((symlinks or {}).items()):
+            link = zipfile.ZipInfo(name)
+            link.create_system = 3  # Unix: the mode below is read as a mode
+            link.external_attr = (0o120777 << 16)  # a symbolic link
+            z.writestr(link, target)
     return path
 
 
@@ -185,7 +203,9 @@ def make_sdist(
     drop: tuple[str, ...] = (),
     pkg_info_version: str | None = None,
     root: str | None = None,
+    links: dict[str, tuple[bytes, str]] | None = None,
 ) -> Path:
+    """`links` maps a member name to (`tarfile.SYMTYPE` or `tarfile.LNKTYPE`, the name it points at)."""
     members = sdist_members(version, pkg_info_version=pkg_info_version, root=root)
     members.update(extra or {})
     for name in drop:
@@ -196,6 +216,11 @@ def make_sdist(
             info = tarfile.TarInfo(name)
             info.size = len(data)
             t.addfile(info, io.BytesIO(data))
+        for name, (kind, target) in sorted((links or {}).items()):
+            link = tarfile.TarInfo(name)
+            link.type = kind
+            link.linkname = target
+            t.addfile(link)
     return path
 
 
@@ -259,4 +284,6 @@ ALLOWED_LINES = (
     "version 10.0.0.1.2 is not an address",
     "the 172.32.0.1 range is public",
     "see /usr/local/share and /var/run",
+    "the build 10.0.0.1.2.3 is not an address.",
+    "the folder /ho" + "me/ holds one folder per user",
 )

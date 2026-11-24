@@ -14,9 +14,11 @@ from release_fixtures import (
     DEFAULT_VERSION,
     changelog_text,
     commit_off_main,
+    git,
     load_script,
     make_git_repo,
     make_repo,
+    run_in_plain_locale,
 )
 
 TAG = f"v{DEFAULT_VERSION}"
@@ -174,6 +176,22 @@ def test_a_tag_on_a_commit_that_main_contains_passes(preflight, world: World) ->
     assert preflight.main(world.argv()) == 0
 
 
+def test_a_commit_main_does_not_contain_says_so(preflight, world: World, capsys: pytest.CaptureFixture[str]) -> None:
+    side = commit_off_main(world.root)
+    err = refused(preflight, world.argv(**{"--sha": side}), capsys, "on-main")
+    assert "is not on main" in err
+
+
+def test_a_missing_origin_main_is_said_to_be_unreadable_not_to_be_off_main(
+    preflight, world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A shallow or partial fetch has no `origin/main`: the history is the problem, not the commit."""
+    git(world.root, "update-ref", "-d", "refs/remotes/origin/main")
+    err = refused(preflight, world.argv(), capsys, "on-main")
+    assert "origin/main" in err and "could not be read" in err
+    assert "is not on main" not in err
+
+
 # --- check 7: no published release of the tag ----------------------------------------------------------
 
 
@@ -214,6 +232,24 @@ def test_licence_copies_that_differ_by_a_byte_are_refused(
 ) -> None:
     root = make_repo(tmp_path / "repo", same_license=False)
     refused(preflight, ["--event", "workflow_dispatch", "--root", str(root)], capsys, "license-copy")
+
+
+@pytest.mark.parametrize("missing", ["LICENSE", "python/LICENSE"])
+def test_a_missing_licence_file_is_a_refusal_not_a_crash(
+    preflight, tmp_path: Path, capsys: pytest.CaptureFixture[str], missing: str
+) -> None:
+    root = make_repo(tmp_path / "repo")
+    (root / missing).unlink()
+    err = refused(preflight, ["--event", "workflow_dispatch", "--root", str(root)], capsys, "license-copy")
+    assert missing in err
+
+
+def test_the_changelog_is_read_as_utf8_whatever_the_locale(tmp_path: Path) -> None:
+    body = "- Added: the first release… and a dash — in one line\n"
+    root = make_repo(tmp_path / "repo", changelog=changelog_text(body=body))
+    done = run_in_plain_locale("preflight", "--event", "workflow_dispatch", "--root", str(root))
+    assert done.returncode == 0, done.stderr
+    assert f"preflight ok: version {DEFAULT_VERSION}" in done.stdout
 
 
 # --- order, a manual start's own gates, and "creates nothing" -------------------------------------------

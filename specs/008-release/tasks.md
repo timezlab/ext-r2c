@@ -369,7 +369,7 @@ exists, no release exists.
 **Goal**: an outside review of the part that holds write permission, the full gate on three Pythons, the
 first manual run on GitHub, and a report. The phase ends **before the tag**.
 
-- [ ] T058 [P] Outside review of the workflows and the scripts, self-contained briefs, in one message: a
+- [X] T058 [P] Outside review of the workflows and the scripts, self-contained briefs, in one message: a
   **code reviewer** on `git diff 06ff099..HEAD` (what the change does, the contracts to read, the output
   contract: findings ranked with file and line) and a **security reviewer** on `release.yml`, `wheel.yml`,
   `python.yml`, `publish.py`, `verify.py`, `scan.py`, `preflight.py` (the questions: can any input reach a
@@ -715,3 +715,39 @@ deviation from the plan, each with its reason.)*
   build the numbers come from: wheel `81ff75f9…9fb2` (183915 bytes), sdist `34cc6fe6…77ac` (497877 bytes). One
   verify loop at a time, in its own folders. Nothing has run on GitHub for this phase: the three commits of
   phases 4 and 5 are local (`origin/main` is at `6e2748d`), no tag exists, no release exists.
+
+### Phase 6 (2026-11-24)
+
+- **T058, the outside review.** Two reviewers with no memory of the build, run together: a security reviewer
+  on the workflows and the scripts that touch the write job (11 findings, all low or info, none critical, no
+  path for an outsider to reach the `contents: write` job) and a code reviewer on `git diff 06ff099..HEAD`
+  (13 findings, one rated important, no blocker). Their reports are model output: each finding was checked
+  against the code before anything changed. The whole account, finding by finding, is
+  [research R16](research.md#r16-the-outside-review-of-the-finished-work-and-what-was-done-with-each-finding-phase-6-t058).
+  **Fixed, each test first and seen red for the reason it names:** the scan missed an address or a path at the
+  end of a sentence or a line and the doubled-backslash Windows form, and its e-mail pattern was quadratic on
+  one very long line; a member name with a newline could forge a line of the public log; the sdist check
+  ignored links and the wheel check ignored symbolic links; the sdist did not refuse a member that is not
+  text; the version, date and repository grammars accepted a trailing newline or a non-ASCII digit; no job had
+  a time limit; `publish` read the draft once and then wrote, so a draft published meanwhile would have been
+  written to, and two rows for one tag were not handled; `verify` crashed on a cut-off body, took a short body
+  for a wrong checksum, mishandled an address without its last slash and accepted a `nan` pause; a `git`
+  status other than "not an ancestor" was reported as "not on main"; a missing `LICENSE` was a crash; text
+  files were read in the locale's encoding; a name listed twice in `SHA256SUMS` was resolved by "last one
+  wins"; the relative-link test knew one link form; the runbook misdescribed what `verify` installs and what
+  the scan looks for. `urllib` hands over a body shorter than its `Content-Length` without an error: that was
+  found by a probe, not by a reviewer, and fixed the same way. **Answered, not changed:** the gh-subprocess
+  time limit, the anchoring of the sums, the unclosed zip handle, the `blob/main` links in the quoted limits,
+  and lint. **Open for the maintainer (R16, R15 item 6):** the build toolchain (`uv`, `hatchling`) is not
+  pinned, and a tag moved between the tests and `publish` is not caught in code; both have a one-line answer on
+  GitHub's side (a tag ruleset for `v*`, an environment on `publish`, immutable releases). The release tests
+  went from 315 to 388, the whole suite is 3234 passed on 3.11 (the quick venv, before the T059 loop).
+  **Mutation check:** 39 mutants of the fixes (the four guards of `publish` and three of its refusals, five of
+  `verify`, eight of the time limits, six of the scan, three of `content`, six of the grammars, `sums`,
+  `preflight`, `notes`), each run against the tests of its own file. 37 were killed at once. Two survived: "a
+  deleted release passes the guard" was a real gap (the branch had no test: a release deleted between the read
+  and the write ended as a `gh` failure, not as `not-a-draft`); the fake `gh` got `delete_meanwhile`, a test
+  was written first (red), and the mutant is killed. "A date ending in `$`" is equivalent: the date comes out
+  of the changelog line by `\S+`, which cannot hold a newline, so `\Z` there is consistency, not a defence.
+  Not proven: `release.yml` has never run on GitHub, and the real `gh` calls and `verify` run for real only at
+  the first tag (D11).

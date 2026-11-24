@@ -100,9 +100,9 @@ def test_a_fresh_run_creates_a_draft_uploads_reads_back_and_publishes_last(
 ) -> None:
     assert publish.main(world.argv()) == 0
     gh = world.gh
-    assert verbs(gh) == ["list", "create", "upload", "download", "edit", "list"]
+    assert verbs(gh) == ["list", "create", "list", "upload", "download", "list", "edit", "list"]
     calls = gh.calls()
-    create, upload, download, publishing = calls[1], calls[2], calls[3], calls[4]
+    create, upload, download, publishing = calls[1], calls[3], calls[4], calls[6]
     assert create[2] == TAG
     for flag in ("--draft", "--prerelease", "--latest=false", "--verify-tag"):
         assert flag in create, flag
@@ -114,7 +114,7 @@ def test_a_fresh_run_creates_a_draft_uploads_reads_back_and_publishes_last(
     assert download[2] == TAG and flag_value(download, "--pattern") == "*"
     assert flag_value(download, "--dir") != str(world.dist), "the read-back goes to a clean directory"
     assert "--draft=false" in publishing and "--prerelease" in publishing and "--latest=false" in publishing
-    assert [i for i, c in enumerate(calls) if "--draft=false" in c] == [4], "the publishing call is made once, after the compare"
+    assert [i for i, c in enumerate(calls) if "--draft=false" in c] == [6], "the publishing call is made once, after the compare"
     release = gh.release(TAG)
     assert release["draft"] is False and release["prerelease"] is True
     assert {name: gh.asset(TAG, name) for name in release["assets"]} == world.files()
@@ -146,9 +146,9 @@ def test_a_leftover_draft_gets_this_runs_notes_loses_its_stray_asset_and_is_uplo
     world = build_scenario(tmp_path / "w", monkeypatch, "leftover draft")
     assert publish.main(world.argv()) == 0
     gh = world.gh
-    assert verbs(gh) == ["list", "edit", "view", "delete-asset", "upload", "download", "edit", "list"]
+    assert verbs(gh) == ["list", "list", "edit", "view", "list", "delete-asset", "list", "upload", "download", "list", "edit", "list"]
     calls = gh.calls()
-    refresh, view, delete = calls[1], calls[2], calls[3]
+    refresh, view, delete = calls[2], calls[3], calls[5]
     assert refresh[2] == TAG and flag_value(refresh, "--notes-file") == str(world.notes)
     assert "--prerelease" in refresh and "--latest=false" in refresh and "--draft=false" not in refresh
     assert view[2] == TAG and flag_value(view, "--json") == "assets"
@@ -166,7 +166,7 @@ def test_a_leftover_draft_that_already_holds_the_three_files_is_uploaded_again_a
     world.gh.add_release(TAG, draft=True, assets=world.files(), notes="old notes")
     assert publish.main(world.argv()) == 0
     gh = world.gh
-    assert verbs(gh) == ["list", "edit", "view", "upload", "download", "edit", "list"]
+    assert verbs(gh) == ["list", "list", "edit", "view", "list", "upload", "download", "list", "edit", "list"]
     assert "delete-asset" not in verbs(gh)
     assert gh.release(TAG)["draft"] is False
     clean(gh)
@@ -245,6 +245,80 @@ def test_the_state_after_publishing_is_read_and_must_say_published(
     world.gh.publish_does_nothing()
     refused(publish, world.argv(), capsys, "not-public")
     assert world.gh.calls()[-1][1] == "list", "the state is read again after the publishing call"
+
+
+# --- a release that changes while the script runs ---------------------------------------------------------
+
+CHANGING_VERBS = {"create", "edit", "delete-asset", "upload"}
+
+
+@pytest.mark.parametrize(
+    ("scenario", "writes"),
+    [
+        ("fresh", ["upload", "edit"]),  # `create` is the first write: there is no release to read before it
+        ("leftover draft", ["edit", "delete-asset", "upload", "edit"]),  # the notes, the stray, the files, the publishing call
+    ],
+)
+def test_every_write_to_an_existing_release_is_right_after_a_read_of_its_state(
+    publish, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scenario: str, writes: list[str]
+) -> None:
+    world = build_scenario(tmp_path / "w", monkeypatch, scenario)
+    assert publish.main(world.argv()) == 0
+    calls = world.gh.calls()
+    guarded = [number for number, call in enumerate(calls) if call[1] in CHANGING_VERBS - {"create"}]
+    assert [calls[number][1] for number in guarded] == writes
+    for number in guarded:
+        assert calls[number - 1][1] == "list", f"call {number} ({calls[number][1]}) is not right after a read of the state"
+
+
+@pytest.mark.parametrize("scenario", ["fresh", "leftover draft"])
+def test_a_draft_that_someone_publishes_in_the_middle_is_not_written_to_by_the_next_write(
+    publish, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], scenario: str
+) -> None:
+    dry = build_scenario(tmp_path / "dry", monkeypatch, scenario)
+    assert publish.main(dry.argv()) == 0
+    capsys.readouterr()
+    for number, call in enumerate(dry.gh.calls(), start=1):
+        if call[1] in CHANGING_VERBS:
+            continue  # the write is itself the call: nothing can be read between the last read and it
+        world = build_scenario(tmp_path / f"meanwhile-{number}", monkeypatch, scenario)
+        world.gh.publish_meanwhile(number)
+        assert publish.main(world.argv()) in (0, 1), f"call {number} ({call[1]})"
+        capsys.readouterr()
+        assert world.gh.violations() == [], f"a write reached a release published at call {number} ({call[1]})"
+        assert world.gh.unexpected() == []
+
+
+def test_a_draft_that_is_published_before_the_upload_is_refused_with_its_own_reason(
+    publish, world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world.gh.publish_meanwhile(3)  # a fresh run: list, create, then the read before the upload
+    err = refused(publish, world.argv(), capsys, "not-a-draft")
+    assert TAG in err
+    assert "upload" not in verbs(world.gh)
+    assert world.gh.violations() == []
+
+
+def test_a_draft_that_is_deleted_before_the_upload_is_refused_with_its_own_reason_not_a_gh_failure(
+    publish, world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world.gh.delete_meanwhile(3)  # a fresh run: list, create, then the read before the upload finds no release
+    err = refused(publish, world.argv(), capsys, "not-a-draft")
+    assert TAG in err
+    assert "upload" not in verbs(world.gh)
+    assert world.gh.violations() == []
+
+
+@pytest.mark.parametrize("second_is_draft", [True, False])
+def test_two_releases_for_one_tag_are_refused_before_any_write(
+    publish, world: World, capsys: pytest.CaptureFixture[str], second_is_draft: bool
+) -> None:
+    world.gh.add_release(TAG, draft=True, assets=world.files())
+    world.gh.add_row(TAG, draft=second_is_draft)
+    err = refused(publish, world.argv(), capsys, "release-ambiguous")
+    assert TAG in err and "2 releases" in err
+    assert world.gh.writes() == []
+    clean(world.gh)
 
 
 # --- what is refused before any call is made -------------------------------------------------------------

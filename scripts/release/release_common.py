@@ -17,15 +17,26 @@ from pathlib import Path
 
 # A pre-release in the normal form of PEP 440: three numbers without leading zeros, then a, b or rc, then a
 # number. No `.dev`, `.post`, epoch or local part, so the file names `uv build` writes are predictable.
-VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(a|b|rc)(0|[1-9]\d*)$")
-FINAL_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+#
+# `\Z`, not `$`: `$` also matches before a trailing newline, and `re.ASCII` keeps `\d` to the digits 0-9.
+VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(a|b|rc)(0|[1-9]\d*)\Z", re.ASCII)
+FINAL_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\Z", re.ASCII)
 SECTION_RE = re.compile(r"^## \[(?P<version>[^\]]+)\] - (?P<date>\S+)\s*$")
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z", re.ASCII)
+REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SUMS_LIST = "SHA256SUMS"
 SUMS_SCRIPT = Path(__file__).with_name("sums.py")
+
+
+def printable(text: str) -> str:
+    """`text` for a log line: a character that is not printable (a newline, an escape) is spelled out.
+
+    A name that comes from inside an archive is data; printed raw, a newline in it would start a line of its
+    own in the public log, and a line that starts with `::` is a command to the runner.
+    """
+    return "".join(c if c.isprintable() else c.encode("unicode_escape").decode("ascii") for c in text)
 
 
 class Refusal(Exception):
@@ -38,8 +49,8 @@ class Refusal(Exception):
         self.change = change
 
     def line(self) -> str:
-        change = self.change.rstrip(".")
-        return f"refused [{self.id}]: {self.what.rstrip('.')}. {change[:1].upper()}{change[1:]}."
+        change = printable(self.change).rstrip(".")
+        return f"refused [{self.id}]: {printable(self.what).rstrip('.')}. {change[:1].upper()}{change[1:]}."
 
 
 def run_main(fn: Callable[[], int]) -> int:
@@ -50,7 +61,7 @@ def run_main(fn: Callable[[], int]) -> int:
         print(refusal.line(), file=sys.stderr)
         return 1
     except Exception as error:  # an unexpected failure is the script's, not a gate's
-        print(f"error: {type(error).__name__}: {error}", file=sys.stderr)
+        print(printable(f"error: {type(error).__name__}: {error}"), file=sys.stderr)
         return 2
 
 

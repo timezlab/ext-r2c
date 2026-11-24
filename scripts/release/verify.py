@@ -10,6 +10,8 @@ equal it. The script then writes nothing but the three files into DIR.
 from __future__ import annotations
 
 import argparse
+import http.client
+import math
 import sys
 import time
 import urllib.error
@@ -46,8 +48,8 @@ def positive(text: str) -> int:
 
 def not_negative(text: str) -> float:
     value = float(text)
-    if value < 0:
-        raise argparse.ArgumentTypeError("must be 0 or more")
+    if not math.isfinite(value) or value < 0:
+        raise argparse.ArgumentTypeError("must be a finite number, 0 or more")
     return value
 
 
@@ -73,9 +75,13 @@ def fetch(url: str, name: str) -> bytes:
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             data = response.read(LARGEST_FILE + 1)
+            promised = response.headers.get("Content-Length", "")
+        if promised.isdigit() and int(promised) <= LARGEST_FILE and len(data) != int(promised):
+            # `read(n)` hands over a short body without an error; it is a failed transfer, not a wrong file
+            raise Refusal(IDENT, f"could not download {name}: the body was cut off", "try again; a download that stops early is not a different file")
     except urllib.error.HTTPError as error:
         raise Refusal(IDENT, f"could not download {name}: HTTP {error.code}", "wait for the release to be public, or look at it on GitHub") from None
-    except (urllib.error.URLError, OSError) as error:
+    except (urllib.error.URLError, http.client.HTTPException, OSError) as error:  # a body cut off is an HTTPException
         raise Refusal(IDENT, f"could not download {name}: {getattr(error, 'reason', error)}", "check the address and try again") from None
     if len(data) > LARGEST_FILE:
         raise Refusal(IDENT, f"{name} is larger than {LARGEST_FILE // (1024 * 1024)} MiB", "a release file is far smaller than that")
@@ -96,7 +102,7 @@ def download(base: str, name: str, attempts: int, pause: float) -> bytes:
 def body(argv: list[str] | None) -> int:
     args = parse(argv)
     version = version_from_tag(args.tag)
-    base = args.base_url or base_url(args.repository, args.tag)
+    base = (args.base_url or base_url(args.repository, args.tag)).rstrip("/") + "/"
     args.dir.mkdir(parents=True, exist_ok=True)
     for name in (SUMS_LIST, wheel_name(version), sdist_name(version)):
         (args.dir / name).write_bytes(download(base, name, args.attempts, args.pause))

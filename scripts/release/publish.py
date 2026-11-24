@@ -103,8 +103,29 @@ def compare(read: Path, tested: dict[str, str], ident: str, where: str, change: 
 
 
 def state_of(gh: Gh, tag: str) -> dict | None:
-    rows = json.loads(gh("list", "--limit", "200", "--json", STATE_FIELDS))
-    return next((row for row in rows if row["tagName"] == tag), None)
+    """The one row GitHub lists for the tag, or None. Several rows (drafts may share a tag name) are not guessed at."""
+    rows = [row for row in json.loads(gh("list", "--limit", "200", "--json", STATE_FIELDS)) if row["tagName"] == tag]
+    if len(rows) > 1:
+        raise Refusal(
+            "release-ambiguous",
+            f"GitHub lists {len(rows)} releases for {tag}",
+            "delete the extra draft releases of that tag on GitHub, then run the job again",
+        )
+    return rows[0] if rows else None
+
+
+def change(gh: Gh, tag: str, verb: str, *args: str) -> str:
+    """A write to a release that exists. Its state is read just before, and it must still say draft: a draft that
+    someone published meanwhile (a click on the website) is never written to. The few milliseconds between that
+    read and the write are not closed; no `gh` call can close them (research R16)."""
+    row = state_of(gh, tag)
+    if row is None or not row["isDraft"]:
+        raise Refusal(
+            "not-a-draft",
+            f"{tag} is no longer a draft, so nothing more is written to it",
+            "look at the release on GitHub; a mistake in a published pre-release is fixed by the next number",
+        )
+    return gh(verb, tag, *args)
 
 
 def read_back(gh: Gh, tag: str, into: Path) -> None:
@@ -128,10 +149,10 @@ def prepare_draft(gh: Gh, tag: str, row: dict | None, notes: Path, wanted: list[
     if row is None:
         gh("create", tag, "--draft", "--prerelease", "--latest=false", "--verify-tag", "--title", tag, "--notes-file", str(notes))
         return
-    gh("edit", tag, "--notes-file", str(notes), "--prerelease", "--latest=false")
+    change(gh, tag, "edit", "--notes-file", str(notes), "--prerelease", "--latest=false")
     assets = json.loads(gh("view", tag, "--json", "assets"))["assets"]
     for stray in sorted(asset["name"] for asset in assets if asset["name"] not in wanted):
-        gh("delete-asset", tag, stray, "--yes")
+        change(gh, tag, "delete-asset", stray, "--yes")
 
 
 def body(argv: list[str] | None) -> int:
@@ -148,12 +169,12 @@ def body(argv: list[str] | None) -> int:
         return already_published(gh, args.tag, row, tested)
 
     prepare_draft(gh, args.tag, row, args.notes, wanted)
-    gh("upload", args.tag, *(str(args.dir / name) for name in wanted), "--clobber")
+    change(gh, args.tag, "upload", *(str(args.dir / name) for name in wanted), "--clobber")
     with tempfile.TemporaryDirectory() as folder:
         read_back(gh, args.tag, Path(folder))
         compare(Path(folder), tested, "upload-differs", "the draft", "run the job again; the draft is still unpublished")
 
-    gh("edit", args.tag, "--draft=false", "--prerelease", "--latest=false")
+    change(gh, args.tag, "edit", "--draft=false", "--prerelease", "--latest=false")
     after = state_of(gh, args.tag)
     if after is None or after["isDraft"] or not after["isPrerelease"]:
         raise Refusal(

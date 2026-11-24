@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from release_fixtures import DEFAULT_VERSION, changelog_text, load_script, make_repo
+from release_fixtures import DEFAULT_VERSION, changelog_text, load_script, make_repo, run_in_plain_locale
 
 TAG = f"v{DEFAULT_VERSION}"
 WHEEL = f"ext_r2c-{DEFAULT_VERSION}-py3-none-any.whl"
@@ -111,6 +111,16 @@ def test_a_missing_or_empty_part_is_refused(notes, tmp_path: Path, out: Path, ca
     }[case]
     root = make_repo(tmp_path / "repo", **kwargs)
     refused(notes, root, out, capsys, "notes")
+
+
+def test_the_notes_are_read_and_written_as_utf8_whatever_the_locale(tmp_path: Path) -> None:
+    """CHANGELOG.md holds characters outside ASCII (an ellipsis, a dash); a runner's locale must not matter."""
+    body = "- Added: the first release… and a dash — in one line\n"
+    root = make_repo(tmp_path / "repo", changelog=changelog_text(body=body))
+    out = tmp_path / "RELEASE_NOTES.md"
+    done = run_in_plain_locale("notes", "--repository", "owner/name", "--out", str(out), "--root", str(root))
+    assert done.returncode == 0, done.stderr
+    assert "… and a dash —" in out.read_bytes().decode("utf-8")
 
 
 def test_the_version_can_be_named_and_defaults_to_pyproject(notes, tmp_path: Path, out: Path) -> None:
