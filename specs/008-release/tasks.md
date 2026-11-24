@@ -384,9 +384,9 @@ first manual run on GitHub, and a report. The phase ends **before the tag**.
   Commit: `docs(008): close the release work, ready for the first tag`.
 - [X] T061 [P] Count what was built against the plan's scale line (files, tests, tasks) and the success
   criteria below; put the table in the notes.
-- [ ] T062 **[GO]** Ask the maintainer to push the commits of phases 4 to 6. After the go: `git push`; watch
+- [X] T062 **[GO]** Ask the maintainer to push the commits of phases 4 to 6. After the go: `git push`; watch
   the run of the final commit: `wheel / build`, three `wheel / checks`, `wheel / inspect` green.
-- [ ] T063 **[GO]** Ask the maintainer to start the manual run. After the go: record `git ls-remote --tags
+- [X] T063 **[GO]** Ask the maintainer to start the manual run. After the go: record `git ls-remote --tags
   origin | wc -l` and `gh release list | wc -l`; `gh workflow run release.yml --ref main`; watch it. Expected
   (SC-004, quickstart 6): `preflight` green with the three tag-bound checks said to be skipped, `wheel` green,
   `publish` and `verify` skipped, the build job's summary lists the wheel, the sdist and the sums, and the two
@@ -395,7 +395,7 @@ first manual run on GitHub, and a report. The phase ends **before the tag**.
 - [ ] T064 (optional, needs its own go) Red on purpose, one gate per scratch branch (quickstart 6): a version
   `0.1.0`, a renamed changelog section, a planted private-looking line in a test file, a failing test. Each
   run is red at the named gate and makes no public change; delete each branch afterwards.
-- [ ] T065 Report to the maintainer in Vietnamese: what exists, what was proven (and by which run), what is
+- [X] T065 Report to the maintainer in Vietnamese: what exists, what was proven (and by which run), what is
   **not** proven (the seven publishing calls and `verify` run for real only at the first tag; the wiring
   before the first push; the lint if it was not run), the reading check for SC-009, what the maintainer does
   next (their own private-token scan, then `docs/releasing.md`), and that **the tag `v0.1.0a1` is theirs to
@@ -800,3 +800,35 @@ deviation from the plan, each with its reason.)*
   `plan.md` is in `2880eab`. The row of the T061 table that says `WORKSTATE.md` was not yet updated is kept as
   written at the time; this note is its answer. The results of the push (T062) and of the manual run (T063) go
   into `WORKSTATE.md` and into these notes once they are seen.
+- **T062, the push (2026-11-24).** The maintainer's go was "handle nốt các task còn lại, push code". Before it:
+  0 local tags, 0 remote tags, 0 releases. `git push` sent seven commits, `6e2748d..0f12b21` (the six of phases
+  4 to 6 and the close documents of T060). The run of `0f12b21` (`python`, run 45397555463) is green on all five
+  jobs: `wheel / build`, `wheel / checks` on 3.11, 3.12 and 3.13, and `wheel / inspect`. This is the first time
+  `release.yml`, `publish.py`, `verify.py` and the fake-`gh` tests of phases 4 to 6 are on GitHub.
+- **T063, the manual run (2026-11-24).** Counts before: 0 remote tags, 0 releases. `gh workflow run release.yml
+  --ref main` started run 45398065112 (event `workflow_dispatch`, commit `0f12b21`). Result: `preflight` success,
+  `wheel / build`, `wheel / checks` (3.11, 3.12, 3.13) and `wheel / inspect` success, `publish` **skipped**,
+  `verify` **skipped**; the run is green. What the log shows:
+  - `preflight`: `skipped [tag-matches-version]: manual start`, `skipped [on-main]: manual start`, `skipped
+    [no-published-release]: manual start`, then `preflight ok: version 0.1.0a1` and `notes ok: 18436 bytes`
+    (the same 18436 bytes as the local build);
+  - `wheel / build`: `Successfully built` the sdist and the wheel; the wheel is `ext_r2c-0.1.0a1-py3-none-any.whl`,
+    183915 bytes, SHA-256 `81ff75f99471818bdbb90dbedf5c549a0d06afb75ffb61f664058621797a9fb2`, the same as in the
+    simulation of T059 and in the local build; the sdist is 503759 bytes, SHA-256
+    `04694845f5016dfd136dd1ecf048c3050c2d44bf06639506c5586ca1f532d96d`, also the same;
+  - two artifacts were uploaded, `dist` (the wheel, the sdist and `SHA256SUMS`) and `release-notes`;
+  - counts after: 0 remote tags, 0 releases. Nothing was made public (SC-004 holds for this run).
+
+  Two things this run does **not** show. The text of the build job's run summary (the lines `sums.py write
+  --summary` writes to `GITHUB_STEP_SUMMARY`) cannot be read through `gh` or the REST API; the step that writes
+  it is green and printed the same wheel and sdist lines into its log, and the summary code is tested, but nobody
+  has looked at the rendered page. And the seven publishing calls and `verify` did not run (`publish` and `verify`
+  are skipped by design): they run for real only at the first tag (D11). One finding about the tooling: `gh`
+  2.45 shows the log of the `preflight` job only with `gh run view --log`; the logs of the jobs inside the
+  reusable workflow come through `gh api repos/OWNER/REPO/actions/jobs/ID/logs`. The runbook's step for reading a
+  failed run should say so.
+- **T064 was not run.** It is optional and needs its own go. The wiring of each gate on a branch (a red
+  `0.1.0`, a renamed changelog section, a planted private-looking line, a failing test) is therefore proven only
+  by the tests of the scripts and of the workflow files, not by a red run on GitHub (SC-002).
+- **T065, the report.** Given in Vietnamese as the closing message of the session of 2026-11-24. Nothing was
+  tagged, nothing was released.

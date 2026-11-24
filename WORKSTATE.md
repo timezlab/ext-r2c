@@ -299,9 +299,13 @@ Last updated 2026-11-24. Read this first in a new session.
     written 2026-11-24** (`tasks.md`: 65 tasks in the six phases, 24 parallel; three `[GO]` tasks for the
     two pushes and the manual run).
     **Built 2026-11-24** on the maintainer's "triển khai hết spec", test first, one commit per phase;
-    phases 1–6 are done except the two pushes, the manual run and the report (T062–T065). Phase 1–3
-    (`b8d01de`, `02e19d5`, `6e2748d`) were pushed, CI green. Phases 4–6 are committed locally
-    (`07213ac`, `4427940`, `7e96501`, `e2e7669`, `ec3d1cc`, `2880eab`, then this note). What exists:
+    phases 1–6 are done and **pushed** (CI green on all five jobs at `0f12b21`). Phase 1–3 (`b8d01de`, `02e19d5`, `6e2748d`) were pushed first; phases 4–6 (`07213ac`,
+    `4427940`, `7e96501`, `e2e7669`, `ec3d1cc`, `2880eab`) and the close documents (`0f12b21`) on
+    the maintainer's go of 2026-11-24. **The manual run of `release.yml` was green** (run
+    45398065112, `workflow_dispatch`): `preflight` skipped the three tag-bound checks, `wheel`
+    built and tested the same bytes (wheel `81ff75f9…9fb2`, 183915 bytes), `publish` and `verify`
+    were skipped, and the count of tags and of releases stayed at 0. T064 (red on purpose, one gate
+    per scratch branch) was not run: it needs its own go. What exists:
     `.github/workflows/wheel.yml` (reusable: builds once, tests those bytes on 3.11, 3.12 and 3.13,
     inspects) called by `python.yml` and by `release.yml` (`preflight`, `wheel`, `publish` the only job
     with `contents: write`, `verify`); `scripts/release/` (stdlib only, outside the wheel; tested by
@@ -313,8 +317,10 @@ Last updated 2026-11-24. Read this first in a new session.
     first. **Open for the maintainer, not code:** the build toolchain (`uv`, `hatchling`) is unpinned,
     and a tag moved between the tests and `publish` is not caught; the answer is on GitHub's side (a
     tag ruleset for `v*`, an environment with a required reviewer on `publish`, immutable releases;
-    R16). **Not proven:** `release.yml` has never run on GitHub; the real `gh` calls and `verify` run
-    only at the first tag (D11); the workflows are not linted (plan point 1, default A); SC-009 (a
+    R16). **Not proven:** `release.yml` has run on GitHub only by hand, with `publish` and `verify`
+    skipped; the real `gh` calls of `publish` and `verify` run only at the first tag (D11); the
+    wiring of each gate on a red branch (T064) was not run; the workflows are not linted (plan
+    point 1, default A); the rendered run summary of the build job was not looked at; SC-009 (a
     first-time reader installs from the README) is for the maintainer to confirm. **The tag
     `v0.1.0a1` and the release are the maintainer's own separate go, never ours;** the steps are in
     `docs/releasing.md`, and the private-token scan (D5, runbook step 3) is the maintainer's to run first.

@@ -143,6 +143,10 @@ What else the build did not prove is listed in the plan's
 
 Nothing is public before the last call of `publish`, so a red run before it leaves nothing to withdraw.
 
+To read what a job printed, open the run's page. With `gh` 2.45, `gh run view RUN_ID --log` shows only the
+`preflight` job; the jobs inside the reusable workflow (`wheel / build`, `wheel / checks`) come through the API:
+list their ids with `gh run view RUN_ID --json jobs`, then `gh api repos/OWNER/REPO/actions/jobs/JOB_ID/logs`.
+
 - **A job failed for a reason outside the code** (a network error, a runner problem): re-run the failed jobs
   from the run's page, or `gh run rerun RUN_ID --failed`. A draft left behind by an earlier try is refreshed, not
   duplicated, and a release that is already public with the same bytes counts as success.
