@@ -832,3 +832,28 @@ deviation from the plan, each with its reason.)*
   by the tests of the scripts and of the workflow files, not by a red run on GitHub (SC-002).
 - **T065, the report.** Given in Vietnamese as the closing message of the session of 2026-11-24. Nothing was
   tagged, nothing was released.
+- **The first tag (2026-11-24, later in the same session, after T065).** The maintainer answered the report
+  with "2 việc đó bạn làm luôn", read as the two steps the report named for them: the private-token scan
+  (runbook step 3) and the tag. This is a separate go from the push and the manual run, and it is the
+  maintainer's, given in their own words. What was done, in the runbook's order:
+  - **Step 3.** The wheel and the sdist were rebuilt from `9ec15b4`, unpacked (260 files) and searched with the
+    maintainer's own pattern, kept outside the repository: 0 matching lines. A control line with a private-looking
+    path in a scratch file did match, so the pattern was working. The rebuilt files have the same SHA-256 as the
+    ones CI built (wheel `81ff75f9…9fb2`, sdist `04694845…d96d`).
+  - **Steps 4 and 5.** `main` equal to `origin/main` at `9ec15b4`; the run of that commit was green; a second
+    manual run (45400364380, on `9ec15b4`) was green with `publish` and `verify` skipped and 0 tags, 0 releases.
+  - **Step 6.** `git tag -a v0.1.0a1 -m "0.1.0a1"` on `9ec15b4` and `git push origin v0.1.0a1`.
+  - **Step 7.** The tag run (45400874510) was green on all eight jobs. In the log of `publish`: `published
+    v0.1.0a1: 3 files, pre-release`; in the log of `verify`: `verify ok: 0.1.0a1`, then the install of the public
+    wheel address and `installed 0.1.0a1`. `gh release view v0.1.0a1`: not a draft, a pre-release, three assets
+    (wheel 183915 bytes, sdist 503759 bytes, `SHA256SUMS` 188 bytes), the notes have `Status`, `Known limits` and
+    `Changes in 0.1.0a1`. Downloaded with no token, the three files pass `sha256sum -c SHA256SUMS` and are
+    byte-identical to the local build. The README's install line, run in a clean Python 3.12 venv with no
+    `--pre`, installed `ext-r2c 0.1.0a1` and imported `ext_r2c`, `ext_r2c.a2a`, `ext_r2c.mcp`,
+    `ext_r2c.bridges.langgraph` and `Remote`.
+  - **What this closes.** The seven publishing calls and `verify` have now run against GitHub for real (D11),
+    and SC-001, SC-003 and SC-004 hold on the real thing: a clean venv installs the example's dependencies from
+    one line; the tested bytes are the published bytes; the earlier manual runs made nothing public. **Still
+    open:** SC-002 on a red branch (T064), SC-009 (the maintainer's reading), the lint, and the two findings of
+    R16 (an unpinned toolchain, a tag moved after the tests), which are GitHub settings. The next release is
+    `0.1.0a2`; `0.1.0a1` is used up and never changed.

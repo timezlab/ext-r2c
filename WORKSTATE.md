@@ -317,15 +317,20 @@ Last updated 2026-11-24. Read this first in a new session.
     first. **Open for the maintainer, not code:** the build toolchain (`uv`, `hatchling`) is unpinned,
     and a tag moved between the tests and `publish` is not caught; the answer is on GitHub's side (a
     tag ruleset for `v*`, an environment with a required reviewer on `publish`, immutable releases;
-    R16). **Not proven:** `release.yml` has run on GitHub only by hand, with `publish` and `verify`
-    skipped; the real `gh` calls of `publish` and `verify` run only at the first tag (D11); the
-    wiring of each gate on a red branch (T064) was not run; the workflows are not linted (plan
-    point 1, default A); the rendered run summary of the build job was not looked at; SC-009 (a
-    first-time reader installs from the README) is for the maintainer to confirm. **The tag
-    `v0.1.0a1` and the release are the maintainer's own separate go, never ours;** the steps are in
-    `docs/releasing.md`, and the private-token scan (D5, runbook step 3) is the maintainer's to run first.
+    R16). **Released 2026-11-24:** on the maintainer's go ("2 việc đó bạn làm luôn": the private-token
+    scan of runbook step 3, then the tag), the scan of the built files was clean (0 lines, with a
+    control line that hit), a second manual run was green on `9ec15b4`, and the annotated tag
+    `v0.1.0a1` was pushed on `9ec15b4`. The tag run (45400874510) is green on all eight jobs, `publish`
+    and `verify` included. **`v0.1.0a1` is public as a pre-release** with three files
+    (`ext_r2c-0.1.0a1-py3-none-any.whl`, `ext_r2c-0.1.0a1.tar.gz`, `SHA256SUMS`); the files downloaded
+    with no token match `SHA256SUMS` and a local build byte for byte (wheel `81ff75f9…9fb2`), and the
+    README's install line works in a clean venv with no `--pre`. The number `0.1.0a1` is used up; a
+    mistake in it is fixed by `0.1.0a2` (runbook step 9). **Not proven:** the wiring of each gate on a
+    red branch (T064) was not run; the workflows are not linted (plan point 1, default A); the rendered
+    run summary of the build job was not looked at; SC-009 (a first-time reader installs from the
+    README) is for the maintainer to confirm; the first adopter has not yet used it.
 
-## Spec sequence (001–007 built and pushed; 008 built through phase 6, the tag waits for the maintainer; 009 onward proposed)
+## Spec sequence (001–008 built and pushed, `0.1.0a1` released as a GitHub pre-release; 009 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -373,10 +378,10 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    `A2AOptions` / `MCPOptions` for each door's deployment; build-time errors for a door with nothing
    to serve, something no door serves, or a missing extra. There is no `mcp_server=` (D3). Success
    criteria 1–5 of the brief, served by `Remote`, plus one agent through both doors in one process.
-8. **`008-release`** (built through phase 6 on 2026-11-24; the tag is the maintainer's) — the first pre-release `0.1.0a1`: a
+8. **`008-release`** (built, pushed and released 2026-11-24, tag `v0.1.0a1`) — the first pre-release `0.1.0a1`: a
    release job that builds the wheel and the sdist once, tests them on 3.11, 3.12 and 3.13, checks and
    scans them, and attaches them to a GitHub pre-release; release notes assembled from the repository;
-   a manual run that publishes nothing; no PyPI. Pushing the first tag is the maintainer's own go.
+   a manual run that publishes nothing; no PyPI. Pushing a tag is always the maintainer's own go.
 9. Later: bridges for other agent frameworks (Google ADK, OpenAI
    Agents SDK, Claude Agent SDK; the last one is a live-pause source), MCP Tasks for long agent
    runs over MCP, publishing to PyPI, a TypeScript SDK.
