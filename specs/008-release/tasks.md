@@ -376,13 +376,13 @@ first manual run on GitHub, and a report. The phase ends **before the tag**.
   shell or a path; can the write job run built code; what can a fork or a pull request reach; what the
   public log can show). Each finding is fixed test first or answered in `research.md` (R16); a finding about
   the first real run is added to the runbook.
-- [ ] T059 The whole gate on 3.11, 3.12 and 3.13: the verify list, the simulation of T032 again on the final
+- [X] T059 The whole gate on 3.11, 3.12 and 3.13: the verify list, the simulation of T032 again on the final
   files, and the leak scan over the whole diff since `06ff099` (must be 0).
 - [ ] T060 `WORKSTATE.md` (spec 008 built, waiting for the push and the tag), `ARCHITECTURE.md` if the review
   changed anything, `CHANGELOG.md` if it needs a line, and the memory of this project; a dated note in
   `plan.md` that the body is kept as planned and where the build differs (the deviations list below).
   Commit: `docs(008): close the release work, ready for the first tag`.
-- [ ] T061 [P] Count what was built against the plan's scale line (files, tests, tasks) and the success
+- [X] T061 [P] Count what was built against the plan's scale line (files, tests, tasks) and the success
   criteria below; put the table in the notes.
 - [ ] T062 **[GO]** Ask the maintainer to push the commits of phases 4 to 6. After the go: `git push`; watch
   the run of the final commit: `wheel / build`, three `wheel / checks`, `wheel / inspect` green.
@@ -751,3 +751,43 @@ deviation from the plan, each with its reason.)*
   of the changelog line by `\S+`, which cannot hold a newline, so `\Z` there is consistency, not a defence.
   Not proven: `release.yml` has never run on GitHub, and the real `gh` calls and `verify` run for real only at
   the first tag (D11).
+- **T059, the whole gate on the final files** (the fix commit `ec3d1cc`). The wheel was rebuilt and is
+  **byte for byte the one of phase 5**: `81ff75f9…9fb2`, 183915 bytes (nothing under `python/src/` changed);
+  the sdist is new, `04694845…d96d`, 503759 bytes (it carries the tests, and they changed; phase 5's was
+  497877). One verify loop at a time, in its own folders, against the installed wheel: **3234 passed, 0 failed**
+  on 3.11 (135 s), 3.12 (144 s) and 3.13 (148 s), exit code 0 each; the four single-extra scripts ok on all
+  three; `ruff check --select F` on `src`, `tests` and `scripts` is clean. The five scripts on that build, run
+  the way the workflow runs them: `sums` writes and checks 2 files; `content` ok `0.1.0a1`; `scan` reads 74
+  files of the wheel and 186 of the sdist, **0 hits**; `preflight --event workflow_dispatch` ok (the three
+  tag-bound checks said to be skipped); `notes` writes 18436 bytes. **The T032 simulation again** (the `run:`
+  steps of `wheel.yml` as GitHub runs them, in fresh copies of the tree): `build` green, the three legs green
+  (3234 passed each, 136 s, 147 s and 126 s) with the same wheel checksum `81ff75f9…9fb2` on each and
+  `adopter path: ok` at the end of each, and `inspect` green. The leak scan over the whole diff
+  `06ff099..HEAD` is **0 hits**, and `git diff 06ff099 -- python/src standard` is **0 lines** (SC-010). The
+  first attempt of one command in the chain ran the scripts with `python3 -I`, which drops the script's own
+  folder from the import path, so the sibling import failed; the workflow does not use `-I` for them, and the
+  rerun without it is the one reported. Nothing of this has run on GitHub: the commits of phases 4 to 6 are
+  local (`origin/main` is at `6e2748d`), no tag exists, no release exists.
+- **T061, what was built against the plan's scale line.**
+
+  | Plan | Built |
+  |---|---|
+  | 3 workflow files (2 new, 1 reduced) | 3: `wheel.yml` and `release.yml` new, `python.yml` reduced to one job that calls `wheel.yml` |
+  | 9 files in `scripts/release/` (8 scripts and the status block) | 9: `release_common`, `preflight`, `sums`, `content`, `scan`, `notes`, `publish`, `verify` and `status-block.md` |
+  | 10 test files and 2 helpers in `python/tests/` | 10 `test_release_*.py` files and 2 helpers (`release_fakes.py`, `release_fixtures.py`); 388 release tests (315 before the review), 3234 in the whole suite |
+  | 1 CI script (`adopter_path.py`) | 1 |
+  | 2 new documents | 2: `docs/known-limits.md`, `docs/releasing.md` |
+  | 8 edited documents | 7 documents (the root README, the Python README, the example README, `AGENTS.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, and `WORKSTATE.md` once, for the tasks) plus `python/pyproject.toml` and `.gitignore`; `WORKSTATE.md` is **not yet updated for the close** (see T060) |
+  | one release of 3 assets | none made; the three files exist as a build only |
+
+  | Success criterion | Where it stands |
+  |---|---|
+  | SC-001 a clean venv, one line, the example | the adopter's path is green in CI (phase 3) and in the simulation; the public address works only after a real release, where `verify` is the proof |
+  | SC-002 each gate refuses what it names | every script gate is tested, and the mutation checks of phases 1 to 6 killed their mutants; **the wiring on a branch (T064, red on purpose) was not run** |
+  | SC-003 the tested bytes are the published bytes | one build, one checksum on every leg (seen on GitHub in phase 3 and in the simulation), compared again against the draft's download (tested against the fake `gh`) and the public download (tested against a local server) |
+  | SC-004 the manual run makes nothing public | **waits for T063** (the maintainer's go) |
+  | SC-005 the workflow rules as data | the workflow tests are green, with time limits added in phase 6 |
+  | SC-006, SC-007 the scan is generic and prints only a file, a category and a count | tested with a planted hit per category and per boundary shape; 0 hits on the real build |
+  | SC-008, SC-011 the README addresses are the wheel's | tested against the installed wheel; green |
+  | SC-009 the reading check | done in T056; **for the maintainer to confirm** |
+  | SC-010 nothing under `python/src/` or `standard/` changes | 0 lines of diff since `06ff099` |

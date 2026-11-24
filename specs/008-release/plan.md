@@ -289,3 +289,17 @@ any can be reversed before its phase.
   R9.
 - The first tag is not pushed by this spec's work, and no release is created. A tag, a release and a push
   are each the maintainer's own go.
+
+*Note, 2026-11-24 (phase 6): the body above is kept as planned. Where the build differs, and why:* (1) the
+known-limits links resolve to a file and a heading in the repository, not only to `python/README.md`, because
+some limits have their detail in the example's README, in the standard or in a paragraph of `## Remote` (tasks,
+phase 2), and the scan holds its home-directory prefix as two pieces, because the commit's own scan refuses the
+whole (phase 2); (2) the adopter's path is shown failing in a venv with pytest installed and in a venv without
+the `langgraph` extra, not in a venv without `uvicorn`, because `mcp` always installs it (tasks, phase 3); (3) the
+outside review of phase 6 changed the publishing script, which now reads the release's state right before every
+write to a release that exists (`not-a-draft`, `release-ambiguous`; R3's note), added a time limit to every job
+that runs steps (a job that calls a workflow cannot have one), made `verify` retry a cut-off or short body, and
+made the scan boundary-aware and bounded; none of it changes the job graph, the permissions or the call table.
+Two findings are open for the maintainer and are not code: the build toolchain is not pinned, and a tag moved
+between the tests and `publish` is not caught (research R16, R15 item 6). The full account is in `research.md`
+R16 and in the notes of `tasks.md`.
