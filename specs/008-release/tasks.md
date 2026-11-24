@@ -378,7 +378,7 @@ first manual run on GitHub, and a report. The phase ends **before the tag**.
   the first real run is added to the runbook.
 - [X] T059 The whole gate on 3.11, 3.12 and 3.13: the verify list, the simulation of T032 again on the final
   files, and the leak scan over the whole diff since `06ff099` (must be 0).
-- [ ] T060 `WORKSTATE.md` (spec 008 built, waiting for the push and the tag), `ARCHITECTURE.md` if the review
+- [X] T060 `WORKSTATE.md` (spec 008 built, waiting for the push and the tag), `ARCHITECTURE.md` if the review
   changed anything, `CHANGELOG.md` if it needs a line, and the memory of this project; a dated note in
   `plan.md` that the body is kept as planned and where the build differs (the deviations list below).
   Commit: `docs(008): close the release work, ready for the first tag`.
@@ -791,3 +791,12 @@ deviation from the plan, each with its reason.)*
   | SC-008, SC-011 the README addresses are the wheel's | tested against the installed wheel; green |
   | SC-009 the reading check | done in T056; **for the maintainer to confirm** |
   | SC-010 nothing under `python/src/` or `standard/` changes | 0 lines of diff since `06ff099` |
+
+- **T060, the close documents (2026-11-24).** The maintainer asked for the remaining tasks and the push
+  ("handle nốt các task còn lại, push code"), which lifts the earlier hold on `WORKSTATE.md`: it now has the
+  date, the spec 008 bullet (what was built, what is proven, what is not, the two open findings, the tag as the
+  maintainer's own go), the section header and sequence item 8. `ARCHITECTURE.md` and `CHANGELOG.md` needed no
+  change after the review (the layout and the `0.1.0a1` section were already right). The dated note in
+  `plan.md` is in `2880eab`. The row of the T061 table that says `WORKSTATE.md` was not yet updated is kept as
+  written at the time; this note is its answer. The results of the push (T062) and of the manual run (T063) go
+  into `WORKSTATE.md` and into these notes once they are seen.

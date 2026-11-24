@@ -1,6 +1,6 @@
 # Work state
 
-Last updated 2026-11-23. Read this first in a new session.
+Last updated 2026-11-24. Read this first in a new session.
 
 ## Done
 
@@ -297,10 +297,29 @@ Last updated 2026-11-23. Read this first in a new session.
     Five points for the maintainer are in the plan (lint of the workflows, the scan also in CI, pinning CI
     to commit SHAs, the order of the first pushes, the README naming a release before its tag). **Tasks
     written 2026-11-24** (`tasks.md`: 65 tasks in the six phases, 24 parallel; three `[GO]` tasks for the
-    two pushes and the manual run). No workflow, no script, no tag yet; `/speckit-implement` needs the
-    maintainer's go, one phase per go.
+    two pushes and the manual run).
+    **Built 2026-11-24** on the maintainer's "triển khai hết spec", test first, one commit per phase;
+    phases 1–6 are done except the two pushes, the manual run and the report (T062–T065). Phase 1–3
+    (`b8d01de`, `02e19d5`, `6e2748d`) were pushed, CI green. Phases 4–6 are committed locally
+    (`07213ac`, `4427940`, `7e96501`, `e2e7669`, `ec3d1cc`, `2880eab`, then this note). What exists:
+    `.github/workflows/wheel.yml` (reusable: builds once, tests those bytes on 3.11, 3.12 and 3.13,
+    inspects) called by `python.yml` and by `release.yml` (`preflight`, `wheel`, `publish` the only job
+    with `contents: write`, `verify`); `scripts/release/` (stdlib only, outside the wheel; tested by
+    path with a fake `gh` that refuses any call outside research R3); `docs/releasing.md` (the
+    runbook), `docs/known-limits.md`; version `0.1.0a1`, README install lines tied to the wheel's
+    name by a test. Nothing under `python/src/` or `standard/` changed. **3234 tests pass on 3.11,
+    3.12 and 3.13**; the wheel is byte-identical on every simulated leg. The outside review (a code and
+    a security reviewer, 24 findings, none critical) is research R16; what was acted on is fixed test
+    first. **Open for the maintainer, not code:** the build toolchain (`uv`, `hatchling`) is unpinned,
+    and a tag moved between the tests and `publish` is not caught; the answer is on GitHub's side (a
+    tag ruleset for `v*`, an environment with a required reviewer on `publish`, immutable releases;
+    R16). **Not proven:** `release.yml` has never run on GitHub; the real `gh` calls and `verify` run
+    only at the first tag (D11); the workflows are not linted (plan point 1, default A); SC-009 (a
+    first-time reader installs from the README) is for the maintainer to confirm. **The tag
+    `v0.1.0a1` and the release are the maintainer's own separate go, never ours;** the steps are in
+    `docs/releasing.md`, and the private-token scan (D5, runbook step 3) is the maintainer's to run first.
 
-## Spec sequence (001–007 built and pushed; 008 approved, planned and tasked, waiting for the go to implement; 009 onward proposed)
+## Spec sequence (001–007 built and pushed; 008 built through phase 6, the tag waits for the maintainer; 009 onward proposed)
 
 Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one phase per go).
@@ -348,7 +367,7 @@ Each is one Spec Kit feature (`/speckit-specify` → `/speckit-plan` → `/speck
    `A2AOptions` / `MCPOptions` for each door's deployment; build-time errors for a door with nothing
    to serve, something no door serves, or a missing extra. There is no `mcp_server=` (D3). Success
    criteria 1–5 of the brief, served by `Remote`, plus one agent through both doors in one process.
-8. **`008-release`** (spec approved, plan and tasks written 2026-11-24) — the first pre-release `0.1.0a1`: a
+8. **`008-release`** (built through phase 6 on 2026-11-24; the tag is the maintainer's) — the first pre-release `0.1.0a1`: a
    release job that builds the wheel and the sdist once, tests them on 3.11, 3.12 and 3.13, checks and
    scans them, and attaches them to a GitHub pre-release; release notes assembled from the repository;
    a manual run that publishes nothing; no PyPI. Pushing the first tag is the maintainer's own go.
