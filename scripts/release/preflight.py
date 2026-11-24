@@ -9,12 +9,12 @@ says which three it skipped. Nothing here writes a file, a tag or a release.
 from __future__ import annotations
 
 import argparse
-import re
 import subprocess
 import sys
 from pathlib import Path
 
 from release_common import (
+    REPOSITORY_RE,
     REPOSITORY_ROOT,
     Refusal,
     changelog_section,
@@ -24,7 +24,6 @@ from release_common import (
     tag_for,
 )
 
-REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 REAL, MANUAL = "push", "workflow_dispatch"
 
 

@@ -4,7 +4,8 @@ They are not run here: the rules that keep a workflow that may one day hold writ
 that makes CI and the release run one definition of the checks, are asserted on the parsed YAML. The tests
 read every file under `.github/workflows/`, so a file added later is held to the same rules.
 
-Section 1 (this phase): the rules for every file, `wheel.yml` and `python.yml`.
+Section 1: the rules for every file, `wheel.yml` and `python.yml`.
+Section 2: `release.yml`, the one job that may write and what it may not hold.
 """
 
 from __future__ import annotations
@@ -288,3 +289,135 @@ def test_ci_is_one_job_that_calls_wheel_yml_and_nothing_else() -> None:
     assert job["uses"] == "./.github/workflows/wheel.yml"
     assert set(job) <= {"name", "uses", "permissions"}
     assert job["permissions"] == {"contents": "read"}
+
+
+# --- release.yml: the job that may write (section 2) ----------------------------------------------------------
+
+ENV_VALUES = {
+    "EVENT": "${{ github.event_name }}",
+    "REF_TYPE": "${{ github.ref_type }}",
+    "TAG": "${{ github.ref_name }}",
+    "SHA": "${{ github.sha }}",
+    "REPOSITORY": "${{ github.repository }}",
+}
+NOT_IN_THE_WRITING_JOB = [r"setup-uv", r"\bpip\b", r"\buv\b", r"python3?\s+-m\b", r"python3?\s+-c\b", r"\bimport\b", r"\binstall\b"]
+
+
+def release_jobs() -> dict[str, Any]:
+    return workflow("release.yml")["jobs"]
+
+
+def needs(job: dict[str, Any]) -> list[str]:
+    found = job.get("needs", [])
+    return [found] if isinstance(found, str) else sorted(found)
+
+
+def script_of(job: dict[str, Any], marker: str) -> str:
+    return next(script for script in runs(job) if marker in script)
+
+
+def test_release_yml_starts_on_a_tag_push_or_a_manual_start_and_on_nothing_else() -> None:
+    assert triggers(workflow("release.yml")) == {"push": {"tags": ["v*"]}, "workflow_dispatch": None}
+
+
+def test_the_four_jobs_and_what_each_waits_for() -> None:
+    jobs = release_jobs()
+    assert list(jobs) == ["preflight", "wheel", "publish", "verify"]
+    assert [needs(jobs[j]) for j in jobs] == [[], ["preflight"], ["preflight", "wheel"], ["publish"]]
+
+
+def test_publish_and_verify_run_for_a_tag_push_and_never_for_a_manual_start() -> None:
+    jobs = release_jobs()
+    for job_id in ("publish", "verify"):
+        assert jobs[job_id]["if"] == "github.event_name == 'push'", job_id
+    for job_id in ("preflight", "wheel"):
+        assert "if" not in jobs[job_id], f"{job_id} runs on a manual start too"
+
+
+def test_a_release_is_never_cancelled_by_another_run() -> None:
+    assert workflow("release.yml")["concurrency"] == {"group": "release-${{ github.ref }}", "cancel-in-progress": False}
+
+
+def test_exactly_one_job_may_write_and_it_is_publish() -> None:
+    jobs = release_jobs()
+    assert [j for j, job in jobs.items() if job.get("permissions", {}).get("contents") == "write"] == ["publish"]
+    assert workflow_text("release.yml").count("contents: write") == 1
+    for job_id in ("preflight", "wheel", "verify"):
+        assert jobs[job_id]["permissions"] == {"contents": "read"}, job_id
+
+
+def workflow_text(name: str) -> str:
+    return (WORKFLOWS / name).read_text()
+
+
+def test_the_writing_job_installs_nothing_and_runs_only_the_publishing_script() -> None:
+    publish = release_jobs()["publish"]
+    everything = yaml.safe_dump(publish["steps"])
+    for pattern in NOT_IN_THE_WRITING_JOB:
+        assert not re.search(pattern, everything), f"publish must not hold {pattern!r}"
+    assert len(runs(publish)) == 1 and runs(publish)[0].startswith("python3 scripts/release/publish.py")
+    assert not re.search(r"python3?\s+\S*dist", runs(publish)[0]), "no file of the build is passed to an interpreter"
+    actions = [step["uses"].split("@")[0] for step in steps(publish) if "uses" in step]
+    assert actions == ["actions/checkout", "actions/download-artifact", "actions/download-artifact"]
+    downloaded = {step["with"]["name"] for step in steps(publish) if step.get("uses", "").startswith("actions/download-artifact@")}
+    assert downloaded == {"dist", "release-notes"}
+
+
+def test_publish_gets_the_values_it_needs_through_env_and_calls_the_script_with_them() -> None:
+    script = runs(release_jobs()["publish"])[0]
+    assert script.strip() == (
+        'python3 scripts/release/publish.py --tag "$TAG" --repository "$REPOSITORY" '
+        "--dir dist --notes release-notes/RELEASE_NOTES.md"
+    )
+
+
+def test_the_token_is_the_workflows_own_and_reaches_only_preflight_and_publish() -> None:
+    jobs = release_jobs()
+    for job_id in ("preflight", "publish"):
+        assert any(step.get("env", {}).get("GH_TOKEN") == "${{ github.token }}" for step in steps(jobs[job_id])), job_id
+    for job_id in ("wheel", "verify"):
+        assert "GH_TOKEN" not in yaml.safe_dump(jobs[job_id]), f"{job_id} must not hold a token"
+    for key, value in walk(workflow("release.yml")):
+        if "TOKEN" in key.upper():
+            assert value == "${{ github.token }}", key
+
+
+def test_each_value_comes_from_the_github_context_through_env_only() -> None:
+    seen = set()
+    for key, value in walk(workflow("release.yml")):
+        if key in ENV_VALUES:
+            assert value == ENV_VALUES[key], key
+            seen.add(key)
+    assert seen == set(ENV_VALUES)
+
+
+def test_preflight_runs_first_with_the_whole_history_then_writes_and_uploads_the_notes() -> None:
+    preflight = release_jobs()["preflight"]
+    checkout = next(step for step in steps(preflight) if step.get("uses", "").startswith("actions/checkout@"))
+    assert checkout["with"]["fetch-depth"] == 0
+    gate = script_of(preflight, "preflight.py")
+    assert gate.strip() == (
+        'python3 scripts/release/preflight.py --event "$EVENT" --ref-type "$REF_TYPE" --tag "$TAG" '
+        '--sha "$SHA" --repository "$REPOSITORY"'
+    )
+    scripts = "\n".join(runs(preflight))
+    assert scripts.index("preflight.py") < scripts.index("notes.py")
+    assert 'notes.py --repository "$REPOSITORY" --out release-notes/RELEASE_NOTES.md' in scripts
+    assert "$GITHUB_STEP_SUMMARY" in scripts
+    upload = next(step for step in steps(preflight) if step.get("uses", "").startswith("actions/upload-artifact@"))
+    assert upload["with"]["name"] == "release-notes" and upload["with"]["if-no-files-found"] == "error"
+
+
+def test_the_release_runs_the_one_definition_of_the_checks() -> None:
+    wheel = release_jobs()["wheel"]
+    assert wheel["uses"] == "./.github/workflows/wheel.yml"
+    assert set(wheel) <= {"name", "uses", "needs", "permissions"}
+
+
+def test_verify_reads_the_public_files_without_a_token_and_installs_the_address_in_a_clean_venv() -> None:
+    verify = release_jobs()["verify"]
+    scripts = "\n".join(runs(verify))
+    assert 'verify.py --tag "$TAG" --repository "$REPOSITORY" --dir public' in scripts
+    assert "uv venv" in scripts and "ext-r2c[a2a,mcp,langgraph] @ $ADDRESS" in scripts
+    assert "ext_r2c.__version__" in scripts and "from ext_r2c import Remote" in scripts
+    assert scripts.index("verify.py") < scripts.index("uv pip install")

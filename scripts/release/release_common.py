@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime
 import re
+import subprocess
 import sys
 import tomllib
 from collections.abc import Callable
@@ -20,8 +21,11 @@ VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(a|b|rc)(0|[1
 FINAL_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 SECTION_RE = re.compile(r"^## \[(?P<version>[^\]]+)\] - (?P<date>\S+)\s*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SUMS_LIST = "SHA256SUMS"
+SUMS_SCRIPT = Path(__file__).with_name("sums.py")
 
 
 class Refusal(Exception):
@@ -75,6 +79,38 @@ def read_version(root: Path) -> str:
 
 def tag_for(version: str) -> str:
     return f"v{version}"
+
+
+def version_from_tag(tag: str) -> str:
+    """The version a tag names: `v` and a normal-form pre-release; anything else is refused, before any call."""
+    if not tag.startswith("v"):
+        raise Refusal(
+            "version-grammar",
+            f"the tag {tag!r} does not start with v",
+            "name it v and the version, for example v0.1.0a1",
+        )
+    return check_version(tag[1:])
+
+
+def check_sums(folder: Path, ident: str = "sums") -> None:
+    """Run `sums.py check` on `folder`; a refusal of it is raised again under `ident`.
+
+    The script is run, not imported: this module is the only one the others import (contracts/scripts.md).
+    """
+    done = subprocess.run(
+        [sys.executable, str(SUMS_SCRIPT), "check", "--dir", str(folder)],
+        capture_output=True,
+        text=True,
+    )
+    if done.returncode == 0:
+        return
+    lines = done.stderr.strip().splitlines()
+    last = lines[-1] if lines else ""
+    prefix = "refused [sums]: "
+    if done.returncode == 1 and last.startswith(prefix):
+        what, _, change = last.removeprefix(prefix).partition(". ")
+        raise Refusal(ident, what, change or f"write {SUMS_LIST} again")
+    raise Refusal(ident, f"the check of {SUMS_LIST} could not run", last or "run sums.py check by hand")
 
 
 def wheel_name(version: str) -> str:

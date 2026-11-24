@@ -21,6 +21,11 @@ Plain Python, standard library only, Python 3.11 to 3.13, no import from `ext_r2
 - `release_common.py` is the only module the others import (`Refusal(id, what, change)`, the version and tag
   grammar, `read_version(root)`, `changelog_section(text, version)`, `wheel_name(version)`,
   `sdist_name(version)`, `address(repository, version)`, and `run_main(fn)` which maps `Refusal` to exit 1).
+  *Added while implementing phase 4 (2026-11-24):* `REPOSITORY_RE` (the `OWNER/NAME` check, moved here from
+  `preflight.py` and `notes.py`), `version_from_tag(tag)` (a tag is `v` and a normal-form pre-release, else
+  `version-grammar` or `prerelease-only`), and `check_sums(folder, ident)`, which **runs** `sums.py check` and
+  raises its refusal again under `ident` (so `publish.py` says `sums` and `verify.py` says `public-differs`,
+  and `sums.py` stays the only place that reads the list).
 
 ## `preflight.py`
 
@@ -124,10 +129,18 @@ of research R3, in that order, and uses `--repo OWNER/NAME` on every call. Expec
 
 | Id | Refuses when |
 |---|---|
-| `unexpected-files` | `DIR` does not hold exactly the three names |
+| `version-grammar`, `prerelease-only` | the tag is not `v` and a normal-form pre-release (refused before any call) |
+| `unexpected-files` | `DIR` does not hold exactly the three names, or holds anything else, a folder or a hidden file included (refused before any call) |
+| `sums` | a file of `DIR` no longer equals `SHA256SUMS` (refused before any call) |
 | `upload-differs` | after the upload, the files read back from the draft are not exactly the three names with the recorded SHA-256 (stops before the publishing call; the draft stays) |
-| `published-differs` | a published release exists and an asset differs or is missing (nothing is written) |
+| `published-differs` | a published release exists and an asset differs or is missing or is extra, or it is not marked pre-release (nothing is written) |
+| `not-public` | after the publishing call, the state read again does not say published, pre-release, not draft |
 | `gh` | a `gh` call fails (its standard error is passed on and the script stops; it makes no further call) |
+
+The calls, in order. A new release: `list`, `create`, `upload`, `download`, `edit --draft=false`, `list`. A
+leftover draft: `list`, `edit` (this run's notes), `view`, one `delete-asset` per stray, `upload`, `download`,
+`edit --draft=false`, `list`. A published release: `list`, `download`, and no write. The download goes to a
+clean temporary folder, never to `DIR`, which is only read.
 
 A published release whose assets all equal the recorded sums is **success with no writes**. The publishing
 call (`gh release edit --draft=false`) is the last call of a normal run, and the script reads the state
@@ -138,13 +151,18 @@ that changes a tag.
 ## `verify.py`
 
 ```text
-verify.py --tag TAG --repository OWNER/NAME --dir DIR
+verify.py --tag TAG --repository OWNER/NAME --dir DIR [--base-url URL] [--attempts N] [--pause SECONDS]
 ```
 
-Downloads `SHA256SUMS` and the wheel from
+Downloads `SHA256SUMS`, the wheel and the sdist from
 `https://github.com/OWNER/NAME/releases/download/TAG/` with `urllib` and **no `Authorization` header** into
-`DIR`, checks the wheel's SHA-256 against the downloaded `SHA256SUMS` and the sdist's against it too, and
-refuses with `public-differs` on any difference or a failed download. The workflow then installs the line
+`DIR` (and writes nothing else there), checks both archives against the downloaded `SHA256SUMS` (it runs
+`sums.py check` on `DIR`), and refuses with `public-differs` on any difference or a failed download (the
+refusal names the file and the HTTP status, never what was read). A download that fails is asked again up to
+`--attempts` times (default 1) with `--pause` seconds between (default 10); the workflow passes 6 and 10 so a
+release that is a moment late is not a failure. `--base-url` (an `http://` or `https://` address; anything
+else is misuse) replaces the GitHub address, for the tests' local server. The tag is checked first
+(`version-grammar`, `prerelease-only`), before any request. The workflow then installs the line
 `ext-r2c[a2a,mcp,langgraph] @ <address>` into a clean venv and asserts `ext_r2c.__version__` equals V.
 
 ## `adopter_path.py` (in `python/tests/`, run by CI)

@@ -264,11 +264,11 @@ published file" are tested against a fake `gh`; the workflow's permission rules 
 **Independent test**: `tests/test_release_publish.py`, `tests/test_release_verify.py`,
 `tests/test_release_workflows.py`, section 2.
 
-- [ ] T038 [P] [US2] Extend `tests/release_fakes.py` with the table of research R3 (`release list --json`,
+- [X] T038 [P] [US2] Extend `tests/release_fakes.py` with the table of research R3 (`release list --json`,
   `create`, `edit`, `view --json assets`, `delete-asset`, `upload --clobber`, `download --pattern --dir`),
   a state that mirrors drafts and published releases, a switch to fail at call N, a switch to return altered
   bytes on download, and the log of calls. Any call outside the table exits non-zero and is logged.
-- [ ] T039 [P] [US2] `tests/test_release_publish.py`, written to fail: a fresh run creates a draft
+- [X] T039 [P] [US2] `tests/test_release_publish.py`, written to fail: a fresh run creates a draft
   (pre-release, not latest, `--verify-tag`), uploads the three files, reads them back and publishes **last**;
   a leftover draft with a stray asset has it removed; a leftover draft with the three files equal is
   uploaded again and published; an upload that comes back different stops with `upload-differs` and the log
@@ -278,31 +278,31 @@ published file" are tested against a fake `gh`; the workflow's permission rules 
   `unexpected-files`; a `gh` failure at **each** call index ends non-zero with no public release; `--repo`
   is on every call; the script reads the state again after publishing and requires published, pre-release,
   not draft; no call outside the table is ever made.
-- [ ] T040 [P] [US2] `tests/test_release_verify.py`, written to fail: a local HTTP server on `127.0.0.1`
+- [X] T040 [P] [US2] `tests/test_release_verify.py`, written to fail: a local HTTP server on `127.0.0.1`
   serves the three files; equal bytes pass; an altered wheel or sdist is `public-differs`; a `404` is
   `public-differs`; **the server records no `Authorization` header**. The script takes a `--base-url` for
   this (a test seam; the default is the GitHub address). Add that option to
   [contracts/scripts.md](contracts/scripts.md) in the same commit.
-- [ ] T041 [P] [US2] `tests/test_release_workflows.py`, section 2, written to fail: `release.yml`'s triggers
+- [X] T041 [P] [US2] `tests/test_release_workflows.py`, section 2, written to fail: `release.yml`'s triggers
   are exactly a push of tags `v*` and a manual start; no `pull_request`; exactly one job has `contents:
   write` and it is `publish`; its steps hold none of `setup-uv`, `pip`, `uv`, `python -m`, `python -c`,
   `import` or an `install`; the `needs` of each job and the `if` of `publish` and `verify` are those of the
   contract; `concurrency` has `cancel-in-progress: false`; `GH_TOKEN` is `${{ github.token }}` in `preflight`
   and `publish` and absent from `verify`; `wheel` calls `./.github/workflows/wheel.yml`; no `secrets`.
-- [ ] T042 Run T039–T041: each fails because the script or the workflow does not exist, and for no other
+- [X] T042 Run T039–T041: each fails because the script or the workflow does not exist, and for no other
   reason. Write the failure lines in the notes.
-- [ ] T043 [US2] `scripts/release/publish.py` per the contract and research R3 until T039 passes.
-- [ ] T044 [P] [US2] `scripts/release/verify.py` until T040 passes.
-- [ ] T045 [US2] `.github/workflows/release.yml` per the contract, until T041 passes.
-- [ ] T046 [US2] Lint if allowed, as T033; otherwise note it again.
-- [ ] T047 [US2] Mutation check: add a `pip install` step to `publish`, add a `pull_request` trigger, set
+- [X] T043 [US2] `scripts/release/publish.py` per the contract and research R3 until T039 passes.
+- [X] T044 [P] [US2] `scripts/release/verify.py` until T040 passes.
+- [X] T045 [US2] `.github/workflows/release.yml` per the contract, until T041 passes.
+- [X] T046 [US2] Lint if allowed, as T033; otherwise note it again.
+- [X] T047 [US2] Mutation check: add a `pip install` step to `publish`, add a `pull_request` trigger, set
   `cancel-in-progress: true`, give `verify` a `GH_TOKEN` (each makes a named workflow test fail); in
   `publish.py` publish before the compare, call `gh release delete`, and replace a published file (each
   makes a named publish test fail); restore.
-- [ ] T048 [US4] Read the workflow once as a manual start: list, by job, what runs and what is skipped, and
+- [X] T048 [US4] Read the workflow once as a manual start: list, by job, what runs and what is skipped, and
   confirm from the YAML (and by T041) that nothing in a manual start can write (`publish` and `verify` are
   skipped by `event_name`, `preflight` runs `--event workflow_dispatch`). Write the list in the notes.
-- [ ] T049 Verify and commit: `feat(008): the release job, the publishing script and the public check`.
+- [X] T049 Verify and commit: `feat(008): the release job, the publishing script and the public check`.
 
 **Checkpoint**: the release job exists and is tested as far as it can be before it runs. It has not run.
 
@@ -584,3 +584,72 @@ deviation from the plan, each with its reason.)*
   - `wheel / inspect`: `sums ok: 2 files`, `content ok: 0.0.1`, `scan ok: 258 files, 0 hits`.
   - Nothing was red, so no fix commit was needed. The local simulation of T032 predicted these lines, but the
     `uses:` steps (checkout, setup-uv, the artifact upload and download) had never run before this run.
+
+### Phase 4 (2026-11-24)
+
+- **T038, the fake `gh`.** `release_fakes.py` now implements exactly the table of research R3, flags included, and
+  answers any other call with exit status 99 (logged as unexpected). A write to a published release (an edit,
+  an upload, a deleted asset) answers 98 and is logged as a violation, so a script that tries it fails visibly
+  and a test can assert there were none. Switches: fail at call N, return altered bytes on download, lose a file
+  on upload, make the publishing call do nothing. The earlier preflight and common tests pass with it.
+- **T042, red.** Before any script or workflow existed: `test_release_publish.py` 32 errors, every one
+  `ModuleNotFoundError: No module named 'publish'`; `test_release_verify.py` 18 errors, every one `No module
+  named 'verify'`; `test_release_workflows.py` 12 failed, 33 passed and 1 skipped, every one of the 12 failing
+  with "release.yml is missing" (counted again with the file set aside, 12 of 12). The skip is the old
+  `release.yml` skip; it is gone now that the file exists. None of the 62 is an error in a test.
+- **T043–T045, green.** `publish.py`: 32 of 32 on the first run. `verify.py`: 18 of 18. `release.yml`: the
+  workflow tests 55 of 55 with no skip.
+- **What was added to the contract while writing.** `release_common.py` gained `REPOSITORY_RE` (moved from
+  `preflight.py` and `notes.py`, which now import it), `version_from_tag` and `check_sums`. `check_sums` *runs*
+  `sums.py check` and raises its refusal again under the caller's id (`sums` in `publish.py`, `public-differs`
+  in `verify.py`); it does not import it, so `release_common.py` stays the only module the others import and
+  `sums.py` stays the one place that reads the list. `verify.py` takes `--base-url`, `--attempts` and `--pause`
+  (the workflow passes 6 and 10, so a release that is a moment late is not a failure). Both are in
+  [contracts/scripts.md](contracts/scripts.md).
+- **Two choices in `release.yml` worth reading.** `notes.py` does not create the folder of its `--out`, so the
+  step runs `mkdir -p release-notes` first. The address that `verify` installs is built from `$REPOSITORY`,
+  `$TAG` and the *file name of the wheel `verify.py` just downloaded* (`basename public/*.whl`), not from a
+  second copy of the naming rule: what is installed is the file that was checked.
+- **T046, lint.** `ruff --select F src tests ../scripts` clean. The workflows are not linted for hygiene by a
+  tool (plan point 1, default A, no answer from the maintainer); the rules are held by the tests of T041 and
+  T026.
+- **T047, mutation check.** 36 mutants, each restored: in `release.yml` (a `pip install` step in `publish`, a
+  `pull_request` trigger, `cancel-in-progress: true`, a token in `verify`, `contents: write` in `preflight`,
+  `publish` without its `if`, `publish` not waiting for `wheel`, a matrix in the `wheel` job, `publish`
+  running a file of `dist`, the tag written as an expression inside `run:`, `publish`'s checkout keeping its
+  credentials, `preflight` without the whole history, `verify` installing before it reads); in `publish.py`
+  (publish before the compare, `gh release delete` on a published release, a published release treated as a
+  draft, which is the "replace a published file" case, no `--clobber`, no `--verify-tag`, the sums check
+  dropped, the state after publishing not read, strays left, a `gh` failure ignored, the pre-release flag of
+  a published release not read, extra files allowed in the folder, the read-back going into the tested folder,
+  the sdist not compared, an extra asset allowed); in `verify.py` (an `Authorization` header, the list check
+  dropped, no second attempt, a non-http address accepted, zero attempts allowed, the sdist not downloaded, a
+  failed download not named); in `release_common.py` (a tag without `v` accepted, the refusal id of the list
+  not passed on). 35 were killed on the first run, each by the test that names the property. The 36th, "verify
+  installs before it reads", survived because the mutant I wrote only appended `&& true` and did not change
+  the order; I replaced it with a real swap of the two steps and it was killed by
+  `test_verify_reads_the_public_files_...`. One real gap found while designing the mutants: `0.1.0a1` without
+  the `v` is refused as `version-grammar` anyway (cutting the first character leaves `.1.0a1`), so that case
+  could not tell a missing `v` check from a present one. `x0.1.0a1` can; it is now a case in both
+  `test_release_publish.py` and `test_release_verify.py`.
+- **T048, a manual start, read from the YAML.** `workflow_dispatch` on a branch:
+  - `preflight` **runs**: `preflight.py --event workflow_dispatch` runs the `event`, version-grammar,
+    `changelog-section` and `license-copy` checks, and prints three lines `skipped [tag-matches-version]`,
+    `skipped [on-main]` and `skipped [no-published-release]: manual start`; so it makes no `gh` call. Then
+    `notes.py`, the notes in the run summary, and the upload of `release-notes`.
+  - `wheel` **runs** in full: the build, the three legs of `checks`, `inspect`.
+  - `publish` is **skipped** by `if: github.event_name == 'push'`: the job never starts, so the one token that
+    can write is never issued. `verify` is skipped by the same `if` (and by its `needs`).
+  - Nothing in a manual start can write: only `publish` holds `contents: write` (the tests count exactly one
+    use of the string in the file); only `publish.py` calls `gh release` for a write (`preflight.py` calls `gh
+    api` to read); the only token in `preflight` is the read-only one.
+  - What a manual start cannot show: the three tag-bound checks, `publish.py` and `verify.py` against real
+    GitHub (decision D11). Also: on today's `main` the version is `0.0.1`, a final number, so a manual start now
+    would be refused by `preflight.py` at the version grammar; it can pass only after the `0.1.0a1` commit of
+    phase 5 (T054).
+- **T049, verify.** 3136 passed, 0 skipped on 3.11 (122 s), 3.12 (113 s) and 3.13 (105 s), against the installed
+  0.0.1 wheel (3062 passed and 1 skipped before this phase: the skip now runs, plus 33 `publish`, 19 `verify`,
+  12 workflow tests of section 2 and the 9 per-file rules that now also read `release.yml`); the four
+  single-extra scripts ok on all three. A first attempt started two loops at once in the same folders; both
+  were stopped and discarded, and these numbers are from one clean run per version. Nothing has run on GitHub
+  yet: `release.yml` has not been pushed.

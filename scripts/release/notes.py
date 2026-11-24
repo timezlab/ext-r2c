@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from release_common import (
+    REPOSITORY_RE,
     REPOSITORY_ROOT,
     Refusal,
     address,
@@ -26,7 +27,6 @@ from release_common import (
     wheel_name,
 )
 
-REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 PLACEHOLDER_RE = re.compile(r"\{\{[^{}]*\}\}")
 
 

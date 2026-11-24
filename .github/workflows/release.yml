@@ -1,0 +1,130 @@
+name: release
+
+# A pre-release is published by pushing a tag `vX.YaN`. The checks are the ones CI runs: this file calls
+# wheel.yml, the one definition, and publishes the very files that definition built and tested.
+#
+# Only the `publish` job may write. It checks out the scripts, downloads two artifacts and runs one script; it
+# sets up nothing and runs nothing that came out of the build. A manual start runs everything up to the
+# publishing step and stops there: no tag, no release.
+#
+# Values reach a script through `env:`, never through an expression written inside `run:`.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: preflight
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository with its whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check that this run may release
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/preflight.py --event "$EVENT" --ref-type "$REF_TYPE" --tag "$TAG" --sha "$SHA" --repository "$REPOSITORY"
+      - name: Assemble the release notes
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p release-notes
+          python3 scripts/release/notes.py --repository "$REPOSITORY" --out release-notes/RELEASE_NOTES.md
+      - name: Show the release notes in the run summary
+        run: cat release-notes/RELEASE_NOTES.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the release notes
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: release-notes/RELEASE_NOTES.md
+          if-no-files-found: error
+          retention-days: 14
+
+  wheel:
+    name: wheel
+    needs: preflight
+    permissions:
+      contents: read
+    uses: ./.github/workflows/wheel.yml
+
+  publish:
+    name: publish
+    needs: [preflight, wheel]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download the tested files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - name: Download the release notes
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-notes
+          path: release-notes
+      - name: Publish the pre-release
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/publish.py --tag "$TAG" --repository "$REPOSITORY" --dir dist --notes release-notes/RELEASE_NOTES.md
+
+  verify:
+    name: verify
+    needs: publish
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      - name: Read the public files as an adopter does
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/release/verify.py --tag "$TAG" --repository "$REPOSITORY" --dir public --attempts 6 --pause 10
+      - name: Install the public address into a clean environment
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          ADDRESS="https://github.com/$REPOSITORY/releases/download/$TAG/$(basename public/*.whl)"
+          uv venv adopter-venv
+          uv pip install --python adopter-venv/bin/python "ext-r2c[a2a,mcp,langgraph] @ $ADDRESS"
+      - name: Check the installed version and the adapter
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          adopter-venv/bin/python -I -c 'import os, ext_r2c; from ext_r2c import Remote; assert ext_r2c.__version__ == os.environ["TAG"].removeprefix("v"), ext_r2c.__version__; print("installed", ext_r2c.__version__)'
